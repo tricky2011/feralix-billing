@@ -32,7 +32,10 @@ class ApiTokenAuthService
             )
             ->first();
 
-        if (! $user instanceof User || ! Hash::check((string) $payload['password'], (string) $user->password)) {
+        $passwordMatches = $user instanceof User
+            && Hash::check((string) $payload['password'], (string) $user->password);
+
+        if (! $user instanceof User || ! $passwordMatches) {
             throw ValidationException::withMessages([
                 'username' => ['The provided credentials are incorrect.'],
             ]);

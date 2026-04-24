@@ -12,6 +12,7 @@ use App\Models\Invoice;
 use App\Models\Service;
 use App\Models\Vid;
 use App\Models\WorkOrder;
+use App\Services\Access\RoleRouterScopeService;
 use App\Services\Billing\InvoiceService;
 use App\Services\FieldWork\WorkOrderService;
 use App\Services\MasterData\CustomerService;
@@ -29,6 +30,7 @@ class CustomerOnboardingService
         private readonly FtthServiceManager $ftthServiceManager,
         private readonly WorkOrderService $workOrderService,
         private readonly InvoiceService $invoiceService,
+        private readonly RoleRouterScopeService $roleRouterScopeService,
     ) {}
 
     public function onboard(array $payload): array
@@ -113,6 +115,8 @@ class CustomerOnboardingService
         $vid = Vid::query()
             ->with('routerScope:id,router_id,monitor_vid')
             ->findOrFail((int) $servicePayload['vid_id']);
+
+        $this->roleRouterScopeService->ensureModelAccessibleForInput($vid, 'service.vid_id');
 
         if (isset($servicePayload['router_id']) && $servicePayload['router_id'] !== null && (int) $servicePayload['router_id'] !== (int) $vid->router_id) {
             throw ValidationException::withMessages([

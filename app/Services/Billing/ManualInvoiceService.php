@@ -5,6 +5,7 @@ namespace App\Services\Billing;
 use App\Enums\InvoicePaymentStatus;
 use App\Models\Invoice;
 use App\Models\Service;
+use App\Services\Access\RoleRouterScopeService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -14,12 +15,14 @@ class ManualInvoiceService
     public function __construct(
         private readonly InvoicePaymentStatusService $invoicePaymentStatusService,
         private readonly ServiceBillingStatusService $serviceBillingStatusService,
+        private readonly RoleRouterScopeService $roleRouterScopeService,
     ) {}
 
     public function create(array $payload): Invoice
     {
         return DB::transaction(function () use ($payload): Invoice {
             $service = $this->resolveService((int) $payload['service_id']);
+            $this->roleRouterScopeService->ensureModelAccessibleForInput($service, 'service_id');
             $this->ensureServiceBelongsToCustomer($service, (int) $payload['customer_id']);
 
             $invoice = Invoice::query()->create(
@@ -48,6 +51,7 @@ class ManualInvoiceService
             $this->ensureMutable($lockedInvoice);
 
             $service = $this->resolveService((int) $payload['service_id']);
+            $this->roleRouterScopeService->ensureModelAccessibleForInput($service, 'service_id');
             $this->ensureServiceBelongsToCustomer($service, (int) $payload['customer_id']);
 
             $lockedInvoice->update(

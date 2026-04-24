@@ -2,19 +2,14 @@
 
 namespace App\Http\Requests\Invoice;
 
+use App\Http\Requests\AdminPanelRequest;
 use App\Models\Service;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
-class StoreInvoiceRequest extends FormRequest
+class StoreInvoiceRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $this->merge([

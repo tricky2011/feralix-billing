@@ -5,16 +5,11 @@ namespace App\Http\Requests\Service;
 use App\Enums\ServiceBillingStatus;
 use App\Enums\ServiceNetworkStatus;
 use App\Enums\ServiceOverallStatus;
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AdminPanelRequest;
 use Illuminate\Validation\Rule;
 
-class IndexServiceRequest extends FormRequest
+class IndexServiceRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $this->merge([

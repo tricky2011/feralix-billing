@@ -172,9 +172,13 @@ class ServiceIsolationTargetResolver
 
     private function resolveAddressListName(Service $service, array $overrides): ?string
     {
-        $addressListName = $this->normalizeNullableString($overrides['address_list_name'] ?? $service->address_list_name);
+        $addressListName = $this->normalizeNullableString(
+            $overrides['address_list_name']
+                ?? config('mikrotik.isolation.address_list_name')
+                ?? $service->address_list_name
+        );
 
-        return $addressListName ?? Str::limit('ISO-'.$service->service_code, 100, '');
+        return $addressListName ?? Str::limit('ISOLIR_CUSTOMER', 100, '');
     }
 
     private function normalizeNullableString(mixed $value): ?string

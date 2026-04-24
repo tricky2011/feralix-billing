@@ -37,6 +37,8 @@ class DashboardControllerTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected bool $skipApiAuthentication = true;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -103,10 +105,13 @@ class DashboardControllerTest extends TestCase
 
         $user = User::factory()->superadmin()->create();
 
-        $response = $this->actingAs($user)->getJson('/api/v1/admin/dashboard');
+        $this->authenticateApi($user);
+
+        $response = $this->getJson('/api/v1/admin/dashboard');
 
         $response
             ->assertOk()
+            ->assertJsonPath('success', true)
             ->assertJsonPath('data.dashboard_type', 'admin')
             ->assertJsonPath('data.scope.role', UserRole::Superadmin->value)
             ->assertJsonPath('data.scope.router_switcher.enabled', true)
@@ -125,12 +130,13 @@ class DashboardControllerTest extends TestCase
         $this->assertCount(12, $response->json('data.charts.monthly_revenue.points'));
         $this->assertCount(14, $response->json('data.charts.ppp_active_trend.points'));
 
-        $switchResponse = $this->actingAs($user)->patchJson('/api/v1/admin/dashboard/router-switch', [
+        $switchResponse = $this->patchJson('/api/v1/admin/dashboard/router-switch', [
             'router_id' => $routerA->id,
         ]);
 
         $switchResponse
             ->assertOk()
+            ->assertJsonPath('success', true)
             ->assertJsonPath('data.scope.router_switcher.active_router_id', $routerA->id)
             ->assertJsonPath('data.scope.router_switcher.is_all_routers', false)
             ->assertJsonPath('data.kpis.total_customers.value', 1)
@@ -175,10 +181,13 @@ class DashboardControllerTest extends TestCase
         $admin = User::factory()->admin()->create();
         $admin->accessibleRouters()->attach($routerA->id);
 
-        $response = $this->actingAs($admin)->getJson('/api/v1/admin/dashboard');
+        $this->authenticateApi($admin);
+
+        $response = $this->getJson('/api/v1/admin/dashboard');
 
         $response
             ->assertOk()
+            ->assertJsonPath('success', true)
             ->assertJsonPath('data.scope.role', UserRole::Admin->value)
             ->assertJsonPath('data.scope.router_switcher.enabled', false)
             ->assertJsonPath('data.scope.router_switcher.visible_router_ids.0', $routerA->id)
@@ -214,17 +223,21 @@ class DashboardControllerTest extends TestCase
 
         $user = User::factory()->technician($technician->id)->create();
 
-        $adminDashboardResponse = $this->actingAs($user)->getJson('/api/v1/admin/dashboard');
+        $this->authenticateApi($user);
+
+        $adminDashboardResponse = $this->getJson('/api/v1/admin/dashboard');
 
         $adminDashboardResponse
             ->assertStatus(409)
-            ->assertJsonPath('data.target_dashboard', 'technician')
-            ->assertJsonPath('data.redirect_to', '/api/v1/technician/dashboard');
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('meta.target_dashboard', 'technician')
+            ->assertJsonPath('meta.redirect_to', '/api/v1/technician/dashboard');
 
-        $technicianDashboardResponse = $this->actingAs($user)->getJson('/api/v1/technician/dashboard');
+        $technicianDashboardResponse = $this->getJson('/api/v1/technician/dashboard');
 
         $technicianDashboardResponse
             ->assertOk()
+            ->assertJsonPath('success', true)
             ->assertJsonPath('data.dashboard_type', 'technician')
             ->assertJsonPath('data.technician.id', $technician->id)
             ->assertJsonPath('data.kpis.open_tickets.value', 1)

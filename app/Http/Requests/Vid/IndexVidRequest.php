@@ -4,16 +4,11 @@ namespace App\Http\Requests\Vid;
 
 use App\Enums\VidStatus;
 use App\Enums\VidType;
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AdminPanelRequest;
 use Illuminate\Validation\Rule;
 
-class IndexVidRequest extends FormRequest
+class IndexVidRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $this->merge([

@@ -2,18 +2,13 @@
 
 namespace App\Http\Requests\Router;
 
+use App\Http\Requests\AdminPanelRequest;
 use App\Models\Router;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
-class UpdateRouterRequest extends FormRequest
+class UpdateRouterRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $isActive = $this->input('is_active');

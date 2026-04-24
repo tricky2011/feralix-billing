@@ -15,6 +15,10 @@ class HotspotVoucher extends Model
     /** @use HasFactory<Factory> */
     use HasFactory;
 
+    protected $hidden = [
+        'password',
+    ];
+
     protected $fillable = [
         'batch_id',
         'reseller_id',

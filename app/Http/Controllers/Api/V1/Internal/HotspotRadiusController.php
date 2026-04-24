@@ -19,11 +19,11 @@ class HotspotRadiusController extends Controller
         $provider = $this->providerResolver->resolve($request->validated('provider'));
         $result = $provider->authorize(HotspotRadiusAuthorizeRequest::fromArray($request->validated()));
 
-        return response()->json([
-            'message' => 'Hotspot RADIUS authorization simulated successfully.',
-            'provider' => $provider->name(),
-            'data' => $result->toArray(),
-        ]);
+        return $this->successResponse(
+            'Hotspot RADIUS authorization simulated successfully.',
+            $result->toArray(),
+            ['provider' => $provider->name()],
+        );
     }
 
     public function account(AccountHotspotRadiusRequest $request): JsonResponse
@@ -31,10 +31,10 @@ class HotspotRadiusController extends Controller
         $provider = $this->providerResolver->resolve($request->validated('provider'));
         $result = $provider->account(HotspotRadiusAccountingRequest::fromArray($request->validated()));
 
-        return response()->json([
-            'message' => 'Hotspot RADIUS accounting simulated successfully.',
-            'provider' => $provider->name(),
-            'data' => $result->toArray(),
-        ]);
+        return $this->successResponse(
+            'Hotspot RADIUS accounting simulated successfully.',
+            $result->toArray(),
+            ['provider' => $provider->name()],
+        );
     }
 }

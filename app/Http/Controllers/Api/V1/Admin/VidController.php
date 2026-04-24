@@ -19,50 +19,41 @@ class VidController extends Controller
     {
         $vids = $this->vidService->paginate($request->validated());
 
-        return VidResource::collection($vids)->additional([
-            'message' => 'VIDs retrieved successfully.',
-            'filters' => $request->validated(),
-        ]);
+        return $this->paginatedResponse(
+            $vids,
+            VidResource::class,
+            'VIDs retrieved successfully.',
+            ['filters' => $request->validated()],
+        );
     }
 
     public function store(StoreVidRequest $request): JsonResponse
     {
         $vid = $this->vidService->create($request->validated());
 
-        return response()->json([
-            'message' => 'VID created successfully.',
-            'data' => new VidResource($vid),
-        ], 201);
+        return $this->createdResponse('VID created successfully.', new VidResource($vid));
     }
 
     public function show(Vid $vid): JsonResponse
     {
-        return response()->json([
-            'message' => 'VID retrieved successfully.',
-            'data' => new VidResource($vid->load([
-                'router:id,router_code,router_name',
-                'routerScope:id,router_id,scope_name',
-                'customer:id,customer_code,full_name',
-            ])),
-        ]);
+        return $this->successResponse('VID retrieved successfully.', new VidResource($vid->load([
+            'router:id,router_code,router_name',
+            'routerScope:id,router_id,scope_name',
+            'customer:id,customer_code,full_name',
+        ])));
     }
 
     public function update(UpdateVidRequest $request, Vid $vid): JsonResponse
     {
         $vid = $this->vidService->update($vid, $request->validated());
 
-        return response()->json([
-            'message' => 'VID updated successfully.',
-            'data' => new VidResource($vid),
-        ]);
+        return $this->successResponse('VID updated successfully.', new VidResource($vid));
     }
 
     public function destroy(Vid $vid): JsonResponse
     {
         $this->vidService->delete($vid);
 
-        return response()->json([
-            'message' => 'VID deleted successfully.',
-        ]);
+        return $this->successResponse('VID deleted successfully.');
     }
 }

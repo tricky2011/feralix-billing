@@ -2,16 +2,11 @@
 
 namespace App\Http\Requests\Router;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AdminPanelRequest;
 use Illuminate\Support\Str;
 
-class StoreRouterRequest extends FormRequest
+class StoreRouterRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $isActive = $this->input('is_active');

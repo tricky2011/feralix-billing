@@ -2,17 +2,12 @@
 
 namespace App\Http\Requests\Payment;
 
+use App\Http\Requests\AdminPanelRequest;
 use App\Models\Invoice;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
-class StorePaymentRequest extends FormRequest
+class StorePaymentRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $this->merge([

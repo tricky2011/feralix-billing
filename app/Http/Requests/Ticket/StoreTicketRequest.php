@@ -3,19 +3,14 @@
 namespace App\Http\Requests\Ticket;
 
 use App\Enums\TicketPriority;
+use App\Http\Requests\AdminPanelRequest;
 use App\Models\Service;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
-class StoreTicketRequest extends FormRequest
+class StoreTicketRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $this->merge([

@@ -15,6 +15,7 @@ class Router extends Model
     use HasFactory;
 
     protected $hidden = [
+        'api_username',
         'api_password',
     ];
 

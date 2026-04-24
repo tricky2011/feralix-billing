@@ -24,6 +24,11 @@ class Service extends Model
 
     use SoftDeletes;
 
+    protected $hidden = [
+        'monitor_pppoe_password',
+        'pppoe_password',
+    ];
+
     protected $fillable = [
         'customer_id',
         'package_id',

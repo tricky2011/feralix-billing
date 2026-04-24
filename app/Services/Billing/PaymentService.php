@@ -2,8 +2,10 @@
 
 namespace App\Services\Billing;
 
+use App\Enums\InvoicePaymentStatus;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Services\Access\RoleRouterScopeService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -22,13 +24,18 @@ class PaymentService
     public function __construct(
         private readonly InvoicePaymentStatusService $invoicePaymentStatusService,
         private readonly CashflowIncomeService $cashflowIncomeService,
+        private readonly RoleRouterScopeService $roleRouterScopeService,
     ) {}
 
     public function paginate(array $filters): LengthAwarePaginator
     {
         $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 100));
 
-        return Payment::query()
+        if (($filters['router_id'] ?? null) !== null) {
+            $this->roleRouterScopeService->ensureRouterAccessible((int) $filters['router_id']);
+        }
+
+        $query = Payment::query()
             ->with($this->paymentRelations())
             ->search($filters['search'] ?? null)
             ->when(
@@ -58,7 +65,11 @@ class PaymentService
             ->when(
                 $filters['paid_to'] ?? null,
                 fn (Builder $builder, $paidTo) => $builder->whereDate('paid_at', '<=', $paidTo)
-            )
+            );
+
+        $this->roleRouterScopeService->applyServiceRouterScope($query, 'service', 'router_id');
+
+        return $query
             ->orderByDesc('paid_at')
             ->orderByDesc('id')
             ->paginate($perPage)
@@ -72,6 +83,14 @@ class PaymentService
                 ->with(['service:id,router_id,service_code,billing_status,overall_status'])
                 ->lockForUpdate()
                 ->findOrFail((int) $payload['invoice_id']);
+
+            $this->roleRouterScopeService->ensureModelAccessibleForInput($invoice, 'invoice_id');
+
+            if ($invoice->payment_status === InvoicePaymentStatus::Canceled) {
+                throw ValidationException::withMessages([
+                    'invoice_id' => 'Canceled invoices cannot receive payments.',
+                ]);
+            }
 
             $amountAlreadyPaid = (float) Payment::query()
                 ->where('invoice_id', $invoice->id)
@@ -135,6 +154,14 @@ class PaymentService
                 'invoice' => 'The selected invoice is already fully paid.',
             ]);
         }
+
+        if ($invoice->payment_status === InvoicePaymentStatus::Canceled) {
+            throw ValidationException::withMessages([
+                'invoice' => 'Canceled invoices cannot be settled.',
+            ]);
+        }
+
+        $this->roleRouterScopeService->ensureModelAccessibleForInput($invoice, 'invoice');
 
         return $this->create([
             'invoice_id' => $invoice->id,

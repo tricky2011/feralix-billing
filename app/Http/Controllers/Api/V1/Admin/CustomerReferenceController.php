@@ -13,9 +13,9 @@ class CustomerReferenceController extends Controller
 
     public function index(IndexCustomerReferenceRequest $request): JsonResponse
     {
-        return response()->json([
-            'message' => 'Customer references retrieved successfully.',
-            'data' => $this->customerReferenceService->get($request->validated()),
-        ]);
+        return $this->successResponse(
+            'Customer references retrieved successfully.',
+            $this->customerReferenceService->get($request->validated()),
+        );
     }
 }

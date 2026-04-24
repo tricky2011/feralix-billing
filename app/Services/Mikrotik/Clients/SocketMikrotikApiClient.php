@@ -27,13 +27,21 @@ class SocketMikrotikApiClient implements MikrotikApiClient
         $this->disconnect();
     }
 
-    public function print(string $menuPath, array $properties = []): array
+    public function print(string $menuPath, array $properties = [], array $where = []): array
     {
         $normalizedPath = '/'.trim($menuPath, '/');
         $words = [rtrim($normalizedPath, '/').'/print'];
 
         if ($properties !== []) {
             $words[] = '=.proplist='.implode(',', $properties);
+        }
+
+        foreach ($where as $property => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            $words[] = sprintf('?%s=%s', $property, (string) $value);
         }
 
         $replies = $this->talk($words);
@@ -49,6 +57,32 @@ class SocketMikrotikApiClient implements MikrotikApiClient
         }
 
         return $records;
+    }
+
+    public function add(string $menuPath, array $attributes = []): void
+    {
+        $normalizedPath = '/'.trim($menuPath, '/');
+        $words = [rtrim($normalizedPath, '/').'/add'];
+
+        foreach ($attributes as $key => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            $words[] = sprintf('=%s=%s', $key, (string) $value);
+        }
+
+        $this->talk($words);
+    }
+
+    public function remove(string $menuPath, string $id): void
+    {
+        $normalizedPath = '/'.trim($menuPath, '/');
+
+        $this->talk([
+            rtrim($normalizedPath, '/').'/remove',
+            '=.id='.$id,
+        ]);
     }
 
     public function disconnect(): void

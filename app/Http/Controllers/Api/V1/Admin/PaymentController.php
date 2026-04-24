@@ -18,27 +18,26 @@ class PaymentController extends Controller
     {
         $payments = $this->paymentService->paginate($request->validated());
 
-        return PaymentResource::collection($payments)->additional([
-            'message' => 'Payments retrieved successfully.',
-            'filters' => $request->validated(),
-        ]);
+        return $this->paginatedResponse(
+            $payments,
+            PaymentResource::class,
+            'Payments retrieved successfully.',
+            ['filters' => $request->validated()],
+        );
     }
 
     public function store(StorePaymentRequest $request): JsonResponse
     {
         $payment = $this->paymentService->create($request->validated());
 
-        return response()->json([
-            'message' => 'Payment recorded successfully.',
-            'data' => new PaymentResource($payment),
-        ], 201);
+        return $this->createdResponse('Payment recorded successfully.', new PaymentResource($payment));
     }
 
     public function show(Payment $payment): JsonResponse
     {
-        return response()->json([
-            'message' => 'Payment retrieved successfully.',
-            'data' => new PaymentResource($this->paymentService->find($payment)),
-        ]);
+        return $this->successResponse(
+            'Payment retrieved successfully.',
+            new PaymentResource($this->paymentService->find($payment)),
+        );
     }
 }

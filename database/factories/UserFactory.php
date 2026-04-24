@@ -27,10 +27,12 @@ class UserFactory extends Factory
     {
         return [
             'name' => fake()->name(),
+            'username' => fake()->unique()->userName(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'role' => UserRole::Superadmin->value,
+            'is_active' => true,
             'technician_id' => null,
             'dashboard_active_router_id' => null,
             'remember_token' => Str::random(10),

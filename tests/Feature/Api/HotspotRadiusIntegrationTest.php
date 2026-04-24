@@ -51,7 +51,8 @@ class HotspotRadiusIntegrationTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertJsonPath('provider', 'stub')
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('meta.provider', 'stub')
             ->assertJsonPath('data.accepted', true)
             ->assertJsonPath('data.reason', null)
             ->assertJsonPath('data.locked_mac', 'AA:BB:CC:DD:EE:FF')

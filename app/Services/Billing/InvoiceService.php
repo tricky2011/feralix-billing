@@ -3,6 +3,7 @@
 namespace App\Services\Billing;
 
 use App\Models\Invoice;
+use App\Services\Access\RoleRouterScopeService;
 use App\Services\Billing\Queries\InvoiceDetailQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,13 +24,18 @@ class InvoiceService
         private readonly ManualInvoiceService $manualInvoiceService,
         private readonly MonthlyInvoiceGenerationService $monthlyInvoiceGenerationService,
         private readonly ServiceBillingStatusService $serviceBillingStatusService,
+        private readonly RoleRouterScopeService $roleRouterScopeService,
     ) {}
 
     public function paginate(array $filters): LengthAwarePaginator
     {
         $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 100));
 
-        return Invoice::query()
+        if (($filters['router_id'] ?? null) !== null) {
+            $this->roleRouterScopeService->ensureRouterAccessible((int) $filters['router_id']);
+        }
+
+        $query = Invoice::query()
             ->with(self::RELATIONS)
             ->withSum('payments', 'amount_paid')
             ->search($filters['search'] ?? null)
@@ -57,7 +63,11 @@ class InvoiceService
             ->when(
                 ($filters['is_overdue'] ?? false) === true,
                 fn (Builder $builder) => $builder->overdue()
-            )
+            );
+
+        $this->roleRouterScopeService->applyServiceRouterScope($query, 'service', 'router_id');
+
+        return $query
             ->orderByDesc('invoice_date')
             ->orderByDesc('id')
             ->paginate($perPage)

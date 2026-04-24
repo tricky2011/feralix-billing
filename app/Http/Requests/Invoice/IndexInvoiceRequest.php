@@ -3,16 +3,11 @@
 namespace App\Http\Requests\Invoice;
 
 use App\Enums\InvoicePaymentStatus;
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AdminPanelRequest;
 use Illuminate\Validation\Rule;
 
-class IndexInvoiceRequest extends FormRequest
+class IndexInvoiceRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $paymentStatuses = $this->input('payment_statuses');

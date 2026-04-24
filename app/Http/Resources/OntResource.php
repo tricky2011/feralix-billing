@@ -17,7 +17,7 @@ class OntResource extends JsonResource
             'pon_port' => $this->pon_port,
             'onu_id' => $this->onu_id,
             'ssid_name' => $this->ssid_name,
-            'wifi_password' => $this->wifi_password,
+            'has_wifi_password' => $this->wifi_password !== null,
             'optical_status' => $this->optical_status,
             'optical_info' => $this->optical_info,
             'rx_power' => $this->rx_power !== null ? (float) $this->rx_power : null,

@@ -2,17 +2,12 @@
 
 namespace App\Http\Requests\Invoice;
 
+use App\Http\Requests\AdminPanelRequest;
 use App\Models\Service;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
-class GenerateMonthlyInvoiceRequest extends FormRequest
+class GenerateMonthlyInvoiceRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $this->merge([

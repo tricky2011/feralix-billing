@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Contracts\Billing\InvoiceWhatsAppGateway;
+use App\Models\Invoice;
+use App\Observers\InvoiceObserver;
 use App\Services\Billing\Gateways\StubInvoiceWhatsAppGateway;
 use Illuminate\Support\ServiceProvider;
 
@@ -15,6 +17,6 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        //
+        Invoice::observe(InvoiceObserver::class);
     }
 }

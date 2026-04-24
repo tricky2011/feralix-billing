@@ -9,6 +9,7 @@ enum InvoicePaymentStatus: string
     case Overdue = 'overdue';
     case Paid = 'paid';
     case PartiallyPaid = 'partially_paid';
+    case Canceled = 'canceled';
 
     public static function values(): array
     {
@@ -32,11 +33,15 @@ enum InvoicePaymentStatus: string
             self::Overdue->value,
             self::PartiallyPaid->value,
             self::Paid->value,
+            self::Canceled->value,
         ];
     }
 
     public function isSettled(): bool
     {
-        return $this === self::Paid;
+        return in_array($this, [
+            self::Paid,
+            self::Canceled,
+        ], true);
     }
 }

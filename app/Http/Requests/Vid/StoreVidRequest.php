@@ -4,18 +4,13 @@ namespace App\Http\Requests\Vid;
 
 use App\Enums\VidStatus;
 use App\Enums\VidType;
+use App\Http\Requests\AdminPanelRequest;
 use App\Models\RouterScope;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
-class StoreVidRequest extends FormRequest
+class StoreVidRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $this->merge([

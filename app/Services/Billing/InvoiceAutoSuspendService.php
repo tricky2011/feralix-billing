@@ -5,6 +5,7 @@ namespace App\Services\Billing;
 use App\Enums\ServiceIsolationType;
 use App\Models\Invoice;
 use App\Models\ServiceIsolation;
+use App\Services\Access\RoleRouterScopeService;
 use App\Services\Provisioning\ServiceIsolationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -13,7 +14,10 @@ use Throwable;
 
 class InvoiceAutoSuspendService
 {
-    public function __construct(private readonly ServiceIsolationService $serviceIsolationService) {}
+    public function __construct(
+        private readonly ServiceIsolationService $serviceIsolationService,
+        private readonly RoleRouterScopeService $roleRouterScopeService,
+    ) {}
 
     /**
      * @return array{
@@ -40,7 +44,11 @@ class InvoiceAutoSuspendService
             'failed' => 0,
         ];
 
-        Invoice::query()
+        if (($filters['router_id'] ?? null) !== null) {
+            $this->roleRouterScopeService->ensureRouterAccessible((int) $filters['router_id']);
+        }
+
+        $query = Invoice::query()
             ->overdue($referenceDate)
             ->when(
                 $filters['customer_id'] ?? null,
@@ -52,7 +60,11 @@ class InvoiceAutoSuspendService
             )
             ->router(isset($filters['router_id']) ? (int) $filters['router_id'] : null)
             ->select('id')
-            ->orderBy('id')
+            ->orderBy('id');
+
+        $this->roleRouterScopeService->applyServiceRouterScope($query, 'service', 'router_id');
+
+        $query
             ->chunkById($chunkSize, function ($invoiceReferences) use (&$summary, $notes): void {
                 foreach ($invoiceReferences as $invoiceReference) {
                     $summary['checked_invoices']++;

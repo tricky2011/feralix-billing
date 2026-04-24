@@ -14,6 +14,7 @@ use App\Models\MikrotikSyncVidLog;
 use App\Models\Router;
 use App\Models\Service;
 use App\Models\Vid;
+use App\Services\Inventory\VidAssignmentService;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +25,7 @@ class MikrotikVidSyncService
     public function __construct(
         private readonly MikrotikVidInventoryProviderResolver $providerResolver,
         private readonly DetectMikrotikVidConflictAction $detectConflict,
+        private readonly VidAssignmentService $vidAssignmentService,
     ) {}
 
     public function sync(Router $router, ?string $providerName = null): MikrotikSyncJob
@@ -231,6 +233,24 @@ class MikrotikVidSyncService
         ?Vid $existingVid,
         ?Service $activeService,
     ): array {
+        if ($existingVid !== null && $activeService !== null) {
+            return [
+                'router_id' => $existingVid->router_id,
+                'scope_id' => $this->resolveScopeId($scopes, $record->vid),
+                'vid' => $existingVid->vid,
+                'vid_type' => $existingVid->vid_type?->value ?? VidType::CustomerInternet->value,
+                'subnet_cidr' => $existingVid->subnet_cidr,
+                'gateway_ip' => $existingVid->gateway_ip,
+                'pool_start_ip' => $existingVid->pool_start_ip,
+                'pool_end_ip' => $existingVid->pool_end_ip,
+                'pool_ip_count' => $existingVid->pool_ip_count,
+                'rate_limit_mbps' => $existingVid->rate_limit_mbps,
+                'status' => VidStatus::Assigned->value,
+                'customer_id' => $activeService->customer_id,
+                'service_id' => $activeService->id,
+            ];
+        }
+
         $status = $activeService !== null
             ? VidStatus::Assigned
             : $record->inferredStatus();
@@ -283,30 +303,7 @@ class MikrotikVidSyncService
 
     private function resolveActiveService(Vid $vid): ?Service
     {
-        if ($vid->service_id !== null) {
-            $service = Service::query()
-                ->select(['id', 'customer_id', 'service_code', 'router_id', 'vid_id', 'internet_vid', 'overall_status'])
-                ->active()
-                ->find($vid->service_id);
-
-            if ($service !== null) {
-                return $service;
-            }
-        }
-
-        return Service::query()
-            ->select(['id', 'customer_id', 'service_code', 'router_id', 'vid_id', 'internet_vid', 'overall_status'])
-            ->active()
-            ->where(function ($builder) use ($vid): void {
-                $builder
-                    ->where('vid_id', $vid->id)
-                    ->orWhere(function ($nested) use ($vid): void {
-                        $nested
-                            ->where('router_id', $vid->router_id)
-                            ->where('internet_vid', $vid->vid);
-                    });
-            })
-            ->first();
+        return $this->vidAssignmentService->activeServiceUsingVid($vid);
     }
 
     private function extractChangedAttributes(Vid $existingVid, array $payload): array

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\Security\SensitiveValueMasker;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -15,7 +16,8 @@ class HotspotVoucherResource extends JsonResource
             'reseller_id' => $this->reseller_id,
             'hotspot_profile_id' => $this->hotspot_profile_id,
             'username' => $this->username,
-            'password' => $this->password,
+            'has_password' => $this->password !== null,
+            'password_masked' => SensitiveValueMasker::secret($this->password),
             'voucher_code' => $this->voucher_code,
             'locked_mac' => $this->locked_mac,
             'first_login_at' => $this->first_login_at?->toISOString(),

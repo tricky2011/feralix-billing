@@ -5,16 +5,11 @@ namespace App\Http\Requests\Ticket;
 use App\Enums\TicketAssignmentMode;
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AdminPanelRequest;
 use Illuminate\Validation\Rule;
 
-class IndexTicketRequest extends FormRequest
+class IndexTicketRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $this->merge([

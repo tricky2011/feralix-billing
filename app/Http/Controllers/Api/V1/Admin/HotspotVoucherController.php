@@ -18,18 +18,20 @@ class HotspotVoucherController extends Controller
     {
         $hotspotVouchers = $this->hotspotVoucherService->paginate($request->validated());
 
-        return HotspotVoucherResource::collection($hotspotVouchers)->additional([
-            'message' => 'Hotspot vouchers retrieved successfully.',
-            'filters' => $request->validated(),
-        ]);
+        return $this->paginatedResponse(
+            $hotspotVouchers,
+            HotspotVoucherResource::class,
+            'Hotspot vouchers retrieved successfully.',
+            ['filters' => $request->validated()],
+        );
     }
 
     public function show(HotspotVoucher $hotspotVoucher): JsonResponse
     {
-        return response()->json([
-            'message' => 'Hotspot voucher retrieved successfully.',
-            'data' => new HotspotVoucherResource($this->hotspotVoucherService->find($hotspotVoucher)),
-        ]);
+        return $this->successResponse(
+            'Hotspot voucher retrieved successfully.',
+            new HotspotVoucherResource($this->hotspotVoucherService->find($hotspotVoucher)),
+        );
     }
 
     public function activate(
@@ -38,9 +40,9 @@ class HotspotVoucherController extends Controller
     ): JsonResponse {
         $hotspotVoucher = $this->hotspotVoucherService->activate($hotspotVoucher, $request->validated());
 
-        return response()->json([
-            'message' => 'Hotspot voucher activated successfully.',
-            'data' => new HotspotVoucherResource($hotspotVoucher),
-        ]);
+        return $this->successResponse(
+            'Hotspot voucher activated successfully.',
+            new HotspotVoucherResource($hotspotVoucher),
+        );
     }
 }

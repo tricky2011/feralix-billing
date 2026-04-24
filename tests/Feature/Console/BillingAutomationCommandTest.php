@@ -13,6 +13,7 @@ use App\Enums\ServiceNetworkStatus;
 use App\Enums\ServiceOverallStatus;
 use App\Jobs\CheckOverdueInvoicesJob;
 use App\Jobs\CreateOverdueServiceIsolationJob;
+use App\Jobs\ProcessServiceRouterOperationJob;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Package;
@@ -43,6 +44,8 @@ class BillingAutomationCommandTest extends TestCase
 
     public function test_it_checks_overdue_invoices_and_creates_isolation_records(): void
     {
+        Queue::fake();
+
         $overdueService = $this->createService('SVC-OD-001', 120000);
         $pendingService = $this->createService('SVC-PN-001', 130000);
         $paidService = $this->createService('SVC-PD-001', 140000);
@@ -76,8 +79,7 @@ class BillingAutomationCommandTest extends TestCase
         ]);
 
         $this->artisan('billing:create-overdue-isolations')
-            ->assertSuccessful()
-            ->expectsOutputToContain('created 1 isolation(s)');
+            ->assertSuccessful();
 
         $this->assertDatabaseHas('service_isolations', [
             'service_id' => $overdueService->id,
@@ -90,6 +92,7 @@ class BillingAutomationCommandTest extends TestCase
             ->assertSuccessful();
 
         $this->assertDatabaseCount('service_isolations', 1);
+        Queue::assertPushed(ProcessServiceRouterOperationJob::class, 1);
     }
 
     public function test_it_queues_overdue_automation_commands_when_requested(): void

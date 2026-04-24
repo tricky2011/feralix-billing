@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\Security\SensitiveValueMasker;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -16,7 +17,8 @@ class RouterResource extends JsonResource
             'router_role' => $this->router_role,
             'mgmt_ip' => $this->mgmt_ip,
             'api_port' => $this->api_port,
-            'api_username' => $this->api_username,
+            'has_api_username' => $this->api_username !== null,
+            'api_username_masked' => SensitiveValueMasker::identifier($this->api_username, 2, 0),
             'has_api_password' => $this->api_password !== null,
             'location_name' => $this->location_name,
             'is_active' => $this->is_active,

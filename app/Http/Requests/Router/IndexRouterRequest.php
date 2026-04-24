@@ -2,15 +2,10 @@
 
 namespace App\Http\Requests\Router;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AdminPanelRequest;
 
-class IndexRouterRequest extends FormRequest
+class IndexRouterRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $isActive = $this->input('is_active');

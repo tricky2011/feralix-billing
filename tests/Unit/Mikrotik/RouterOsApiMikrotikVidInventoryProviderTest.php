@@ -107,12 +107,22 @@ class FakeMikrotikApiClient implements MikrotikApiClient
      */
     public function __construct(private readonly array $responses) {}
 
-    public function print(string $menuPath, array $properties = []): array
+    public function print(string $menuPath, array $properties = [], array $where = []): array
     {
         $normalizedPath = '/'.trim($menuPath, '/');
         $this->requestedPaths[] = $normalizedPath;
 
         return $this->responses[$normalizedPath] ?? [];
+    }
+
+    public function add(string $menuPath, array $attributes = []): void
+    {
+        // Not needed for this test.
+    }
+
+    public function remove(string $menuPath, string $id): void
+    {
+        // Not needed for this test.
     }
 
     public function disconnect(): void

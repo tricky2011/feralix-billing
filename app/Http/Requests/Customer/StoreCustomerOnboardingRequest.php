@@ -8,20 +8,15 @@ use App\Enums\ServiceBillingStatus;
 use App\Enums\ServiceIsolationMethod;
 use App\Enums\ServiceNetworkStatus;
 use App\Enums\ServiceOverallStatus;
+use App\Http\Requests\AdminPanelRequest;
 use App\Models\Olt;
 use App\Models\Ont;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
-class StoreCustomerOnboardingRequest extends FormRequest
+class StoreCustomerOnboardingRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $createInitialInvoice = $this->input('create_initial_invoice');

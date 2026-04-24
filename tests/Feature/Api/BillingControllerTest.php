@@ -9,6 +9,7 @@ use App\Enums\ServiceBillingStatus;
 use App\Enums\ServiceIsolationMethod;
 use App\Enums\ServiceNetworkStatus;
 use App\Enums\ServiceOverallStatus;
+use App\Jobs\ProcessServiceRouterOperationJob;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Package;
@@ -17,6 +18,7 @@ use App\Models\Router;
 use App\Models\Service;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class BillingControllerTest extends TestCase
@@ -369,6 +371,8 @@ class BillingControllerTest extends TestCase
 
     public function test_it_marks_overdue_sends_whatsapp_and_triggers_auto_suspend(): void
     {
+        Queue::fake();
+
         $service = $this->createService(
             serviceCode: 'SVC-AUTO-001',
             monthlyPrice: 120000,
@@ -400,6 +404,8 @@ class BillingControllerTest extends TestCase
             'service_id' => $service->id,
             'invoice_id' => $invoice->id,
         ]);
+
+        Queue::assertPushed(ProcessServiceRouterOperationJob::class, 1);
     }
 
     private function createService(

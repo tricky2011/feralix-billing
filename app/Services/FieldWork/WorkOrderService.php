@@ -4,6 +4,7 @@ namespace App\Services\FieldWork;
 
 use App\Enums\WorkOrderStatus;
 use App\Models\WorkOrder;
+use App\Services\Access\RoleRouterScopeService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -20,11 +21,17 @@ class WorkOrderService
         'assignedTechnician:id,technician_code,full_name,is_active',
     ];
 
+    public function __construct(private readonly RoleRouterScopeService $roleRouterScopeService) {}
+
     public function paginate(array $filters): LengthAwarePaginator
     {
         $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 100));
 
-        return WorkOrder::query()
+        if (($filters['router_id'] ?? null) !== null) {
+            $this->roleRouterScopeService->ensureRouterAccessible((int) $filters['router_id']);
+        }
+
+        $query = WorkOrder::query()
             ->with(self::INDEX_RELATIONS)
             ->search($filters['search'] ?? null)
             ->when(
@@ -50,7 +57,11 @@ class WorkOrderService
             ->when(
                 $filters['status'] ?? null,
                 fn (Builder $builder, $status) => $builder->where('status', $status)
-            )
+            );
+
+        $this->roleRouterScopeService->applyRouterScope($query, 'router_id');
+
+        return $query
             ->orderByDesc('id')
             ->paginate($perPage)
             ->withQueryString();
@@ -58,6 +69,12 @@ class WorkOrderService
 
     public function create(array $payload): WorkOrder
     {
+        $this->roleRouterScopeService->ensureRouterAccessible((int) $payload['router_id']);
+
+        if (($payload['service_id'] ?? null) !== null) {
+            $this->roleRouterScopeService->findAccessibleService((int) $payload['service_id']);
+        }
+
         return DB::transaction(function () use ($payload): WorkOrder {
             $workOrder = WorkOrder::query()->create(
                 $this->preparePayload($payload)
@@ -74,6 +91,12 @@ class WorkOrderService
 
     public function update(WorkOrder $workOrder, array $payload): WorkOrder
     {
+        $this->roleRouterScopeService->ensureRouterAccessible((int) $payload['router_id']);
+
+        if (($payload['service_id'] ?? null) !== null) {
+            $this->roleRouterScopeService->findAccessibleService((int) $payload['service_id']);
+        }
+
         return DB::transaction(function () use ($workOrder, $payload): WorkOrder {
             $workOrder->update(
                 $this->preparePayload($payload, $workOrder)

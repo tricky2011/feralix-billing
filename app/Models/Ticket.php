@@ -61,6 +61,11 @@ class Ticket extends Model
         return $this->hasMany(TelegramLog::class);
     }
 
+    public function replies(): HasMany
+    {
+        return $this->hasMany(TicketReply::class);
+    }
+
     public function scopeSearch(Builder $query, ?string $search): Builder
     {
         if ($search === null || $search === '') {

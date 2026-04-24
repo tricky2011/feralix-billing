@@ -19,46 +19,37 @@ class PackageController extends Controller
     {
         $packages = $this->packageService->paginate($request->validated());
 
-        return PackageResource::collection($packages)->additional([
-            'message' => 'Packages retrieved successfully.',
-            'filters' => $request->validated(),
-        ]);
+        return $this->paginatedResponse(
+            $packages,
+            PackageResource::class,
+            'Packages retrieved successfully.',
+            ['filters' => $request->validated()],
+        );
     }
 
     public function store(StorePackageRequest $request): JsonResponse
     {
         $package = $this->packageService->create($request->validated());
 
-        return response()->json([
-            'message' => 'Package created successfully.',
-            'data' => new PackageResource($package),
-        ], 201);
+        return $this->createdResponse('Package created successfully.', new PackageResource($package));
     }
 
     public function show(Package $package): JsonResponse
     {
-        return response()->json([
-            'message' => 'Package retrieved successfully.',
-            'data' => new PackageResource($package),
-        ]);
+        return $this->successResponse('Package retrieved successfully.', new PackageResource($package));
     }
 
     public function update(UpdatePackageRequest $request, Package $package): JsonResponse
     {
         $package = $this->packageService->update($package, $request->validated());
 
-        return response()->json([
-            'message' => 'Package updated successfully.',
-            'data' => new PackageResource($package),
-        ]);
+        return $this->successResponse('Package updated successfully.', new PackageResource($package));
     }
 
     public function destroy(Package $package): JsonResponse
     {
         $this->packageService->delete($package);
 
-        return response()->json([
-            'message' => 'Package deleted successfully.',
-        ]);
+        return $this->successResponse('Package deleted successfully.');
     }
 }

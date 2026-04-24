@@ -4,19 +4,14 @@ namespace App\Http\Requests\Vid;
 
 use App\Enums\VidStatus;
 use App\Enums\VidType;
+use App\Http\Requests\AdminPanelRequest;
 use App\Models\RouterScope;
 use App\Models\Vid;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
-class UpdateVidRequest extends FormRequest
+class UpdateVidRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $this->merge([

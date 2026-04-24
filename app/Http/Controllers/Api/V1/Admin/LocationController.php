@@ -19,46 +19,40 @@ class LocationController extends Controller
     {
         $locations = $this->locationService->paginate($request->validated());
 
-        return LocationResource::collection($locations)->additional([
-            'message' => 'Locations retrieved successfully.',
-            'filters' => $request->validated(),
-        ]);
+        return $this->paginatedResponse(
+            $locations,
+            LocationResource::class,
+            'Locations retrieved successfully.',
+            ['filters' => $request->validated()],
+        );
     }
 
     public function store(StoreLocationRequest $request): JsonResponse
     {
         $location = $this->locationService->create($request->validated());
 
-        return response()->json([
-            'message' => 'Location created successfully.',
-            'data' => new LocationResource($location),
-        ], 201);
+        return $this->createdResponse('Location created successfully.', new LocationResource($location));
     }
 
     public function show(Location $location): JsonResponse
     {
-        return response()->json([
-            'message' => 'Location retrieved successfully.',
-            'data' => new LocationResource($location->loadCount(['customers', 'olts'])),
-        ]);
+        return $this->successResponse(
+            'Location retrieved successfully.',
+            new LocationResource($location->loadCount(['customers', 'olts'])),
+        );
     }
 
     public function update(UpdateLocationRequest $request, Location $location): JsonResponse
     {
         $location = $this->locationService->update($location, $request->validated());
 
-        return response()->json([
-            'message' => 'Location updated successfully.',
-            'data' => new LocationResource($location),
-        ]);
+        return $this->successResponse('Location updated successfully.', new LocationResource($location));
     }
 
     public function destroy(Location $location): JsonResponse
     {
         $this->locationService->delete($location);
 
-        return response()->json([
-            'message' => 'Location deleted successfully.',
-        ]);
+        return $this->successResponse('Location deleted successfully.');
     }
 }

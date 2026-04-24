@@ -21,9 +21,9 @@ class DashboardController extends Controller
             throw new AuthenticationException();
         }
 
-        return response()->json([
-            'message' => 'Technician dashboard retrieved successfully.',
-            'data' => $this->dashboardAnalyticsService->technicianDashboard($user),
-        ]);
+        return $this->successResponse(
+            'Technician dashboard retrieved successfully.',
+            $this->dashboardAnalyticsService->technicianDashboard($user),
+        );
     }
 }

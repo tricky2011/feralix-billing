@@ -4,17 +4,22 @@ namespace App\Services\Provisioning;
 
 use App\Enums\ServiceAccessMode;
 use App\Enums\ServiceIsolationMethod;
-use App\Enums\VidStatus;
 use App\Models\Package;
 use App\Models\Service;
 use App\Models\Vid;
+use App\Services\Access\RoleRouterScopeService;
+use App\Services\Inventory\VidAssignmentService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class FtthServiceManager
 {
-    public function __construct(private readonly ServiceOverallStateManager $overallStateManager) {}
+    public function __construct(
+        private readonly ServiceOverallStateManager $overallStateManager,
+        private readonly RoleRouterScopeService $roleRouterScopeService,
+        private readonly VidAssignmentService $vidAssignmentService,
+    ) {}
 
     private const RELATIONS = [
         'customer:id,customer_code,full_name',
@@ -29,6 +34,10 @@ class FtthServiceManager
     public function paginate(array $filters): LengthAwarePaginator
     {
         $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 100));
+
+        if (($filters['router_id'] ?? null) !== null) {
+            $this->roleRouterScopeService->ensureRouterAccessible((int) $filters['router_id']);
+        }
 
         $query = Service::query()
             ->with(self::RELATIONS)
@@ -58,6 +67,8 @@ class FtthServiceManager
                 fn ($builder, $overallStatus) => $builder->where('overall_status', $overallStatus)
             );
 
+        $this->roleRouterScopeService->applyRouterScope($query, 'router_id');
+
         if (($filters['only_trashed'] ?? false) === true) {
             $query->onlyTrashed();
         } elseif (($filters['with_trashed'] ?? false) === true) {
@@ -74,8 +85,15 @@ class FtthServiceManager
     public function create(array $payload): Service
     {
         return DB::transaction(function () use ($payload): Service {
+            $this->roleRouterScopeService->ensureRouterAccessible((int) $payload['router_id']);
+
             $package = $this->resolvePackage($payload['package_id']);
             $vid = $this->lockVid($payload['vid_id'] ?? null);
+
+            if ($vid !== null) {
+                $this->roleRouterScopeService->ensureModelAccessibleForInput($vid, 'vid_id');
+            }
+
             $payload = $this->normalizePayloadForPersistence($payload, $package, $vid);
 
             $service = Service::query()->create($payload);
@@ -90,7 +108,7 @@ class FtthServiceManager
                 ]);
             }
 
-            $this->syncVidAssignment($service, $vid);
+            $this->vidAssignmentService->syncService($service->refresh(), $vid);
 
             return $service->refresh()->load(self::RELATIONS);
         });
@@ -99,6 +117,8 @@ class FtthServiceManager
     public function update(Service $service, array $payload): Service
     {
         return DB::transaction(function () use ($service, $payload): Service {
+            $this->roleRouterScopeService->ensureRouterAccessible((int) $payload['router_id']);
+
             $lockedService = Service::query()
                 ->lockForUpdate()
                 ->findOrFail($service->id);
@@ -112,6 +132,10 @@ class FtthServiceManager
                 throw ValidationException::withMessages([
                     'vid_id' => 'The selected VID is invalid.',
                 ]);
+            }
+
+            if ($nextVid !== null) {
+                $this->roleRouterScopeService->ensureModelAccessibleForInput($nextVid, 'vid_id');
             }
 
             $payload = $this->normalizePayloadForPersistence($payload, $package, $nextVid);
@@ -128,8 +152,13 @@ class FtthServiceManager
                 ]);
             }
 
-            $this->releaseVidAssignment($lockedService, $currentVid);
-            $this->syncVidAssignment($lockedService->refresh(), $nextVid);
+            $lockedService->refresh();
+
+            if ($currentVid !== null && (int) ($nextVid?->id ?? 0) !== (int) $currentVid->id) {
+                $this->vidAssignmentService->releaseFromService($lockedService, $currentVid);
+            }
+
+            $this->vidAssignmentService->syncService($lockedService, $nextVid);
 
             return $lockedService->refresh()->load(self::RELATIONS);
         });
@@ -146,7 +175,7 @@ class FtthServiceManager
                 ? Vid::query()->lockForUpdate()->find($lockedService->vid_id)
                 : null;
 
-            $this->releaseVidAssignment($lockedService, $vid);
+            $this->vidAssignmentService->releaseFromService($lockedService, $vid);
 
             $lockedService->delete();
         });
@@ -211,41 +240,4 @@ class FtthServiceManager
             ->keyBy('id');
     }
 
-    private function syncVidAssignment(Service $service, ?Vid $vid): void
-    {
-        if ($vid === null) {
-            return;
-        }
-
-        if (! $service->usesDedicatedResources()) {
-            $this->releaseVidAssignment($service, $vid);
-
-            return;
-        }
-
-        if ($vid->service_id !== null && (int) $vid->service_id !== (int) $service->id) {
-            throw ValidationException::withMessages([
-                'vid_id' => 'The selected VID is already assigned to another service.',
-            ]);
-        }
-
-        $vid->update([
-            'status' => VidStatus::Assigned->value,
-            'customer_id' => $service->customer_id,
-            'service_id' => $service->id,
-        ]);
-    }
-
-    private function releaseVidAssignment(Service $service, ?Vid $vid): void
-    {
-        if ($vid === null || (int) ($vid->service_id ?? 0) !== (int) $service->id) {
-            return;
-        }
-
-        $vid->update([
-            'status' => VidStatus::Available->value,
-            'customer_id' => null,
-            'service_id' => null,
-        ]);
-    }
 }

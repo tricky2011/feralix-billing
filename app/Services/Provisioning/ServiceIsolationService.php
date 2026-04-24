@@ -20,6 +20,7 @@ class ServiceIsolationService
     public function __construct(
         private readonly ServiceOverallStateManager $overallStateManager,
         private readonly ServiceIsolationTargetResolver $targetResolver,
+        private readonly ServiceIsolationRouterJobDispatcher $routerJobDispatcher,
     ) {}
 
     private const RELATIONS = [
@@ -73,6 +74,8 @@ class ServiceIsolationService
             ]);
 
             $this->syncRouterOperationIsolationState($service, $isolation, false);
+
+            DB::afterCommit(fn () => $this->routerJobDispatcher->dispatchIsolation($isolation->id));
 
             return $this->loadIsolation($isolation);
         });
@@ -168,6 +171,8 @@ class ServiceIsolationService
                 $this->syncRouterOperationIsolationState($isolation->service, null, false);
             }
 
+            DB::afterCommit(fn () => $this->routerJobDispatcher->dispatchRelease($isolation->id));
+
             return $this->loadIsolation($isolation);
         });
     }
@@ -238,13 +243,13 @@ class ServiceIsolationService
 
     private function resolveAddressListName(Service $service): string
     {
-        $addressListName = trim((string) ($service->address_list_name ?? ''));
+        $addressListName = trim((string) (config('mikrotik.isolation.address_list_name') ?? $service->address_list_name ?? ''));
 
         if ($addressListName !== '') {
             return $addressListName;
         }
 
-        return Str::limit('ISO-'.$service->service_code, 100, '');
+        return Str::limit('ISOLIR_CUSTOMER', 100, '');
     }
 
     private function syncRouterOperationIsolationState(Service $service, ?ServiceIsolation $isolation, bool $applied): void

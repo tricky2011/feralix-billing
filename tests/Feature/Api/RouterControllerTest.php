@@ -26,6 +26,9 @@ class RouterControllerTest extends TestCase
 
         $response
             ->assertCreated()
+            ->assertJsonPath('data.has_api_username', true)
+            ->assertJsonMissingPath('data.api_username')
+            ->assertJsonPath('data.api_username_masked', 'ad****')
             ->assertJsonPath('data.has_api_password', true)
             ->assertJsonMissingPath('data.api_password');
 
@@ -64,6 +67,9 @@ class RouterControllerTest extends TestCase
 
         $response
             ->assertOk()
+            ->assertJsonPath('data.has_api_username', true)
+            ->assertJsonMissingPath('data.api_username')
+            ->assertJsonPath('data.api_username_masked', 'op******')
             ->assertJsonPath('data.has_api_password', true)
             ->assertJsonMissingPath('data.api_password');
 

@@ -8,21 +8,16 @@ use App\Enums\ServiceIsolationMethod;
 use App\Enums\ServiceNetworkStatus;
 use App\Enums\ServiceOverallStatus;
 use App\Enums\VidType;
+use App\Http\Requests\AdminPanelRequest;
 use App\Models\Ont;
 use App\Models\Service;
 use App\Models\Vid;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
-abstract class ServicePayloadRequest extends FormRequest
+abstract class ServicePayloadRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     abstract protected function currentServiceId(): ?int;
 
     protected function prepareForValidation(): void
@@ -119,6 +114,7 @@ abstract class ServicePayloadRequest extends FormRequest
             $this->validateSubnetCidr($validator);
             $this->validateDhcpPoolRange($validator);
             $this->validateOntConsistency($validator);
+            $this->validateActiveVidRequired($validator);
             $this->validateVidConsistency($validator);
             $this->validateActiveCustomerRule($validator);
             $this->validateActiveInternetVidUniqueness($validator);
@@ -195,7 +191,7 @@ abstract class ServicePayloadRequest extends FormRequest
         }
 
         $vid = Vid::query()
-            ->select(['id', 'router_id', 'vid', 'vid_type'])
+            ->select(['id', 'router_id', 'vid', 'vid_type', 'service_id'])
             ->find($this->input('vid_id'));
 
         if ($vid === null) {
@@ -218,6 +214,17 @@ abstract class ServicePayloadRequest extends FormRequest
             return;
         }
 
+        if ($vid->service_id !== null && (int) $vid->service_id !== (int) ($this->currentServiceId() ?? 0)) {
+            $assignedToActiveService = Service::query()
+                ->active()
+                ->whereKey($vid->service_id)
+                ->exists();
+
+            if ($assignedToActiveService) {
+                $validator->errors()->add('vid_id', 'The selected VID is already assigned to another active service.');
+            }
+        }
+
         $query = Service::query()
             ->active()
             ->where('vid_id', $vid->id);
@@ -228,6 +235,13 @@ abstract class ServicePayloadRequest extends FormRequest
 
         if ($query->exists()) {
             $validator->errors()->add('vid_id', 'The selected VID is already used by another active service.');
+        }
+    }
+
+    private function validateActiveVidRequired(Validator $validator): void
+    {
+        if ($this->requestedOverallStatusUsesResources() && ! $this->filled('vid_id')) {
+            $validator->errors()->add('vid_id', 'An active service must have a dedicated customer internet VID.');
         }
     }
 

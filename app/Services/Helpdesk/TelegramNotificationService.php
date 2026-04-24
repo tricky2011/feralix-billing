@@ -29,6 +29,41 @@ class TelegramNotificationService
         ]);
     }
 
+    public function queueTicketStatusChangedNotification(Ticket $ticket, string $previousStatus, ?string $notes = null): TelegramLog
+    {
+        $ticket->loadMissing(self::TICKET_RELATIONS);
+
+        return $ticket->telegramLogs()->create([
+            'channel' => 'telegram',
+            'target' => $this->resolveHelpdeskTarget(),
+            'message' => $this->buildTicketStatusChangedMessage($ticket, $previousStatus, $notes),
+            'payload' => [
+                ...$this->buildTicketCreatedPayload($ticket),
+                'event' => 'ticket.status_changed',
+                'previous_status' => $previousStatus,
+                'notes' => $notes,
+            ],
+            'status' => TelegramLogStatus::Queued->value,
+        ]);
+    }
+
+    public function queueTicketReplyNotification(Ticket $ticket, string $body): TelegramLog
+    {
+        $ticket->loadMissing(self::TICKET_RELATIONS);
+
+        return $ticket->telegramLogs()->create([
+            'channel' => 'telegram',
+            'target' => $this->resolveHelpdeskTarget(),
+            'message' => $this->buildTicketReplyMessage($ticket, $body),
+            'payload' => [
+                ...$this->buildTicketCreatedPayload($ticket),
+                'event' => 'ticket.reply_created',
+                'reply_excerpt' => mb_substr($body, 0, 240),
+            ],
+            'status' => TelegramLogStatus::Queued->value,
+        ]);
+    }
+
     public function process(TelegramLog $telegramLog): TelegramLog
     {
         if ($telegramLog->status === TelegramLogStatus::Processed) {
@@ -139,6 +174,28 @@ class TelegramNotificationService
             "Status: {$ticket->status?->value}",
             "Teknisi: {$technicianName}",
             "Deskripsi: {$ticket->description}",
+        ]);
+    }
+
+    private function buildTicketStatusChangedMessage(Ticket $ticket, string $previousStatus, ?string $notes): string
+    {
+        return implode("\n", array_filter([
+            'Status ticket helpdesk berubah.',
+            "No Ticket: {$ticket->ticket_number}",
+            "Customer: {$ticket->customer->customer_code} - {$ticket->customer->full_name}",
+            "Status sebelumnya: {$previousStatus}",
+            "Status baru: {$ticket->status?->value}",
+            $notes !== null && $notes !== '' ? "Catatan: {$notes}" : null,
+        ]));
+    }
+
+    private function buildTicketReplyMessage(Ticket $ticket, string $body): string
+    {
+        return implode("\n", [
+            'Reply ticket helpdesk baru.',
+            "No Ticket: {$ticket->ticket_number}",
+            "Customer: {$ticket->customer->customer_code} - {$ticket->customer->full_name}",
+            'Reply: '.mb_substr($body, 0, 240),
         ]);
     }
 

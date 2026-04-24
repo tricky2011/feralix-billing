@@ -54,12 +54,15 @@ class HotspotVoucherModuleTest extends TestCase
             ->assertJsonPath('data.total_cost', '30000.00')
             ->assertJsonCount(3, 'data.vouchers')
             ->assertJsonPath('data.vouchers.0.expires_at', null)
-            ->assertJsonPath('data.vouchers.0.status', HotspotVoucherStatus::Generated->value);
+            ->assertJsonPath('data.vouchers.0.status', HotspotVoucherStatus::Generated->value)
+            ->assertJsonPath('data.vouchers.0.has_password', true)
+            ->assertJsonMissingPath('data.vouchers.0.password');
 
-        $password = $response->json('data.vouchers.0.password');
+        $passwordMasked = $response->json('data.vouchers.0.password_masked');
 
-        $this->assertIsString($password);
-        $this->assertSame(10, strlen($password));
+        $this->assertIsString($passwordMasked);
+        $this->assertSame(10, strlen($passwordMasked));
+        $this->assertMatchesRegularExpression('/^\*+$/', $passwordMasked);
 
         $this->assertDatabaseHas('resellers', [
             'id' => $reseller->id,
@@ -80,6 +83,7 @@ class HotspotVoucherModuleTest extends TestCase
         $this->assertNull($voucher->first_login_at);
         $this->assertNull($voucher->expires_at);
         $this->assertSame(HotspotVoucherStatus::Generated, $voucher->status);
+        $this->assertSame(10, strlen((string) $voucher->password));
     }
 
     public function test_it_supports_prefix_random_username_and_same_as_username_password(): void
@@ -100,10 +104,15 @@ class HotspotVoucherModuleTest extends TestCase
         $response->assertCreated();
 
         $username = $response->json('data.vouchers.0.username');
-        $password = $response->json('data.vouchers.0.password');
+        $passwordMasked = $response->json('data.vouchers.0.password_masked');
 
         $this->assertMatchesRegularExpression('/^HS[A-Z0-9]{8}$/', $username);
-        $this->assertSame($username, $password);
+        $this->assertIsString($passwordMasked);
+        $response->assertJsonMissingPath('data.vouchers.0.password');
+
+        $voucher = HotspotVoucher::query()->firstOrFail();
+
+        $this->assertSame($username, $voucher->password);
     }
 
     public function test_it_activates_voucher_on_first_login_locks_mac_and_sets_expiry(): void
@@ -144,6 +153,7 @@ class HotspotVoucherModuleTest extends TestCase
 
         $secondResponse
             ->assertUnprocessable()
+            ->assertJsonPath('success', false)
             ->assertJsonValidationErrors(['mac_address']);
     }
 
@@ -160,6 +170,7 @@ class HotspotVoucherModuleTest extends TestCase
 
         $response
             ->assertUnprocessable()
+            ->assertJsonPath('success', false)
             ->assertJsonValidationErrors(['reseller_id']);
 
         $this->assertDatabaseCount('voucher_batches', 0);

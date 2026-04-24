@@ -4,16 +4,11 @@ namespace App\Http\Requests\Customer;
 
 use App\Enums\CustomerStatus;
 use App\Enums\CustomerType;
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AdminPanelRequest;
 use Illuminate\Validation\Rule;
 
-class IndexCustomerRequest extends FormRequest
+class IndexCustomerRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $hasActiveService = $this->input('has_active_service');

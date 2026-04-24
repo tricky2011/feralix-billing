@@ -35,97 +35,88 @@ class CustomerController extends Controller
     {
         $customers = $this->customerService->paginate($request->validated());
 
-        return CustomerResource::collection($customers)->additional([
-            'message' => 'Customers retrieved successfully.',
-            'filters' => $request->validated(),
-        ]);
+        return $this->paginatedResponse(
+            $customers,
+            CustomerResource::class,
+            'Customers retrieved successfully.',
+            ['filters' => $request->validated()],
+        );
     }
 
     public function store(StoreCustomerRequest $request): JsonResponse
     {
         $customer = $this->customerService->create($request->validated());
 
-        return response()->json([
-            'message' => 'Customer created successfully.',
-            'data' => new CustomerResource($customer),
-        ], 201);
+        return $this->createdResponse('Customer created successfully.', new CustomerResource($customer));
     }
 
     public function onboard(StoreCustomerOnboardingRequest $request): JsonResponse
     {
         $result = $this->customerOnboardingService->onboard($request->validated());
 
-        return response()->json([
-            'message' => 'Customer onboarded successfully.',
-            'data' => [
-                'customer' => new CustomerResource($result['customer']),
-                'service' => new ServiceResource($result['service']),
-                'work_order' => $result['work_order'] === null ? null : new WorkOrderResource($result['work_order']),
-                'initial_invoice' => $result['invoice'] === null ? null : new InvoiceResource($result['invoice']),
-            ],
-        ], 201);
+        return $this->createdResponse('Customer onboarded successfully.', [
+            'customer' => new CustomerResource($result['customer']),
+            'service' => new ServiceResource($result['service']),
+            'work_order' => $result['work_order'] === null ? null : new WorkOrderResource($result['work_order']),
+            'initial_invoice' => $result['invoice'] === null ? null : new InvoiceResource($result['invoice']),
+        ]);
     }
 
     public function show(Customer $customer): JsonResponse
     {
-        return response()->json([
-            'message' => 'Customer retrieved successfully.',
-            'data' => new CustomerResource($this->customerService->find($customer)),
-        ]);
+        return $this->successResponse(
+            'Customer retrieved successfully.',
+            new CustomerResource($this->customerService->find($customer)),
+        );
     }
 
     public function update(UpdateCustomerRequest $request, Customer $customer): JsonResponse
     {
         $customer = $this->customerService->update($customer, $request->validated());
 
-        return response()->json([
-            'message' => 'Customer updated successfully.',
-            'data' => new CustomerResource($customer),
-        ]);
+        return $this->successResponse('Customer updated successfully.', new CustomerResource($customer));
     }
 
     public function destroy(Customer $customer): JsonResponse
     {
         $this->customerService->delete($customer);
 
-        return response()->json([
-            'message' => 'Customer deleted successfully.',
-        ]);
+        return $this->successResponse('Customer deleted successfully.');
     }
 
     public function bulkDelete(BulkDeleteCustomerRequest $request): JsonResponse
     {
         $payload = $request->validated();
 
-        return response()->json([
-            'message' => 'Bulk delete processed successfully.',
-            'data' => $this->customerBulkActionService->bulkDelete($payload['customer_ids']),
-        ]);
+        return $this->successResponse(
+            'Bulk delete processed successfully.',
+            $this->customerBulkActionService->bulkDelete($payload['customer_ids']),
+        );
     }
 
     public function bulkDisable(BulkDisableCustomerRequest $request): JsonResponse
     {
         $payload = $request->validated();
 
-        return response()->json([
-            'message' => 'Bulk disable processed successfully.',
-            'data' => $this->customerBulkActionService->bulkDisable($payload['customer_ids']),
-        ]);
+        return $this->successResponse(
+            'Bulk disable processed successfully.',
+            $this->customerBulkActionService->bulkDisable($payload['customer_ids']),
+        );
     }
 
     public function bulkGenerateInvoice(BulkGenerateInvoiceRequest $request): JsonResponse
     {
-        return response()->json([
-            'message' => 'Bulk invoice generation processed successfully.',
-            'data' => $this->customerBulkActionService->bulkGenerateInvoice($request->validated()),
-        ]);
+        return $this->successResponse(
+            'Bulk invoice generation processed successfully.',
+            $this->customerBulkActionService->bulkGenerateInvoice($request->validated()),
+        );
     }
 
     public function provisioningPreview(PreviewCustomerProvisioningRequest $request): JsonResponse
     {
-        return response()->json([
-            'message' => 'Provisioning preview generated successfully.',
-            'data' => $this->customerProvisioningPreviewService->preview($request->validated()),
-        ]);
+        return $this->successResponse(
+            'Provisioning preview generated successfully.',
+            $this->customerProvisioningPreviewService->preview($request->validated()),
+        );
     }
 }

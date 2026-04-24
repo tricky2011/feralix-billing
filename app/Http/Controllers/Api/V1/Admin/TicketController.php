@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Ticket\IndexTicketRequest;
+use App\Http\Requests\Ticket\StoreTicketReplyRequest;
 use App\Http\Requests\Ticket\StoreTicketRequest;
+use App\Http\Requests\Ticket\UpdateTicketStatusRequest;
+use App\Http\Resources\TicketReplyResource;
 use App\Http\Resources\TicketResource;
 use App\Models\Ticket;
 use App\Services\Helpdesk\TicketService;
@@ -18,27 +21,46 @@ class TicketController extends Controller
     {
         $tickets = $this->ticketService->paginate($request->validated());
 
-        return TicketResource::collection($tickets)->additional([
-            'message' => 'Tickets retrieved successfully.',
-            'filters' => $request->validated(),
-        ]);
+        return $this->paginatedResponse(
+            $tickets,
+            TicketResource::class,
+            'Tickets retrieved successfully.',
+            ['filters' => $request->validated()],
+        );
     }
 
     public function store(StoreTicketRequest $request): JsonResponse
     {
         $ticket = $this->ticketService->create($request->validated());
 
-        return response()->json([
-            'message' => 'Ticket created successfully.',
-            'data' => new TicketResource($ticket),
-        ], 201);
+        return $this->createdResponse('Ticket created successfully.', new TicketResource($ticket));
     }
 
     public function show(Ticket $ticket): JsonResponse
     {
-        return response()->json([
-            'message' => 'Ticket retrieved successfully.',
-            'data' => new TicketResource($this->ticketService->find($ticket)),
-        ]);
+        return $this->successResponse(
+            'Ticket retrieved successfully.',
+            new TicketResource($this->ticketService->find($ticket)),
+        );
+    }
+
+    public function updateStatus(UpdateTicketStatusRequest $request, Ticket $ticket): JsonResponse
+    {
+        $ticket = $this->ticketService->updateStatus($ticket, $request->validated());
+
+        return $this->successResponse(
+            'Ticket status updated successfully.',
+            new TicketResource($ticket),
+        );
+    }
+
+    public function storeReply(StoreTicketReplyRequest $request, Ticket $ticket): JsonResponse
+    {
+        $reply = $this->ticketService->reply($ticket, $request->validated());
+
+        return $this->createdResponse(
+            'Ticket reply created successfully.',
+            new TicketReplyResource($reply),
+        );
     }
 }

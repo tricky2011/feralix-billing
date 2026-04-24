@@ -34,46 +34,46 @@ class OntController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
-        return OntResource::collection($onts)->additional([
-            'message' => 'ONTs retrieved successfully.',
-            'filters' => $filters,
-        ]);
+        return $this->paginatedResponse(
+            $onts,
+            OntResource::class,
+            'ONTs retrieved successfully.',
+            ['filters' => $filters],
+        );
     }
 
     public function store(StoreOntRequest $request): JsonResponse
     {
         $ont = Ont::query()->create($request->validated());
 
-        return response()->json([
-            'message' => 'ONT created successfully.',
-            'data' => new OntResource($ont->load('olt:id,olt_code,olt_name')),
-        ], 201);
+        return $this->createdResponse(
+            'ONT created successfully.',
+            new OntResource($ont->load('olt:id,olt_code,olt_name')),
+        );
     }
 
     public function show(Ont $ont): JsonResponse
     {
-        return response()->json([
-            'message' => 'ONT retrieved successfully.',
-            'data' => new OntResource($ont->load('olt:id,olt_code,olt_name')),
-        ]);
+        return $this->successResponse(
+            'ONT retrieved successfully.',
+            new OntResource($ont->load('olt:id,olt_code,olt_name')),
+        );
     }
 
     public function update(UpdateOntRequest $request, Ont $ont): JsonResponse
     {
         $ont->update($request->validated());
 
-        return response()->json([
-            'message' => 'ONT updated successfully.',
-            'data' => new OntResource($ont->refresh()->load('olt:id,olt_code,olt_name')),
-        ]);
+        return $this->successResponse(
+            'ONT updated successfully.',
+            new OntResource($ont->refresh()->load('olt:id,olt_code,olt_name')),
+        );
     }
 
     public function destroy(Ont $ont): JsonResponse
     {
         $ont->delete();
 
-        return response()->json([
-            'message' => 'ONT deleted successfully.',
-        ]);
+        return $this->successResponse('ONT deleted successfully.');
     }
 }

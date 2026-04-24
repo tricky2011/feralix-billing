@@ -2,7 +2,7 @@
 
 Tanggal audit: 2026-04-22  
 Sumber utama: `feralix-billing-codex-prompts-tambahan.md`  
-Mode: audit dulu, belum melanjutkan implementasi massal
+Mode: audit + implementasi bertahap, saat ini modul `P` sudah mulai di-hardening
 
 ## Metode audit
 - Membaca seluruh prompt tambahan dan urutan eksekusi yang disarankan.
@@ -24,7 +24,7 @@ Mode: audit dulu, belum melanjutkan implementasi massal
 
 | Urutan | Kode | Modul | Status | Ringkasan audit |
 | --- | --- | --- | --- | --- |
-| 1 | `P` | Hak akses dan router scope policy | `PARTIAL` | Role `superadmin/admin/technician`, assignment router user, dan router switcher dashboard sudah ada, tetapi belum ada policy/middleware/router-aware guard lintas modul. |
+| 1 | `P` | Hak akses dan router scope policy | `PARTIAL` | Wave awal enforcement sudah masuk: middleware role admin/teknisi, route binding router-scope guard, request authorize inti, dan query scope lintas customer/billing/helpdesk/WO/settings prioritas. Sisa lanjutan masih terkait penyempurnaan coverage dan dependensi modul user/auth. |
 | 2 | `L` | User management, role, audit, router scope assignment | `PARTIAL` | Model user, enum role, relasi technician/router assignment sudah ada, tetapi CRUD user, login/logout, audit log, demo mode, dan validasi user nonaktif belum ada. |
 | 3 | `B` | Dashboard dan ringkasan bisnis | `DONE` | Dashboard admin, dashboard teknisi redirect, KPI, chart, analytics revenue/ARPU, ranking teknisi, router switcher, dan cache sudah tersedia. |
 | 4 | `S` | Analytics dan reporting layer | `PARTIAL` | Query layer reusable untuk dashboard admin sudah ada, tetapi belum menjadi layer lintas helpdesk/cashflow/export, dan belum mencakup statistik SLA/helpdesk/cashflow. |
@@ -78,10 +78,20 @@ Lanjut sesuai urutan prompt, dengan modul `DONE` dilewati:
   - `database/migrations/2026_04_22_090000_add_dashboard_access_fields_to_users_table.php`
   - `database/migrations/2026_04_22_090100_create_user_router_assignments_table.php`
   - `app/Services/Dashboard/DashboardAccessService.php`
-- Gap utama:
-  - `FormRequest::authorize()` masih `true` di request-request inti.
-  - Belum ada `app/Policies` atau middleware role/scope.
-  - Pembatasan router scope baru nyata di dashboard, belum lintas customer/billing/helpdesk/WO/settings.
+  - `app/Services/Access/RoleRouterScopeService.php`
+  - `app/Http/Middleware/EnsurePanelRole.php`
+  - `app/Http/Middleware/AuthorizeRouterScopedBindings.php`
+  - `app/Http/Requests/AdminPanelRequest.php`
+  - `routes/api.php`
+  - `tests/Feature/Api/RoleRouterScopePolicyTest.php`
+- Update implementasi:
+  - Request admin inti pada modul prioritas tidak lagi `authorize() = true`, tetapi memakai base request `AdminPanelRequest`.
+  - Endpoint admin prioritas sekarang memakai middleware `panel.role` dan `router.scope.bindings`.
+  - Query router-aware sudah diterapkan di customer, billing, helpdesk, work order, provisioning service, customer references, router, router scope, dan VID.
+  - Payload sensitif berbasis `router_id/service_id/vid_id/invoice_id` sekarang divalidasi melalui service akses-scope terpusat agar tetap backward-compatible.
+- Gap tersisa:
+  - Backward-compatible guest bypass masih dipertahankan sampai modul `L` menyediakan login/logout dan enforcement auth penuh.
+  - Coverage scope belum diperluas ke seluruh modul nonprioritas di luar area yang disebut audit.
 
 ### `L` User management, role, audit, router scope assignment
 - Evidence:
@@ -288,5 +298,5 @@ Lanjut sesuai urutan prompt, dengan modul `DONE` dilewati:
 
 ## Kesimpulan audit
 - Tiga modul tambahan sudah cukup matang untuk di-skip pada fase lanjutan: `B`, `C`, dan `D`.
-- Prioritas implementasi berikutnya sebaiknya dimulai dari `P` lalu `L`, karena banyak modul yang sudah ada masih belum dijaga oleh role/scope policy yang konsisten.
+- Wave awal modul `P` sudah masuk untuk endpoint prioritas; langkah berikutnya paling logis adalah lanjut ke `L` agar enforcement role/scope bisa ditutup dengan auth flow dan audit log yang lengkap.
 - Setelah itu, modul paling berdampak untuk melengkapi fondasi bisnis adalah `S`, `F`, `E`, `G`, dan `H`.

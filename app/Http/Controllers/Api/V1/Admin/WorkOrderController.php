@@ -19,46 +19,40 @@ class WorkOrderController extends Controller
     {
         $workOrders = $this->workOrderService->paginate($request->validated());
 
-        return WorkOrderResource::collection($workOrders)->additional([
-            'message' => 'Work orders retrieved successfully.',
-            'filters' => $request->validated(),
-        ]);
+        return $this->paginatedResponse(
+            $workOrders,
+            WorkOrderResource::class,
+            'Work orders retrieved successfully.',
+            ['filters' => $request->validated()],
+        );
     }
 
     public function store(StoreWorkOrderRequest $request): JsonResponse
     {
         $workOrder = $this->workOrderService->create($request->validated());
 
-        return response()->json([
-            'message' => 'Work order created successfully.',
-            'data' => new WorkOrderResource($workOrder),
-        ], 201);
+        return $this->createdResponse('Work order created successfully.', new WorkOrderResource($workOrder));
     }
 
     public function show(WorkOrder $workOrder): JsonResponse
     {
-        return response()->json([
-            'message' => 'Work order retrieved successfully.',
-            'data' => new WorkOrderResource($this->workOrderService->find($workOrder)),
-        ]);
+        return $this->successResponse(
+            'Work order retrieved successfully.',
+            new WorkOrderResource($this->workOrderService->find($workOrder)),
+        );
     }
 
     public function update(UpdateWorkOrderRequest $request, WorkOrder $workOrder): JsonResponse
     {
         $workOrder = $this->workOrderService->update($workOrder, $request->validated());
 
-        return response()->json([
-            'message' => 'Work order updated successfully.',
-            'data' => new WorkOrderResource($workOrder),
-        ]);
+        return $this->successResponse('Work order updated successfully.', new WorkOrderResource($workOrder));
     }
 
     public function destroy(WorkOrder $workOrder): JsonResponse
     {
         $this->workOrderService->delete($workOrder);
 
-        return response()->json([
-            'message' => 'Work order deleted successfully.',
-        ]);
+        return $this->successResponse('Work order deleted successfully.');
     }
 }

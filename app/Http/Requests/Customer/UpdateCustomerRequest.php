@@ -4,20 +4,15 @@ namespace App\Http\Requests\Customer;
 
 use App\Enums\CustomerStatus;
 use App\Enums\CustomerType;
+use App\Http\Requests\AdminPanelRequest;
 use App\Models\Customer;
 use App\Models\Olt;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
-class UpdateCustomerRequest extends FormRequest
+class UpdateCustomerRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $this->merge([

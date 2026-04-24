@@ -15,7 +15,11 @@ class FakeMikrotikVidInventoryProvider implements MikrotikVidInventoryProvider
 
     public function fetchVidInventory(Router $router): array
     {
-        $routerDatasets = config('mikrotik.providers.fake.routers', config('mikrotik.fake.routers', []));
+        $routerDatasets = array_replace(
+            config('mikrotik.providers.fake.routers', []),
+            config('mikrotik.fake.routers', []),
+        );
+
         $dataset = $routerDatasets[$router->router_code]
             ?? $routerDatasets['router:'.$router->id]
             ?? $routerDatasets['default']

@@ -136,8 +136,18 @@ class DashboardChartQuery extends AbstractDashboardQuery
         ];
     }
 
-    private function reverseTransition(int $activeCount, ?string $previousStatus, string $status): int
-    {
+    private function reverseTransition(
+        int $activeCount,
+        MonitorPppoeStatus|string|null $previousStatus,
+        MonitorPppoeStatus|string $status,
+    ): int {
+        $previousStatus = $previousStatus instanceof MonitorPppoeStatus
+            ? $previousStatus->value
+            : $previousStatus;
+        $status = $status instanceof MonitorPppoeStatus
+            ? $status->value
+            : $status;
+
         $wasOnline = $previousStatus === MonitorPppoeStatus::Online->value;
         $isOnline = $status === MonitorPppoeStatus::Online->value;
 

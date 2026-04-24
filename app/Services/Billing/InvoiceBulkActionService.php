@@ -3,6 +3,7 @@
 namespace App\Services\Billing;
 
 use App\Models\Invoice;
+use App\Services\Access\RoleRouterScopeService;
 use Illuminate\Validation\ValidationException;
 
 class InvoiceBulkActionService
@@ -12,17 +13,30 @@ class InvoiceBulkActionService
         private readonly InvoiceOverdueService $invoiceOverdueService,
         private readonly PaymentService $paymentService,
         private readonly InvoiceWhatsappService $invoiceWhatsappService,
+        private readonly RoleRouterScopeService $roleRouterScopeService,
     ) {}
 
     public function handle(array $payload): array
     {
-        $invoices = Invoice::query()
-            ->whereIn('id', $payload['invoice_ids'])
+        $invoiceQuery = Invoice::query()
+            ->whereIn('id', $payload['invoice_ids']);
+
+        $this->roleRouterScopeService->applyServiceRouterScope($invoiceQuery, 'service', 'router_id');
+
+        $invoices = $invoiceQuery
             ->get()
             ->keyBy('id');
 
         $processed = [];
         $skipped = [];
+        $accessibleInvoiceIds = $invoices->keys()->map(static fn (mixed $id): int => (int) $id)->all();
+
+        foreach (array_diff($payload['invoice_ids'], $accessibleInvoiceIds) as $invoiceId) {
+            $skipped[] = [
+                'invoice_id' => (int) $invoiceId,
+                'reason' => 'Invoice is outside your assigned router scope.',
+            ];
+        }
 
         foreach ($payload['invoice_ids'] as $invoiceId) {
             $invoice = $invoices->get($invoiceId);

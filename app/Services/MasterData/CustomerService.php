@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\Service;
 use App\Models\Ticket;
 use App\Models\WorkOrder;
+use App\Services\Access\RoleRouterScopeService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
@@ -15,13 +16,19 @@ use Illuminate\Validation\ValidationException;
 
 class CustomerService
 {
+    public function __construct(private readonly RoleRouterScopeService $roleRouterScopeService) {}
+
     public function paginate(array $filters): LengthAwarePaginator
     {
         $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 100));
         $sortBy = $filters['sort_by'] ?? 'full_name';
         $sortDirection = $filters['sort_direction'] ?? 'asc';
 
-        return Customer::query()
+        if (($filters['router_id'] ?? null) !== null) {
+            $this->roleRouterScopeService->ensureRouterAccessible((int) $filters['router_id']);
+        }
+
+        $query = Customer::query()
             ->with($this->indexRelations())
             ->withCount('services')
             ->withCount([
@@ -65,7 +72,11 @@ class CustomerService
                         ? $query->whereHas('services', fn (Builder $serviceQuery) => $serviceQuery->active())
                         : $query->whereDoesntHave('services', fn (Builder $serviceQuery) => $serviceQuery->active());
                 }
-            )
+            );
+
+        $this->roleRouterScopeService->applyCustomerScope($query);
+
+        return $query
             ->orderBy($sortBy, $sortDirection)
             ->orderBy('id')
             ->paginate($perPage)
@@ -122,7 +133,7 @@ class CustomerService
 
         if ($withServiceHistory) {
             $customer->load([
-                'services' => fn (Builder $query) => $query
+                'services' => fn ($query) => $query
                     ->withTrashed()
                     ->with($this->serviceRelations())
                     ->orderByDesc('created_at')
@@ -186,7 +197,31 @@ class CustomerService
             'location:id,location_code,location_name',
             'preferredOlt:id,olt_code,olt_name,location_id,location_name',
             'assignedTechnician:id,technician_code,full_name,is_active',
-            'latestActiveService:id,customer_id,package_id,router_id,olt_id,vid_id,service_code,internet_vid,subnet_cidr,gateway_ip,dhcp_pool_start,dhcp_pool_end,billing_status,network_status,overall_status,activation_date',
+            'latestActiveService' => function ($query): void {
+                $service = new Service();
+
+                $query->select(array_map(
+                    fn (string $column): string => $service->qualifyColumn($column),
+                    [
+                        'id',
+                        'customer_id',
+                        'package_id',
+                        'router_id',
+                        'olt_id',
+                        'vid_id',
+                        'service_code',
+                        'internet_vid',
+                        'subnet_cidr',
+                        'gateway_ip',
+                        'dhcp_pool_start',
+                        'dhcp_pool_end',
+                        'billing_status',
+                        'network_status',
+                        'overall_status',
+                        'activation_date',
+                    ],
+                ));
+            },
             'latestActiveService.package:id,package_name,monthly_price',
             'latestActiveService.router:id,router_code,router_name',
             'latestActiveService.olt:id,olt_code,olt_name',

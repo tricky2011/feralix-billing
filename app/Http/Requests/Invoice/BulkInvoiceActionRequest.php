@@ -2,17 +2,12 @@
 
 namespace App\Http\Requests\Invoice;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AdminPanelRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
-class BulkInvoiceActionRequest extends FormRequest
+class BulkInvoiceActionRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $this->merge([

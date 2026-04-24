@@ -19,37 +19,36 @@ class HotspotProfileController extends Controller
     {
         $profiles = $this->hotspotProfileService->paginate($request->validated());
 
-        return HotspotProfileResource::collection($profiles)->additional([
-            'message' => 'Hotspot profiles retrieved successfully.',
-            'filters' => $request->validated(),
-        ]);
+        return $this->paginatedResponse(
+            $profiles,
+            HotspotProfileResource::class,
+            'Hotspot profiles retrieved successfully.',
+            ['filters' => $request->validated()],
+        );
     }
 
     public function store(StoreHotspotProfileRequest $request): JsonResponse
     {
         $profile = $this->hotspotProfileService->create($request->validated());
 
-        return response()->json([
-            'message' => 'Hotspot profile created successfully.',
-            'data' => new HotspotProfileResource($profile),
-        ], 201);
+        return $this->createdResponse('Hotspot profile created successfully.', new HotspotProfileResource($profile));
     }
 
     public function show(HotspotProfile $hotspotProfile): JsonResponse
     {
-        return response()->json([
-            'message' => 'Hotspot profile retrieved successfully.',
-            'data' => new HotspotProfileResource($hotspotProfile),
-        ]);
+        return $this->successResponse(
+            'Hotspot profile retrieved successfully.',
+            new HotspotProfileResource($hotspotProfile),
+        );
     }
 
     public function update(UpdateHotspotProfileRequest $request, HotspotProfile $hotspotProfile): JsonResponse
     {
         $hotspotProfile = $this->hotspotProfileService->update($hotspotProfile, $request->validated());
 
-        return response()->json([
-            'message' => 'Hotspot profile updated successfully.',
-            'data' => new HotspotProfileResource($hotspotProfile),
-        ]);
+        return $this->successResponse(
+            'Hotspot profile updated successfully.',
+            new HotspotProfileResource($hotspotProfile),
+        );
     }
 }

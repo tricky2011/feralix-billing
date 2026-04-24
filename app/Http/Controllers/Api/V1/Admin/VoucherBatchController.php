@@ -18,27 +18,26 @@ class VoucherBatchController extends Controller
     {
         $voucherBatches = $this->voucherBatchService->paginate($request->validated());
 
-        return VoucherBatchResource::collection($voucherBatches)->additional([
-            'message' => 'Voucher batches retrieved successfully.',
-            'filters' => $request->validated(),
-        ]);
+        return $this->paginatedResponse(
+            $voucherBatches,
+            VoucherBatchResource::class,
+            'Voucher batches retrieved successfully.',
+            ['filters' => $request->validated()],
+        );
     }
 
     public function store(StoreVoucherBatchRequest $request): JsonResponse
     {
         $voucherBatch = $this->voucherBatchService->generate($request->validated());
 
-        return response()->json([
-            'message' => 'Voucher batch generated successfully.',
-            'data' => new VoucherBatchResource($voucherBatch),
-        ], 201);
+        return $this->createdResponse('Voucher batch generated successfully.', new VoucherBatchResource($voucherBatch));
     }
 
     public function show(VoucherBatch $voucherBatch): JsonResponse
     {
-        return response()->json([
-            'message' => 'Voucher batch retrieved successfully.',
-            'data' => new VoucherBatchResource($this->voucherBatchService->find($voucherBatch)),
-        ]);
+        return $this->successResponse(
+            'Voucher batch retrieved successfully.',
+            new VoucherBatchResource($this->voucherBatchService->find($voucherBatch)),
+        );
     }
 }

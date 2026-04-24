@@ -2,15 +2,10 @@
 
 namespace App\Http\Requests\Invoice;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AdminPanelRequest;
 
-class MarkInvoiceOverdueRequest extends FormRequest
+class MarkInvoiceOverdueRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     public function rules(): array
     {
         return [

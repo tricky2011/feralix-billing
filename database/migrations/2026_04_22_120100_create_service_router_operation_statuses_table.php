@@ -43,7 +43,7 @@ return new class extends Migration
             $table->unique('service_id');
             $table->index('router_id');
             $table->index(['router_id', 'access_mode']);
-            $table->index(['router_id', 'isolation_target_type']);
+            $table->index(['router_id', 'isolation_target_type'], 'sros_router_target_type_idx');
             $table->index('pppoe_username');
             $table->index('static_ip_address');
             $table->index('open_isolation_id');

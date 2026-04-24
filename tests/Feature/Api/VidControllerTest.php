@@ -105,9 +105,9 @@ class VidControllerTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $match->id)
-            ->assertJsonPath('filters.router_id', $routerA->id)
-            ->assertJsonPath('filters.status', VidStatus::Available->value)
-            ->assertJsonPath('filters.vid_type', VidType::Monitoring->value);
+            ->assertJsonPath('meta.filters.router_id', (string) $routerA->id)
+            ->assertJsonPath('meta.filters.status', VidStatus::Available->value)
+            ->assertJsonPath('meta.filters.vid_type', VidType::Monitoring->value);
     }
 
     public function test_it_rejects_duplicate_vid_for_the_same_router(): void

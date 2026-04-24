@@ -169,6 +169,64 @@ class ServiceControllerTest extends TestCase
             ->assertJsonValidationErrors(['vid_id']);
     }
 
+    public function test_it_allows_reassigning_a_vid_from_inactive_service_to_a_new_active_service(): void
+    {
+        [$oldService, $vid] = $this->createAssignedService('SVC-OLD-INACTIVE', 'monitor.old.inactive', 322);
+        $newCustomer = $this->createCustomer('CUST-NEW-VID');
+        $newPackage = $this->createPackage('Reassign Package');
+        $newOlt = $this->createOlt('OLT-REASSIGN');
+        $newOnt = $this->createOnt($newOlt, 'ONT-REASSIGN');
+
+        $oldService->update([
+            'overall_status' => ServiceOverallStatus::Terminated->value,
+            'network_status' => ServiceNetworkStatus::Inactive->value,
+        ]);
+
+        $response = $this->postJson('/api/v1/admin/services', [
+            'customer_id' => $newCustomer->id,
+            'package_id' => $newPackage->id,
+            'router_id' => $oldService->router_id,
+            'olt_id' => $newOlt->id,
+            'ont_id' => $newOnt->id,
+            'vid_id' => $vid->id,
+            'service_code' => 'SVC-NEW-VID',
+            'monitor_vid' => 101,
+            'monitor_pppoe_username' => 'monitor.new.vid',
+            'monitor_pppoe_password' => 'secret-new',
+            'internet_vid' => 322,
+            'subnet_cidr' => $this->subnetCidrForVid(322),
+            'gateway_ip' => $this->gatewayIpForVid(322),
+            'dhcp_pool_start' => $this->dhcpPoolStartForVid(322),
+            'dhcp_pool_end' => $this->dhcpPoolEndForVid(322),
+            'ip_pool_count' => 5,
+            'rate_limit_mbps' => 20,
+            'isolation_method' => ServiceIsolationMethod::AddressList->value,
+            'address_list_name' => 'FTTH-CUST-NEW',
+            'billing_status' => ServiceBillingStatus::Paid->value,
+            'network_status' => ServiceNetworkStatus::Active->value,
+            'overall_status' => ServiceOverallStatus::Active->value,
+            'activation_date' => '2026-04-21',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.vid_id', $vid->id)
+            ->assertJsonPath('data.internet_vid', 322);
+
+        $this->assertDatabaseHas('vids', [
+            'id' => $vid->id,
+            'status' => VidStatus::Assigned->value,
+            'customer_id' => $newCustomer->id,
+            'service_id' => $response->json('data.id'),
+        ]);
+
+        $this->assertDatabaseHas('services', [
+            'id' => $oldService->id,
+            'vid_id' => $vid->id,
+            'overall_status' => ServiceOverallStatus::Terminated->value,
+        ]);
+    }
+
     public function test_it_releases_vid_when_a_service_is_marked_inactive(): void
     {
         [$service, $vid] = $this->createAssignedService();

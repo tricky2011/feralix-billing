@@ -2,15 +2,10 @@
 
 namespace App\Http\Requests\Dashboard;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AdminPanelRequest;
 
-class SwitchDashboardRouterRequest extends FormRequest
+class SwitchDashboardRouterRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $routerId = $this->input('router_id');

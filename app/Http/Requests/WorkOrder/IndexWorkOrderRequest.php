@@ -4,16 +4,11 @@ namespace App\Http\Requests\WorkOrder;
 
 use App\Enums\WorkOrderStatus;
 use App\Enums\WorkOrderType;
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AdminPanelRequest;
 use Illuminate\Validation\Rule;
 
-class IndexWorkOrderRequest extends FormRequest
+class IndexWorkOrderRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $this->merge([

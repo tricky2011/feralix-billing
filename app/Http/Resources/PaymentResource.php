@@ -36,7 +36,7 @@ class PaymentResource extends JsonResource
                     return null;
                 }
 
-                return (new CashflowTransactionResource($this->cashflowTransaction))->toArray($request);
+                return (new CashflowTransactionResource($this->cashflowTransaction))->toArray(request());
             }),
             'customer' => $this->whenLoaded('customer', function (): array {
                 return [

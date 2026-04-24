@@ -7,6 +7,7 @@ use App\Enums\ServiceOverallStatus;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Service;
+use App\Services\Access\RoleRouterScopeService;
 use App\Services\Billing\InvoiceService;
 use App\Services\MasterData\CustomerService;
 use Illuminate\Support\Carbon;
@@ -17,19 +18,33 @@ class CustomerBulkActionService
     public function __construct(
         private readonly CustomerService $customerService,
         private readonly InvoiceService $invoiceService,
+        private readonly RoleRouterScopeService $roleRouterScopeService,
     ) {}
 
     public function bulkDelete(array $customerIds): array
     {
         return DB::transaction(function () use ($customerIds): array {
-            $customers = Customer::query()
-                ->whereIn('id', $customerIds)
+            $customerQuery = Customer::query()
+                ->whereIn('id', $customerIds);
+
+            $this->roleRouterScopeService->applyCustomerScope($customerQuery);
+
+            $customers = $customerQuery
                 ->lockForUpdate()
                 ->get()
                 ->keyBy('id');
 
             $deleted = [];
             $skipped = [];
+
+            $accessibleCustomerIds = $customers->keys()->map(static fn (mixed $id): int => (int) $id)->all();
+
+            foreach (array_diff($customerIds, $accessibleCustomerIds) as $customerId) {
+                $skipped[] = [
+                    'customer_id' => (int) $customerId,
+                    'reason' => 'Customer is outside your assigned router scope.',
+                ];
+            }
 
             foreach ($customerIds as $customerId) {
                 /** @var Customer|null $customer */
@@ -72,13 +87,25 @@ class CustomerBulkActionService
     public function bulkDisable(array $customerIds): array
     {
         return DB::transaction(function () use ($customerIds): array {
-            $customers = Customer::query()
-                ->whereIn('id', $customerIds)
+            $customerQuery = Customer::query()
+                ->whereIn('id', $customerIds);
+
+            $this->roleRouterScopeService->applyCustomerScope($customerQuery);
+
+            $customers = $customerQuery
                 ->lockForUpdate()
                 ->get();
 
             $disabled = [];
             $unchanged = [];
+            $accessibleCustomerIds = $customers->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all();
+
+            foreach (array_diff($customerIds, $accessibleCustomerIds) as $customerId) {
+                $unchanged[] = [
+                    'customer_id' => (int) $customerId,
+                    'reason' => 'Customer is outside your assigned router scope.',
+                ];
+            }
 
             foreach ($customers as $customer) {
                 if ($customer->status === CustomerStatus::Inactive) {
@@ -122,13 +149,17 @@ class CustomerBulkActionService
                 ? Carbon::parse($payload['due_date'])->startOfDay()
                 : $invoiceDate->copy()->addDays((int) ($payload['due_in_days'] ?? 10));
 
-            $customers = Customer::query()
-                ->whereIn('id', $payload['customer_ids'])
+            $customerQuery = Customer::query()
+                ->whereIn('id', $payload['customer_ids']);
+
+            $this->roleRouterScopeService->applyCustomerScope($customerQuery);
+
+            $customers = $customerQuery
                 ->lockForUpdate()
                 ->get()
                 ->keyBy('id');
 
-            $services = Service::query()
+            $serviceQuery = Service::query()
                 ->with('package:id,monthly_price')
                 ->whereIn('customer_id', $payload['customer_ids'])
                 ->whereIn('overall_status', [
@@ -136,7 +167,11 @@ class CustomerBulkActionService
                     ServiceOverallStatus::Down->value,
                     ServiceOverallStatus::Suspended->value,
                     ServiceOverallStatus::Isolated->value,
-                ])
+                ]);
+
+            $this->roleRouterScopeService->applyRouterScope($serviceQuery, 'router_id');
+
+            $services = $serviceQuery
                 ->lockForUpdate()
                 ->orderBy('customer_id')
                 ->orderByDesc('id')
@@ -145,6 +180,14 @@ class CustomerBulkActionService
 
             $generated = [];
             $skipped = [];
+            $accessibleCustomerIds = $customers->keys()->map(static fn (mixed $id): int => (int) $id)->all();
+
+            foreach (array_diff($payload['customer_ids'], $accessibleCustomerIds) as $customerId) {
+                $skipped[] = [
+                    'customer_id' => (int) $customerId,
+                    'reason' => 'Customer is outside your assigned router scope.',
+                ];
+            }
 
             foreach ($payload['customer_ids'] as $customerId) {
                 /** @var Customer|null $customer */

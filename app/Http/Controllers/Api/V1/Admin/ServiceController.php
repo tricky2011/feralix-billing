@@ -19,53 +19,44 @@ class ServiceController extends Controller
     {
         $services = $this->ftthServiceManager->paginate($request->validated());
 
-        return ServiceResource::collection($services)->additional([
-            'message' => 'Services retrieved successfully.',
-            'filters' => $request->validated(),
-        ]);
+        return $this->paginatedResponse(
+            $services,
+            ServiceResource::class,
+            'Services retrieved successfully.',
+            ['filters' => $request->validated()],
+        );
     }
 
     public function store(StoreServiceRequest $request): JsonResponse
     {
         $service = $this->ftthServiceManager->create($request->validated());
 
-        return response()->json([
-            'message' => 'Service created successfully.',
-            'data' => new ServiceResource($service),
-        ], 201);
+        return $this->createdResponse('Service created successfully.', new ServiceResource($service));
     }
 
     public function show(Service $service): JsonResponse
     {
-        return response()->json([
-            'message' => 'Service retrieved successfully.',
-            'data' => new ServiceResource($service->load([
-                'customer:id,customer_code,full_name',
-                'package:id,package_name,monthly_price,ip_pool_count,rate_limit_mbps',
-                'router:id,router_code,router_name',
-                'olt:id,olt_code,olt_name',
-                'ont:id,olt_id,ont_sn,ont_name,status',
-                'vid:id,router_id,vid,status,subnet_cidr,gateway_ip,customer_id,service_id',
-            ])),
-        ]);
+        return $this->successResponse('Service retrieved successfully.', new ServiceResource($service->load([
+            'customer:id,customer_code,full_name',
+            'package:id,package_name,monthly_price,ip_pool_count,rate_limit_mbps',
+            'router:id,router_code,router_name',
+            'olt:id,olt_code,olt_name',
+            'ont:id,olt_id,ont_sn,ont_name,status',
+            'vid:id,router_id,vid,status,subnet_cidr,gateway_ip,customer_id,service_id',
+        ])));
     }
 
     public function update(UpdateServiceRequest $request, Service $service): JsonResponse
     {
         $service = $this->ftthServiceManager->update($service, $request->validated());
 
-        return response()->json([
-            'message' => 'Service updated successfully.',
-            'data' => new ServiceResource($service),
-        ]);
+        return $this->successResponse('Service updated successfully.', new ServiceResource($service));
     }
 
     public function destroy(Service $service): JsonResponse
     {
         $this->ftthServiceManager->delete($service);
 
-        return response()->json([
-            'message' => 'Service archived successfully.',
-        ]);
+        return $this->successResponse('Service archived successfully.');
     }
 }

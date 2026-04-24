@@ -41,67 +41,58 @@ class InvoiceController extends Controller
     {
         $invoices = $this->invoiceService->paginate($request->validated());
 
-        return InvoiceResource::collection($invoices)->additional([
-            'message' => 'Invoices retrieved successfully.',
-            'filters' => $request->validated(),
-        ]);
+        return $this->paginatedResponse(
+            $invoices,
+            InvoiceResource::class,
+            'Invoices retrieved successfully.',
+            ['filters' => $request->validated()],
+        );
     }
 
     public function store(StoreInvoiceRequest $request): JsonResponse
     {
         $invoice = $this->invoiceService->create($request->validated());
 
-        return response()->json([
-            'message' => 'Invoice created successfully.',
-            'data' => new InvoiceDetailResource($invoice),
-        ], 201);
+        return $this->createdResponse('Invoice created successfully.', new InvoiceDetailResource($invoice));
     }
 
     public function show(Invoice $invoice): JsonResponse
     {
-        return response()->json([
-            'message' => 'Invoice retrieved successfully.',
-            'data' => new InvoiceDetailResource($this->invoiceService->find($invoice)),
-        ]);
+        return $this->successResponse(
+            'Invoice retrieved successfully.',
+            new InvoiceDetailResource($this->invoiceService->find($invoice)),
+        );
     }
 
     public function update(UpdateInvoiceRequest $request, Invoice $invoice): JsonResponse
     {
         $invoice = $this->invoiceService->update($invoice, $request->validated());
 
-        return response()->json([
-            'message' => 'Invoice updated successfully.',
-            'data' => new InvoiceDetailResource($invoice),
-        ]);
+        return $this->successResponse('Invoice updated successfully.', new InvoiceDetailResource($invoice));
     }
 
     public function destroy(Invoice $invoice): JsonResponse
     {
         $this->invoiceService->delete($invoice);
 
-        return response()->json([
-            'message' => 'Invoice archived successfully.',
-        ]);
+        return $this->successResponse('Invoice archived successfully.');
     }
 
     public function manualGenerate(StoreInvoiceRequest $request): JsonResponse
     {
         $invoice = $this->invoiceService->create($request->validated());
 
-        return response()->json([
-            'message' => 'Manual invoice generated successfully.',
-            'data' => new InvoiceDetailResource($invoice),
-        ], 201);
+        return $this->createdResponse('Manual invoice generated successfully.', new InvoiceDetailResource($invoice));
     }
 
     public function generateMonthly(GenerateMonthlyInvoiceRequest $request): JsonResponse
     {
         $result = $this->invoiceService->generateMonthlyInvoices($request->validated());
 
-        return response()->json([
-            'message' => 'Monthly invoices generated successfully.',
-            'data' => InvoiceResource::collection(collect($result['generated']))->resolve(),
-            'meta' => [
+        return $this->successResponse(
+            'Monthly invoices generated successfully.',
+            InvoiceResource::collection(collect($result['generated'])),
+            [
                 'billing_period' => $result['billing_period'],
                 'invoice_date' => $result['invoice_date'],
                 'due_date' => $result['due_date'],
@@ -109,7 +100,7 @@ class InvoiceController extends Controller
                 'skipped_count' => $result['skipped_count'],
                 'skipped' => $result['skipped'],
             ],
-        ]);
+        );
     }
 
     public function overdue(IndexInvoiceRequest $request)
@@ -121,10 +112,12 @@ class InvoiceController extends Controller
 
         $invoices = $this->invoiceService->paginate($filters);
 
-        return InvoiceResource::collection($invoices)->additional([
-            'message' => 'Overdue invoices retrieved successfully.',
-            'filters' => $filters,
-        ]);
+        return $this->paginatedResponse(
+            $invoices,
+            InvoiceResource::class,
+            'Overdue invoices retrieved successfully.',
+            ['filters' => $filters],
+        );
     }
 
     public function paid(IndexInvoiceRequest $request)
@@ -146,51 +139,49 @@ class InvoiceController extends Controller
 
         $invoices = $this->invoiceService->paginate($filters);
 
-        return InvoiceResource::collection($invoices)->additional([
-            'message' => 'Unpaid invoices retrieved successfully.',
-            'filters' => $filters,
-        ]);
+        return $this->paginatedResponse(
+            $invoices,
+            InvoiceResource::class,
+            'Unpaid invoices retrieved successfully.',
+            ['filters' => $filters],
+        );
     }
 
     public function markOverdue(MarkInvoiceOverdueRequest $request, Invoice $invoice): JsonResponse
     {
         $invoice = $this->invoiceOverdueService->mark($invoice, $request->validated());
 
-        return response()->json([
-            'message' => 'Invoice marked as overdue successfully.',
-            'data' => new InvoiceDetailResource($this->invoiceService->find($invoice)),
-        ]);
+        return $this->successResponse(
+            'Invoice marked as overdue successfully.',
+            new InvoiceDetailResource($this->invoiceService->find($invoice)),
+        );
     }
 
     public function markPaid(MarkInvoicePaidRequest $request, Invoice $invoice): JsonResponse
     {
         $payment = $this->paymentService->settleInvoice($invoice, $request->validated());
 
-        return response()->json([
-            'message' => 'Invoice marked as paid successfully.',
-            'data' => new InvoiceDetailResource($this->invoiceService->find($invoice)),
+        return $this->successResponse('Invoice marked as paid successfully.', [
+            'invoice' => new InvoiceDetailResource($this->invoiceService->find($invoice)),
             'payment' => new PaymentResource($payment),
         ]);
     }
 
     public function bulkAction(BulkInvoiceActionRequest $request): JsonResponse
     {
-        return response()->json([
-            'message' => 'Bulk invoice action processed successfully.',
-            'data' => $this->invoiceBulkActionService->handle($request->validated()),
-        ]);
+        return $this->successResponse(
+            'Bulk invoice action processed successfully.',
+            $this->invoiceBulkActionService->handle($request->validated()),
+        );
     }
 
     public function sendWhatsapp(SendInvoiceWhatsappRequest $request, Invoice $invoice): JsonResponse
     {
         $dispatch = $this->invoiceWhatsappService->send($invoice, $request->validated());
 
-        return response()->json([
-            'message' => 'Invoice WhatsApp dispatch queued successfully.',
-            'data' => [
-                'invoice' => new InvoiceDetailResource($this->invoiceService->find($invoice)),
-                'dispatch' => $dispatch,
-            ],
+        return $this->successResponse('Invoice WhatsApp dispatch queued successfully.', [
+            'invoice' => new InvoiceDetailResource($this->invoiceService->find($invoice)),
+            'dispatch' => $dispatch,
         ]);
     }
 
@@ -209,13 +200,10 @@ class InvoiceController extends Controller
             chunkSize: (int) ($payload['chunk'] ?? config('automation.billing.service_isolation.chunk', 100)),
         );
 
-        return response()->json([
-            'message' => 'Invoice auto suspend trigger processed successfully.',
-            'data' => $summary,
-        ]);
+        return $this->successResponse('Invoice auto suspend trigger processed successfully.', $summary);
     }
 
-    private function statusListing(IndexInvoiceRequest $request, string $status, string $message)
+    private function statusListing(IndexInvoiceRequest $request, string $status, string $message): JsonResponse
     {
         $filters = [
             ...$request->validated(),
@@ -224,9 +212,11 @@ class InvoiceController extends Controller
 
         $invoices = $this->invoiceService->paginate($filters);
 
-        return InvoiceResource::collection($invoices)->additional([
-            'message' => $message,
-            'filters' => $filters,
-        ]);
+        return $this->paginatedResponse(
+            $invoices,
+            InvoiceResource::class,
+            $message,
+            ['filters' => $filters],
+        );
     }
 }

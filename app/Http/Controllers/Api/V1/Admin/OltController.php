@@ -37,46 +37,43 @@ class OltController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
-        return OltResource::collection($olts)->additional([
-            'message' => 'OLTs retrieved successfully.',
-            'filters' => $filters,
-        ]);
+        return $this->paginatedResponse(
+            $olts,
+            OltResource::class,
+            'OLTs retrieved successfully.',
+            ['filters' => $filters],
+        );
     }
 
     public function store(StoreOltRequest $request): JsonResponse
     {
         $olt = Olt::query()->create($request->validated());
 
-        return response()->json([
-            'message' => 'OLT created successfully.',
-            'data' => new OltResource($olt->load('location')),
-        ], 201);
+        return $this->createdResponse('OLT created successfully.', new OltResource($olt->load('location')));
     }
 
     public function show(Olt $olt): JsonResponse
     {
-        return response()->json([
-            'message' => 'OLT retrieved successfully.',
-            'data' => new OltResource($olt->load(['onts', 'location'])),
-        ]);
+        return $this->successResponse(
+            'OLT retrieved successfully.',
+            new OltResource($olt->load(['onts', 'location'])),
+        );
     }
 
     public function update(UpdateOltRequest $request, Olt $olt): JsonResponse
     {
         $olt->update($request->validated());
 
-        return response()->json([
-            'message' => 'OLT updated successfully.',
-            'data' => new OltResource($olt->refresh()->load(['onts', 'location'])),
-        ]);
+        return $this->successResponse(
+            'OLT updated successfully.',
+            new OltResource($olt->refresh()->load(['onts', 'location'])),
+        );
     }
 
     public function destroy(Olt $olt): JsonResponse
     {
         $olt->delete();
 
-        return response()->json([
-            'message' => 'OLT deleted successfully.',
-        ]);
+        return $this->successResponse('OLT deleted successfully.');
     }
 }

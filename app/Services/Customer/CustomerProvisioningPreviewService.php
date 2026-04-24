@@ -4,9 +4,12 @@ namespace App\Services\Customer;
 
 use App\Models\Service;
 use App\Models\Vid;
+use App\Services\Access\RoleRouterScopeService;
 
 class CustomerProvisioningPreviewService
 {
+    public function __construct(private readonly RoleRouterScopeService $roleRouterScopeService) {}
+
     public function preview(array $payload): array
     {
         $source = $this->resolveSource($payload);
@@ -67,6 +70,8 @@ class CustomerProvisioningPreviewService
                 ])
                 ->findOrFail((int) $payload['service_id']);
 
+            $this->roleRouterScopeService->ensureModelAccessibleForInput($service, 'service_id');
+
             return [
                 'source' => 'service',
                 'service_id' => $service->id,
@@ -93,6 +98,8 @@ class CustomerProvisioningPreviewService
                 ])
                 ->findOrFail((int) $payload['vid_id']);
 
+            $this->roleRouterScopeService->ensureModelAccessibleForInput($vid, 'vid_id');
+
             return [
                 'source' => 'vid',
                 'service_id' => null,
@@ -104,6 +111,10 @@ class CustomerProvisioningPreviewService
                 'dhcp_pool_start' => $vid->pool_start_ip,
                 'dhcp_pool_end' => $vid->pool_end_ip,
             ];
+        }
+
+        if (($payload['router_id'] ?? null) !== null) {
+            $this->roleRouterScopeService->ensureRouterAccessible((int) $payload['router_id']);
         }
 
         return [

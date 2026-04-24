@@ -108,7 +108,7 @@ class Customer extends Model
     public function latestActiveService(): HasOne
     {
         return $this->hasOne(Service::class)
-            ->ofMany('id', 'max', function (Builder $query): void {
+            ->ofMany(['id' => 'max'], function (Builder $query): void {
                 $query
                     ->active();
             });

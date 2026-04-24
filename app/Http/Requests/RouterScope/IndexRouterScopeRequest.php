@@ -2,15 +2,10 @@
 
 namespace App\Http\Requests\RouterScope;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AdminPanelRequest;
 
-class IndexRouterScopeRequest extends FormRequest
+class IndexRouterScopeRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $isSpecial = $this->input('is_special');

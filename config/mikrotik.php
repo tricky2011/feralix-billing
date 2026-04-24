@@ -12,6 +12,10 @@ return [
         'channel' => env('MIKROTIK_LOG_CHANNEL', env('AUTOMATION_LOG_CHANNEL', env('LOG_CHANNEL', 'stack'))),
     ],
 
+    'isolation' => [
+        'address_list_name' => env('MIKROTIK_ISOLATION_ADDRESS_LIST_NAME', 'ISOLIR_CUSTOMER'),
+    ],
+
     'providers' => [
         'fake' => [
             'driver' => FakeMikrotikVidInventoryProvider::class,

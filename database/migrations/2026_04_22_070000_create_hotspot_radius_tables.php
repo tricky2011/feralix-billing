@@ -68,8 +68,8 @@ return new class extends Migration
             $table->index('occurred_at');
             $table->index('reason_code');
             $table->index('username');
-            $table->index(['hotspot_voucher_id', 'occurred_at']);
-            $table->index(['hotspot_voucher_session_id', 'occurred_at']);
+            $table->index(['hotspot_voucher_id', 'occurred_at'], 'hre_voucher_occurred_idx');
+            $table->index(['hotspot_voucher_session_id', 'occurred_at'], 'hre_session_occurred_idx');
         });
     }
 

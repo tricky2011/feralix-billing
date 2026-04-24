@@ -4,21 +4,16 @@ namespace App\Http\Requests\WorkOrder;
 
 use App\Enums\WorkOrderStatus;
 use App\Enums\WorkOrderType;
+use App\Http\Requests\AdminPanelRequest;
 use App\Models\Ont;
 use App\Models\Service;
 use App\Models\WorkOrder;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
-abstract class WorkOrderPayloadRequest extends FormRequest
+abstract class WorkOrderPayloadRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $this->merge([

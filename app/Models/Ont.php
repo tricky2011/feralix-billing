@@ -14,6 +14,10 @@ class Ont extends Model
     /** @use HasFactory<Factory> */
     use HasFactory;
 
+    protected $hidden = [
+        'wifi_password',
+    ];
+
     protected $fillable = [
         'olt_id',
         'ont_sn',

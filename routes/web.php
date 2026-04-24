@@ -3,5 +3,25 @@
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('admin.login');
 });
+
+Route::view('/login', 'auth.login')->name('admin.login');
+
+Route::redirect('/admin', '/admin/dashboard')->name('admin.home');
+
+Route::get('/admin/{page}', function (string $page) {
+    abort_unless(in_array($page, [
+        'dashboard',
+        'customers',
+        'services',
+        'billing',
+        'isolations',
+        'network',
+        'tickets',
+        'work-orders',
+        'hotspot',
+    ], true), 404);
+
+    return view('admin.index', ['page' => $page]);
+})->name('admin.panel');

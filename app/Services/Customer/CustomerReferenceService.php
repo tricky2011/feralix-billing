@@ -9,12 +9,19 @@ use App\Models\Package;
 use App\Models\Router;
 use App\Models\Technician;
 use App\Models\Vid;
+use App\Services\Access\RoleRouterScopeService;
 
 class CustomerReferenceService
 {
+    public function __construct(private readonly RoleRouterScopeService $roleRouterScopeService) {}
+
     public function get(array $filters = []): array
     {
         $onlyActive = (bool) ($filters['only_active'] ?? true);
+
+        if (($filters['router_id'] ?? null) !== null) {
+            $this->roleRouterScopeService->ensureRouterAccessible((int) $filters['router_id']);
+        }
 
         return [
             'locations' => Location::query()
@@ -50,8 +57,11 @@ class CustomerReferenceService
                     ];
                 })
                 ->all(),
-            'routers' => Router::query()
-                ->when($onlyActive, fn ($query) => $query->where('is_active', true))
+            'routers' => tap(
+                Router::query()
+                    ->when($onlyActive, fn ($query) => $query->where('is_active', true)),
+                fn ($query) => $this->roleRouterScopeService->applyRouterScope($query, 'id')
+            )
                 ->orderBy('router_name')
                 ->get(['id', 'router_code', 'router_name', 'router_role', 'is_active'])
                 ->map(static fn (Router $router): array => [
@@ -86,10 +96,13 @@ class CustomerReferenceService
                     'is_active' => (bool) $technician->is_active,
                 ])
                 ->all(),
-            'available_vids' => Vid::query()
-                ->with(['router:id,router_code,router_name', 'routerScope:id,router_id,scope_name,monitor_vid'])
-                ->where('status', VidStatus::Available->value)
-                ->when($filters['router_id'] ?? null, fn ($query, $routerId) => $query->where('router_id', $routerId))
+            'available_vids' => tap(
+                Vid::query()
+                    ->with(['router:id,router_code,router_name', 'routerScope:id,router_id,scope_name,monitor_vid'])
+                    ->where('status', VidStatus::Available->value)
+                    ->when($filters['router_id'] ?? null, fn ($query, $routerId) => $query->where('router_id', $routerId)),
+                fn ($query) => $this->roleRouterScopeService->applyRouterScope($query, 'router_id')
+            )
                 ->orderBy('vid')
                 ->limit(200)
                 ->get([

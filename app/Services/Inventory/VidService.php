@@ -4,6 +4,7 @@ namespace App\Services\Inventory;
 
 use App\Enums\VidStatus;
 use App\Models\Vid;
+use App\Services\Access\RoleRouterScopeService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class VidService
@@ -14,11 +15,17 @@ class VidService
         'customer:id,customer_code,full_name',
     ];
 
+    public function __construct(private readonly RoleRouterScopeService $roleRouterScopeService) {}
+
     public function paginate(array $filters): LengthAwarePaginator
     {
         $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 100));
 
-        return Vid::query()
+        if (($filters['router_id'] ?? null) !== null) {
+            $this->roleRouterScopeService->ensureRouterAccessible((int) $filters['router_id']);
+        }
+
+        $query = Vid::query()
             ->with(self::RELATIONS)
             ->search($filters['search'] ?? null)
             ->when(
@@ -32,7 +39,11 @@ class VidService
             ->when(
                 $filters['vid_type'] ?? null,
                 fn ($query, $vidType) => $query->where('vid_type', $vidType)
-            )
+            );
+
+        $this->roleRouterScopeService->applyRouterScope($query, 'router_id');
+
+        return $query
             ->orderBy('router_id')
             ->orderBy('vid')
             ->paginate($perPage)
@@ -41,6 +52,12 @@ class VidService
 
     public function create(array $payload): Vid
     {
+        $this->roleRouterScopeService->ensureRouterAccessible((int) $payload['router_id']);
+
+        if (($payload['scope_id'] ?? null) !== null) {
+            $this->roleRouterScopeService->findAccessibleRouterScope((int) $payload['scope_id']);
+        }
+
         $vid = Vid::query()->create($this->normalizePayloadForPersistence([
             ...$payload,
             'pool_ip_count' => $payload['pool_ip_count'] ?? 5,
@@ -53,6 +70,12 @@ class VidService
 
     public function update(Vid $vid, array $payload): Vid
     {
+        $this->roleRouterScopeService->ensureRouterAccessible((int) $payload['router_id']);
+
+        if (($payload['scope_id'] ?? null) !== null) {
+            $this->roleRouterScopeService->findAccessibleRouterScope((int) $payload['scope_id']);
+        }
+
         $vid->update($this->normalizePayloadForPersistence([
             ...$payload,
             'pool_ip_count' => $payload['pool_ip_count'] ?? $vid->pool_ip_count,

@@ -5,6 +5,7 @@ namespace App\Services\Billing;
 use App\Enums\ServiceOverallStatus;
 use App\Models\Invoice;
 use App\Models\Service;
+use App\Services\Access\RoleRouterScopeService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 
@@ -16,7 +17,10 @@ class MonthlyInvoiceGenerationService
         'service.package:id,package_name,monthly_price',
     ];
 
-    public function __construct(private readonly ManualInvoiceService $manualInvoiceService) {}
+    public function __construct(
+        private readonly ManualInvoiceService $manualInvoiceService,
+        private readonly RoleRouterScopeService $roleRouterScopeService,
+    ) {}
 
     public function generate(array $payload): array
     {
@@ -82,7 +86,11 @@ class MonthlyInvoiceGenerationService
     {
         $periodEnd = $period->copy()->endOfMonth()->toDateString();
 
-        return Service::query()
+        if (($filters['router_id'] ?? null) !== null) {
+            $this->roleRouterScopeService->ensureRouterAccessible((int) $filters['router_id']);
+        }
+
+        $query = Service::query()
             ->with([
                 'customer:id,customer_code,full_name',
                 'package:id,package_name,monthly_price',
@@ -111,5 +119,9 @@ class MonthlyInvoiceGenerationService
                     ->orWhereDate('activation_date', '<=', $periodEnd);
             })
             ->orderBy('service_code');
+
+        $this->roleRouterScopeService->applyRouterScope($query, 'router_id');
+
+        return $query;
     }
 }

@@ -11,6 +11,8 @@ use App\Enums\TicketStatus;
 use App\Jobs\SendTicketCreatedTelegramNotificationJob;
 use App\Models\Customer;
 use App\Models\Technician;
+use App\Models\Ticket;
+use App\Models\TicketReply;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Queue;
@@ -146,6 +148,86 @@ class TicketControllerTest extends TestCase
             'assigned_technician_id' => null,
             'status' => TicketStatus::Open->value,
         ]);
+    }
+
+    public function test_it_updates_ticket_status_and_queues_telegram_notification(): void
+    {
+        Queue::fake();
+
+        $customer = $this->createCustomer();
+        $ticket = Ticket::query()->create([
+            'customer_id' => $customer->id,
+            'ticket_number' => 'TCK-STATUS-001',
+            'category' => 'network',
+            'priority' => TicketPriority::High->value,
+            'description' => 'Ticket perlu update status.',
+            'assignment_mode' => TicketAssignmentMode::Auto->value,
+            'status' => TicketStatus::Open->value,
+        ]);
+
+        $response = $this->patchJson("/api/v1/admin/tickets/{$ticket->id}/status", [
+            'status' => 'done',
+            'notes' => 'Sudah normal.',
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.id', $ticket->id)
+            ->assertJsonPath('data.status', TicketStatus::Resolved->value);
+
+        $this->assertDatabaseHas('tickets', [
+            'id' => $ticket->id,
+            'status' => TicketStatus::Resolved->value,
+        ]);
+
+        $this->assertDatabaseHas('telegram_logs', [
+            'ticket_id' => $ticket->id,
+            'status' => TelegramLogStatus::Queued->value,
+        ]);
+
+        Queue::assertPushed(SendTicketCreatedTelegramNotificationJob::class, 1);
+    }
+
+    public function test_it_creates_ticket_reply(): void
+    {
+        Queue::fake();
+
+        $customer = $this->createCustomer();
+        $ticket = Ticket::query()->create([
+            'customer_id' => $customer->id,
+            'ticket_number' => 'TCK-REPLY-001',
+            'category' => 'network',
+            'priority' => TicketPriority::Medium->value,
+            'description' => 'Ticket perlu reply.',
+            'assignment_mode' => TicketAssignmentMode::Auto->value,
+            'status' => TicketStatus::Open->value,
+        ]);
+
+        $response = $this->postJson("/api/v1/admin/tickets/{$ticket->id}/replies", [
+            'body' => 'Teknisi sedang menuju lokasi.',
+        ]);
+
+        $replyId = $response->json('data.id');
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.ticket_id', $ticket->id)
+            ->assertJsonPath('data.body', 'Teknisi sedang menuju lokasi.')
+            ->assertJsonPath('data.user_id', auth()->id());
+
+        $this->assertDatabaseHas('ticket_replies', [
+            'id' => $replyId,
+            'ticket_id' => $ticket->id,
+            'body' => 'Teknisi sedang menuju lokasi.',
+        ]);
+
+        $this->assertDatabaseHas('telegram_logs', [
+            'ticket_id' => $ticket->id,
+            'status' => TelegramLogStatus::Queued->value,
+        ]);
+
+        $this->assertSame(1, TicketReply::query()->where('ticket_id', $ticket->id)->count());
+        Queue::assertPushed(SendTicketCreatedTelegramNotificationJob::class, 1);
     }
 
     private function createCustomer(string $customerCode = 'CUST-TICKET-001'): Customer

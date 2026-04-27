@@ -1053,6 +1053,22 @@ export function adminPanel({ page }) {
             saving: false,
             result: null,
         },
+        manualIsolir: {
+            router_id: '',
+            isolir: {
+                search: '',
+                loading: false,
+                options: [],
+                user_id: '',
+            },
+            release: {
+                search: '',
+                loading: false,
+                options: [],
+                user_id: '',
+            },
+            result: null,
+        },
         ticketStatusOptions: select(['open', 'in_progress', 'resolved', 'closed']),
 
         async init() {
@@ -1276,6 +1292,52 @@ export function adminPanel({ page }) {
 
         currentDescription() {
             return this.currentConfig().description ?? 'Kelola data operasional ISP dari API v1.';
+        },
+
+        activeManualRouters() {
+            const routers = this.references.routers ?? [];
+
+            return routers.filter((router) => router.is_active !== false);
+        },
+
+        manualRouterLabel(router) {
+            return `${router.router_code ?? router.id} - ${router.router_name ?? '-'}`;
+        },
+
+        manualSuggestionLabel(item) {
+            const target = item.target_identifier ?? item.target_subnet ?? '-';
+            const openInfo = item.open_isolation?.id
+                ? ` | Open isolation #${item.open_isolation.id}`
+                : '';
+
+            return `${item.service_code ?? '#'} | ${item.customer_name ?? '-'} | ${item.target_type ?? '-'}: ${target}${openInfo}`;
+        },
+
+        onManualRouterChanged() {
+            this.manualIsolir.isolir.options = [];
+            this.manualIsolir.isolir.user_id = '';
+            this.manualIsolir.release.options = [];
+            this.manualIsolir.release.user_id = '';
+            this.manualIsolir.result = null;
+        },
+
+        canRunManualOperation(mode) {
+            const operation = this.manualIsolir?.[mode];
+
+            return Boolean(
+                Number(this.manualIsolir.router_id) > 0 &&
+                operation?.user_id &&
+                !operation?.loading,
+            );
+        },
+
+        setManualOperationResult(result) {
+            this.manualIsolir.result = {
+                success: Boolean(result?.success),
+                message: result?.message ?? 'Operation finished.',
+                data: result?.data ?? {},
+                at: new Date().toISOString(),
+            };
         },
 
         isPlaceholderCurrent() {
@@ -1881,6 +1943,137 @@ export function adminPanel({ page }) {
                 data: result?.data ?? {},
                 at: new Date().toISOString(),
             };
+        },
+
+        async searchManualUsers(mode) {
+            const routerId = Number(this.manualIsolir.router_id);
+            const operation = this.manualIsolir?.[mode];
+
+            if (!routerId || !operation) {
+                this.setManualOperationResult({
+                    success: false,
+                    message: 'Pilih router terlebih dahulu sebelum mencari user.',
+                    data: {},
+                });
+                return;
+            }
+
+            const search = String(operation.search ?? '').trim();
+            if (search === '') {
+                operation.options = [];
+                operation.user_id = '';
+                return;
+            }
+
+            operation.loading = true;
+
+            try {
+                const response = await api.get('/api/v1/admin/service-isolations/suggestions', {
+                    router_id: routerId,
+                    search,
+                    limit: 30,
+                });
+
+                const suggestions = Array.isArray(response.data) ? response.data : [];
+                const filteredSuggestions = mode === 'release'
+                    ? suggestions.filter((item) => item.open_isolation?.id)
+                    : suggestions;
+
+                operation.options = filteredSuggestions.map((item) => ({
+                    ...item,
+                    label: this.manualSuggestionLabel(item),
+                }));
+                operation.user_id = operation.options[0]?.service_id ?? '';
+
+                if (operation.options.length === 0) {
+                    this.setManualOperationResult({
+                        success: false,
+                        message: mode === 'release'
+                            ? 'User dengan isolir aktif tidak ditemukan untuk router ini.'
+                            : 'User tidak ditemukan untuk router ini.',
+                        data: {
+                            router_id: routerId,
+                            search,
+                        },
+                    });
+                }
+            } catch (error) {
+                this.setManualOperationResult({
+                    success: false,
+                    message: error.message || 'Pencarian user gagal.',
+                    data: {
+                        errors: error.errors ?? {},
+                    },
+                });
+            } finally {
+                operation.loading = false;
+            }
+        },
+
+        async runManualIsolir() {
+            if (!this.canRunManualOperation('isolir')) {
+                return;
+            }
+
+            const payload = {
+                router_id: Number(this.manualIsolir.router_id),
+                user_id: this.manualIsolir.isolir.user_id,
+            };
+
+            this.manualIsolir.isolir.loading = true;
+
+            try {
+                const response = await api.post('/api/v1/admin/isolir/manual', payload);
+                this.setManualOperationResult(response);
+                this.toast('success', 'Isolir dikirim', response.message);
+                await this.loadPage();
+                await this.searchManualUsers('release');
+            } catch (error) {
+                this.setManualOperationResult({
+                    success: false,
+                    message: error.message || 'Manual isolir gagal diproses.',
+                    data: {
+                        payload,
+                        errors: error.errors ?? {},
+                    },
+                });
+                this.toast('error', 'Isolir gagal', error.message);
+            } finally {
+                this.manualIsolir.isolir.loading = false;
+            }
+        },
+
+        async runManualRelease() {
+            if (!this.canRunManualOperation('release')) {
+                return;
+            }
+
+            const payload = {
+                router_id: Number(this.manualIsolir.router_id),
+                user_id: this.manualIsolir.release.user_id,
+            };
+
+            this.manualIsolir.release.loading = true;
+
+            try {
+                const response = await api.post('/api/v1/admin/isolir/release', payload);
+                this.setManualOperationResult(response);
+                this.toast('success', 'Release dikirim', response.message);
+                await this.loadPage();
+                await this.searchManualUsers('release');
+            } catch (error) {
+                this.setManualOperationResult({
+                    success: false,
+                    message: error.message || 'Manual release gagal diproses.',
+                    data: {
+                        payload,
+                        errors: error.errors ?? {},
+                    },
+                });
+                this.toast('error', 'Release gagal', error.message);
+            } finally {
+                this.manualIsolir.release.loading = false;
+            }
         },
 
         isolateService(row) {

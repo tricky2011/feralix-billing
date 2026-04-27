@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Admin\HotspotProfileController;
 use App\Http\Controllers\Api\V1\Admin\HotspotVoucherController;
 use App\Http\Controllers\Api\V1\Admin\InvoiceController;
 use App\Http\Controllers\Api\V1\Admin\LocationController;
+use App\Http\Controllers\Api\V1\Admin\ManualIsolirController;
 use App\Http\Controllers\Api\V1\Admin\OltController;
 use App\Http\Controllers\Api\V1\Admin\OntController;
 use App\Http\Controllers\Api\V1\Admin\PackageController;
@@ -106,6 +107,8 @@ Route::prefix('v1/admin')
             Route::post('service-isolations', [ServiceIsolationController::class, 'store']);
             Route::patch('service-isolations/{serviceIsolation}/applied', [ServiceIsolationController::class, 'markApplied']);
             Route::patch('service-isolations/{serviceIsolation}/release', [ServiceIsolationController::class, 'release']);
+            Route::post('isolir/manual', [ManualIsolirController::class, 'isolir']);
+            Route::post('isolir/release', [ManualIsolirController::class, 'release']);
             Route::post('invoices/manual-generate', [InvoiceController::class, 'manualGenerate']);
             Route::post('invoices/generate-monthly', [InvoiceController::class, 'generateMonthly']);
             Route::post('invoices/bulk-action', [InvoiceController::class, 'bulkAction']);

@@ -134,6 +134,131 @@
         </div>
     </section>
 
+    <section x-show="page === 'isolations' && !isPlaceholderCurrent()" x-cloak class="space-y-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+        <label class="block">
+            <span class="text-sm font-bold text-slate-700 dark:text-slate-200">Pilih Router (Wajib)</span>
+            <select
+                class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                x-model="manualIsolir.router_id"
+                @change="onManualRouterChanged()"
+            >
+                <option value="">Pilih router aktif...</option>
+                <template x-for="router in activeManualRouters()" :key="router.id">
+                    <option :value="router.id" x-text="manualRouterLabel(router)"></option>
+                </template>
+            </select>
+        </label>
+
+        <div x-show="!manualIsolir.router_id" class="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+            Pilih router terlebih dahulu untuk menjalankan isolir/release manual.
+        </div>
+
+        <div class="grid gap-4 lg:grid-cols-2">
+            <section class="rounded-2xl border border-red-200 bg-red-50/70 p-4 dark:border-red-400/20 dark:bg-red-500/10">
+                <h3 class="text-lg font-black text-red-800 dark:text-red-200">Manual Isolir User</h3>
+                <p class="mt-1 text-xs text-red-700/80 dark:text-red-200/80">Cari user PPPoE atau static lalu jalankan isolir.</p>
+
+                <div class="mt-4 flex gap-2">
+                    <input
+                        class="w-full rounded-xl border border-red-200 bg-white px-3 py-2 text-sm outline-none focus:border-red-300 focus:ring-4 focus:ring-red-100 dark:border-red-400/20 dark:bg-white/[0.06] dark:text-slate-100 dark:focus:ring-red-500/20"
+                        type="search"
+                        placeholder="Search user (id / username / static ip)"
+                        x-model="manualIsolir.isolir.search"
+                        @keyup.enter.prevent="searchManualUsers('isolir')"
+                    >
+                    <button
+                        type="button"
+                        class="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-bold text-red-700 disabled:opacity-50 dark:border-red-400/30 dark:bg-transparent dark:text-red-200"
+                        :disabled="!manualIsolir.router_id || manualIsolir.isolir.loading"
+                        @click="searchManualUsers('isolir')"
+                    >
+                        Cari
+                    </button>
+                </div>
+
+                <label class="mt-3 block">
+                    <span class="text-xs font-semibold uppercase tracking-wide text-red-700 dark:text-red-200">User</span>
+                    <select
+                        class="mt-2 w-full rounded-xl border border-red-200 bg-white px-3 py-2 text-sm outline-none focus:border-red-300 focus:ring-4 focus:ring-red-100 dark:border-red-400/20 dark:bg-white/[0.06] dark:text-slate-100 dark:focus:ring-red-500/20"
+                        x-model="manualIsolir.isolir.user_id"
+                    >
+                        <option value="">Pilih user...</option>
+                        <template x-for="item in manualIsolir.isolir.options" :key="item.service_id">
+                            <option :value="item.service_id" x-text="item.label"></option>
+                        </template>
+                    </select>
+                </label>
+
+                <button
+                    type="button"
+                    class="mt-4 w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    :disabled="!canRunManualOperation('isolir')"
+                    @click="runManualIsolir"
+                >
+                    Isolir User
+                </button>
+            </section>
+
+            <section class="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-400/20 dark:bg-emerald-500/10">
+                <h3 class="text-lg font-black text-emerald-800 dark:text-emerald-200">Manual Release User</h3>
+                <p class="mt-1 text-xs text-emerald-700/80 dark:text-emerald-200/80">Cari user dengan isolir aktif lalu release.</p>
+
+                <div class="mt-4 flex gap-2">
+                    <input
+                        class="w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 dark:border-emerald-400/20 dark:bg-white/[0.06] dark:text-slate-100 dark:focus:ring-emerald-500/20"
+                        type="search"
+                        placeholder="Search user (id / username / static ip)"
+                        x-model="manualIsolir.release.search"
+                        @keyup.enter.prevent="searchManualUsers('release')"
+                    >
+                    <button
+                        type="button"
+                        class="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-bold text-emerald-700 disabled:opacity-50 dark:border-emerald-400/30 dark:bg-transparent dark:text-emerald-200"
+                        :disabled="!manualIsolir.router_id || manualIsolir.release.loading"
+                        @click="searchManualUsers('release')"
+                    >
+                        Cari
+                    </button>
+                </div>
+
+                <label class="mt-3 block">
+                    <span class="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-200">User</span>
+                    <select
+                        class="mt-2 w-full rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 dark:border-emerald-400/20 dark:bg-white/[0.06] dark:text-slate-100 dark:focus:ring-emerald-500/20"
+                        x-model="manualIsolir.release.user_id"
+                    >
+                        <option value="">Pilih user...</option>
+                        <template x-for="item in manualIsolir.release.options" :key="item.service_id">
+                            <option :value="item.service_id" x-text="item.label"></option>
+                        </template>
+                    </select>
+                </label>
+
+                <button
+                    type="button"
+                    class="mt-4 w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    :disabled="!canRunManualOperation('release')"
+                    @click="runManualRelease"
+                >
+                    Release User
+                </button>
+            </section>
+        </div>
+
+        <section class="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+            <h3 class="text-sm font-black uppercase tracking-[0.18em] text-slate-700 dark:text-slate-300">Operation Result</h3>
+
+            <div x-show="manualIsolir.result" x-cloak class="mt-3 rounded-2xl border px-4 py-3" :class="manualIsolir.result?.success ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200' : 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-200'">
+                <p class="text-sm font-black" x-text="manualIsolir.result?.success ? 'success' : 'error'"></p>
+                <p class="mt-1 text-sm font-semibold" x-text="manualIsolir.result?.message ?? '-'"></p>
+                <p class="mt-1 text-xs" x-text="manualIsolir.result?.at ? `Updated: ${formatValue(manualIsolir.result.at)}` : ''"></p>
+                <pre class="mt-3 overflow-auto rounded-xl bg-white/70 p-3 text-xs text-slate-700 dark:bg-[#07111f]/70 dark:text-slate-200" x-text="JSON.stringify(manualIsolir.result?.data ?? {}, null, 2)"></pre>
+            </div>
+
+            <p x-show="!manualIsolir.result" class="mt-3 text-sm text-slate-500 dark:text-slate-400">Belum ada operasi dijalankan.</p>
+        </section>
+    </section>
+
     <section x-show="isPlaceholderCurrent()" x-cloak class="overflow-hidden rounded-[2rem] border border-dashed border-blue-300 bg-white shadow-sm shadow-slate-950/5 dark:border-blue-400/30 dark:bg-white/[0.04]">
         <div class="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
             <div class="p-6 sm:p-8">

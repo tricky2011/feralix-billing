@@ -6,12 +6,12 @@
     <div
         x-data="adminPanel({ page: @js($page ?? 'dashboard') })"
         x-init="init()"
-        class="min-h-screen bg-[linear-gradient(135deg,#f4efe4_0%,#eef4eb_48%,#f7e2c8_100%)]"
+        class="min-h-screen bg-[#F8FAFC] text-slate-950 transition-colors duration-300 dark:bg-[#07111f] dark:text-slate-100"
     >
         <div class="flex min-h-screen">
             <x-sidebar />
 
-            <div class="min-w-0 flex-1 lg:pl-72">
+            <div class="min-w-0 flex-1 lg:pl-80">
                 <x-topbar />
 
                 <main class="px-4 pb-10 pt-24 sm:px-6 lg:px-8">

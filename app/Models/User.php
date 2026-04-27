@@ -78,6 +78,18 @@ class User extends Authenticatable
             ->orderBy('router_name');
     }
 
+    public function routers(): BelongsToMany
+    {
+        return $this->belongsToMany(Router::class, 'user_router')
+            ->withTimestamps()
+            ->orderBy('router_name');
+    }
+
+    public function activityLogs(): HasMany
+    {
+        return $this->hasMany(ActivityLog::class);
+    }
+
     public function paymentsCreated(): HasMany
     {
         return $this->hasMany(Payment::class, 'created_by');
@@ -106,5 +118,10 @@ class User extends Authenticatable
     public function isTechnician(): bool
     {
         return $this->role === UserRole::Technician;
+    }
+
+    public function isReseller(): bool
+    {
+        return $this->role === UserRole::Reseller;
     }
 }

@@ -7,7 +7,6 @@ use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
-use Laravel\Sanctum\NewAccessToken;
 
 class ApiTokenAuthService
 {
@@ -38,6 +37,12 @@ class ApiTokenAuthService
         if (! $user instanceof User || ! $passwordMatches) {
             throw ValidationException::withMessages([
                 'username' => ['The provided credentials are incorrect.'],
+            ]);
+        }
+
+        if (! $user->is_active) {
+            throw ValidationException::withMessages([
+                'username' => ['This user account is inactive.'],
             ]);
         }
 
@@ -87,6 +92,7 @@ class ApiTokenAuthService
             'username' => $user->username,
             'email' => $user->email,
             'role' => $user->role?->value,
+            'is_active' => (bool) $user->is_active,
             'technician_id' => $user->technician_id,
             'technician' => $user->technician !== null
                 ? [
@@ -115,6 +121,7 @@ class ApiTokenAuthService
             UserRole::Superadmin => ['panel:admin', 'role:superadmin'],
             UserRole::Admin => ['panel:admin', 'role:admin'],
             UserRole::Technician => ['panel:technician', 'role:technician'],
+            UserRole::Reseller => ['panel:reseller', 'role:reseller'],
         };
     }
 

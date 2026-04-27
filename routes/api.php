@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Admin\ActivityLogController;
 use App\Http\Controllers\Api\V1\Admin\CustomerController;
 use App\Http\Controllers\Api\V1\Admin\CustomerReferenceController;
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
@@ -16,7 +17,11 @@ use App\Http\Controllers\Api\V1\Admin\RouterController;
 use App\Http\Controllers\Api\V1\Admin\RouterScopeController;
 use App\Http\Controllers\Api\V1\Admin\ServiceController;
 use App\Http\Controllers\Api\V1\Admin\ServiceIsolationController;
+use App\Http\Controllers\Api\V1\Admin\Settings\DatabaseSettingController;
+use App\Http\Controllers\Api\V1\Admin\Settings\TelegramBotController;
+use App\Http\Controllers\Api\V1\Admin\Settings\TelegramGroupController;
 use App\Http\Controllers\Api\V1\Admin\TicketController;
+use App\Http\Controllers\Api\V1\Admin\UserController;
 use App\Http\Controllers\Api\V1\Admin\VidController;
 use App\Http\Controllers\Api\V1\Admin\VoucherBatchController;
 use App\Http\Controllers\Api\V1\Admin\WorkOrderController;
@@ -42,6 +47,25 @@ Route::prefix('v1/admin')
             ->middleware('panel.role:superadmin,admin');
 
         Route::middleware(['panel.role:superadmin,admin', 'router.scope.bindings'])->group(function (): void {
+            Route::patch('users/{user}/disable', [UserController::class, 'disable'])->middleware('role:superadmin,admin');
+            Route::patch('users/{user}/enable', [UserController::class, 'enable'])->middleware('role:superadmin,admin');
+            Route::patch('users/{user}/reset-password', [UserController::class, 'resetPassword'])->middleware('role:superadmin,admin');
+            Route::apiResource('users', UserController::class)->middleware('role:superadmin,admin');
+            Route::apiResource('activity-logs', ActivityLogController::class)
+                ->only(['index', 'show'])
+                ->middleware('role:superadmin,admin');
+            Route::post('telegram-bots/{telegramBot}/test', [TelegramBotController::class, 'test'])->middleware('role:superadmin,admin');
+            Route::apiResource('telegram-bots', TelegramBotController::class)
+                ->parameters(['telegram-bots' => 'telegramBot'])
+                ->middleware('role:superadmin,admin');
+            Route::post('telegram-groups/{telegramGroup}/test', [TelegramGroupController::class, 'test'])->middleware('role:superadmin,admin');
+            Route::apiResource('telegram-groups', TelegramGroupController::class)
+                ->parameters(['telegram-groups' => 'telegramGroup'])
+                ->middleware('role:superadmin,admin');
+            Route::get('database-settings', [DatabaseSettingController::class, 'show'])->middleware('role:superadmin,admin');
+            Route::patch('database-settings/{databaseSetting}', [DatabaseSettingController::class, 'update'])->middleware('role:superadmin,admin');
+            Route::post('database-settings/test', [DatabaseSettingController::class, 'test'])->middleware('role:superadmin,admin');
+
             Route::get('customer-references', [CustomerReferenceController::class, 'index']);
             Route::post('customers/onboard', [CustomerController::class, 'onboard']);
             Route::post('customers/bulk-delete', [CustomerController::class, 'bulkDelete']);

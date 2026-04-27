@@ -70,4 +70,11 @@ class UserFactory extends Factory
             'technician_id' => $technicianId,
         ]);
     }
+
+    public function reseller(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => UserRole::Reseller->value,
+        ]);
+    }
 }

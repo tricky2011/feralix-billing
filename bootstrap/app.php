@@ -1,13 +1,16 @@
 <?php
 
-use Illuminate\Database\QueryException;
-use Illuminate\Auth\Access\AuthorizationException;
-use App\Support\DatabaseConnectionFailureDetector;
+use App\Http\Middleware\AuthorizeRouterScopedBindings;
+use App\Http\Middleware\EnsurePanelRole;
+use App\Http\Middleware\EnsureRole;
 use App\Support\Api\ApiResponse;
+use App\Support\DatabaseConnectionFailureDetector;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -22,8 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'panel.role' => \App\Http\Middleware\EnsurePanelRole::class,
-            'router.scope.bindings' => \App\Http\Middleware\AuthorizeRouterScopedBindings::class,
+            'panel.role' => EnsurePanelRole::class,
+            'role' => EnsureRole::class,
+            'router.scope.bindings' => AuthorizeRouterScopedBindings::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -79,7 +83,7 @@ return Application::configure(basePath: dirname(__DIR__))
             return ApiResponse::error('Resource not found.', status: 404);
         });
 
-        $exceptions->render(function (\Throwable $throwable, Request $request) {
+        $exceptions->render(function (Throwable $throwable, Request $request) {
             $failureDetector = app(DatabaseConnectionFailureDetector::class);
 
             if (! $failureDetector->isConnectionFailure($throwable)) {
@@ -106,7 +110,7 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->view('database-unavailable', $payload, 503);
         });
 
-        $exceptions->render(function (\Throwable $throwable, Request $request) {
+        $exceptions->render(function (Throwable $throwable, Request $request) {
             if (! ($request->expectsJson() || $request->is('api/*'))) {
                 return null;
             }

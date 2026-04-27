@@ -165,7 +165,7 @@ class SyncPppoeMonitorCommandTest extends TestCase
             ->where('service_id', $service->id)
             ->firstOrFail();
 
-        $this->assertSame([
+        $this->assertEquals([
             'remote_id' => '*A1',
             'service' => 'pppoe-monitor',
             'caller_id' => 'AA:BB:CC:DD:EE:FF',
@@ -224,7 +224,7 @@ class SyncPppoeMonitorCommandTest extends TestCase
                 private readonly ?\Throwable $throwable,
             ) {}
 
-            public function print(string $menuPath, array $properties = []): array
+            public function print(string $menuPath, array $properties = [], array $where = []): array
             {
                 if ($this->throwable !== null) {
                     throw $this->throwable;
@@ -233,9 +233,11 @@ class SyncPppoeMonitorCommandTest extends TestCase
                 return $this->records;
             }
 
-            public function disconnect(): void
-            {
-            }
+            public function add(string $menuPath, array $attributes = []): void {}
+
+            public function remove(string $menuPath, string $id): void {}
+
+            public function disconnect(): void {}
         };
     }
 

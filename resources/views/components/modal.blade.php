@@ -28,10 +28,17 @@
                                 </template>
                             </select>
                         </template>
+                        <template x-if="field.type === 'multiselect'">
+                            <select multiple class="mt-2 min-h-36 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-700" x-model="modal.form[field.name]">
+                                <template x-for="option in (field.options ?? []).filter((item) => item.value !== '')" :key="option.value">
+                                    <option :value="option.value" x-text="option.label"></option>
+                                </template>
+                            </select>
+                        </template>
                         <template x-if="field.type === 'textarea'">
                             <textarea class="mt-2 min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-700" x-model="modal.form[field.name]" :placeholder="field.placeholder ?? ''"></textarea>
                         </template>
-                        <template x-if="!['select','textarea'].includes(field.type)">
+                        <template x-if="!['select','multiselect','textarea'].includes(field.type)">
                             <input class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-700" :type="field.type ?? 'text'" x-model="modal.form[field.name]" :placeholder="field.placeholder ?? ''" :max="field.max ?? null" :min="field.min ?? null">
                         </template>
                         <p class="mt-1 text-xs text-red-600" x-show="modal.errors[field.name]" x-text="firstError(field.name)"></p>

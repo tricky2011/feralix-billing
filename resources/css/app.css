@@ -1,6 +1,8 @@
 @import url('https://fonts.bunny.net/css?family=space-grotesk:400,500,600,700|instrument-serif:400,400i');
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 @source '../**/*.blade.php';
@@ -17,8 +19,8 @@
 }
 
 ::selection {
-    background: #fcd34d;
-    color: #052e16;
+    background: #bfdbfe;
+    color: #172554;
 }
 
 body {

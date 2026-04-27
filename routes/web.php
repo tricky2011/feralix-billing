@@ -21,6 +21,22 @@ Route::get('/admin/{page}', function (string $page) {
         'tickets',
         'work-orders',
         'hotspot',
+        'upgrade-paket',
+        'service-plan',
+        'ip-pools',
+        'router-sync',
+        'cashflow',
+        'fiber-network-map',
+        'odp-odc',
+        'technician-dashboard',
+        'monitoring',
+        'ont-online',
+        'ont-offline',
+        'config-acs',
+        'user-management',
+        'user-logs',
+        'settings-telegram',
+        'settings-database',
     ], true), 404);
 
     return view('admin.index', ['page' => $page]);

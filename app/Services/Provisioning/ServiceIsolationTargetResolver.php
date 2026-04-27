@@ -5,6 +5,7 @@ namespace App\Services\Provisioning;
 use App\Enums\ServiceAccessMode;
 use App\Enums\ServiceIsolationMethod;
 use App\Enums\ServiceIsolationTargetType;
+use App\Enums\VidType;
 use App\Models\Service;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -22,6 +23,13 @@ class ServiceIsolationTargetResolver
      */
     public function resolve(Service $service, array $overrides = []): array
     {
+        if ($service->vid !== null && $service->vid->vid_type !== VidType::CustomerInternet) {
+            $vidNumber = $service->vid->vid;
+            throw ValidationException::withMessages([
+                'vid' => "VID {$vidNumber} adalah VID monitoring/PPPoE server dan tidak boleh diisolasi.",
+            ]);
+        }
+
         $targetType = isset($overrides['target_type'])
             ? ServiceIsolationTargetType::from((string) $overrides['target_type'])
             : $this->inferTargetType($service);

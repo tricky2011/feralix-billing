@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\Admin\PackageController;
 use App\Http\Controllers\Api\V1\Admin\PaymentController;
 use App\Http\Controllers\Api\V1\Admin\ResellerController;
 use App\Http\Controllers\Api\V1\Admin\RouterController;
+use App\Http\Controllers\Api\V1\Admin\RouterSyncController;
 use App\Http\Controllers\Api\V1\Admin\RouterScopeController;
 use App\Http\Controllers\Api\V1\Admin\ServiceController;
 use App\Http\Controllers\Api\V1\Admin\ServiceIsolationController;
@@ -96,6 +97,10 @@ Route::prefix('v1/admin')
             Route::post('routers/{router}/test-connection', [RouterController::class, 'testConnection'])->middleware('role:superadmin,admin');
             Route::post('routers/{router}/test-acs', [RouterController::class, 'testAcs'])->middleware('role:superadmin,admin');
             Route::post('routers/{router}/sync-ont', [RouterController::class, 'syncOnt'])->middleware('role:superadmin,admin');
+            Route::post('router-sync/pppoe', [RouterSyncController::class, 'syncPppoe'])->middleware('role:superadmin,admin');
+            Route::post('router-sync/static', [RouterSyncController::class, 'syncStatic'])->middleware('role:superadmin,admin');
+            Route::post('router-sync/address-list', [RouterSyncController::class, 'syncAddressList'])->middleware('role:superadmin,admin');
+            Route::post('router-sync/all', [RouterSyncController::class, 'syncAll'])->middleware('role:superadmin,admin');
             Route::apiResource('routers', RouterController::class)->middleware('role:superadmin,admin');
             Route::apiResource('router-scopes', RouterScopeController::class);
             Route::apiResource('olts', OltController::class);

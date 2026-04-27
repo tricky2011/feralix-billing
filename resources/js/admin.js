@@ -180,6 +180,15 @@ const modules = {
         createEndpoint: '/api/v1/admin/service-isolations',
         noEdit: true,
     },
+    'router-sync': {
+        title: 'Router Sync',
+        section: 'Operations',
+        description: 'Sinkronisasi router manual dari panel admin.',
+        endpoint: '/api/v1/admin/router-sync',
+        noCreate: true,
+        noEdit: true,
+        noDelete: true,
+    },
     tickets: {
         title: 'Tickets',
         section: 'Helpdesk',
@@ -645,16 +654,6 @@ const placeholderPages = {
             'Endpoint list/create/update IP pool per router dan VID.',
             'Deteksi overlap subnet dan range IP.',
             'Audit pemakaian pool oleh service aktif.',
-        ],
-    },
-    'router-sync': {
-        title: 'Router Sync',
-        section: 'Operations',
-        description: 'Kontrol sinkronisasi data router tanpa overwrite VID yang sudah assigned.',
-        backendNeeds: [
-            'Endpoint menjalankan sync router secara manual.',
-            'Endpoint history job sync dan hasil conflict.',
-            'Filter router, status job, dan waktu eksekusi.',
         ],
     },
     'fiber-network-map': {
@@ -1129,6 +1128,13 @@ export function adminPanel({ page }) {
             },
             result: null,
         },
+        routerSync: {
+            router_id: '',
+            loading: false,
+            result: null,
+            recentLogs: [],
+            loadingLogs: false,
+        },
         ticketStatusOptions: select(['open', 'in_progress', 'resolved', 'closed']),
 
         async init() {
@@ -1567,6 +1573,34 @@ export function adminPanel({ page }) {
             };
         },
 
+        activeRouterSyncRouters() {
+            const routers = this.references.routers ?? [];
+
+            return routers.filter((router) => router.is_active !== false);
+        },
+
+        routerSyncRouterLabel(router) {
+            return `${router.router_code ?? router.id} - ${router.router_name ?? '-'}`;
+        },
+
+        onRouterSyncRouterChanged() {
+            this.routerSync.result = null;
+        },
+
+        canRunRouterSyncOperation() {
+            return Number(this.routerSync.router_id) > 0 && !this.routerSync.loading;
+        },
+
+        setRouterSyncResult(result, operation) {
+            this.routerSync.result = {
+                success: Boolean(result?.success),
+                operation,
+                message: result?.message ?? 'Operasi sinkronisasi selesai.',
+                data: result?.data ?? {},
+                at: new Date().toISOString(),
+            };
+        },
+
         isPlaceholderCurrent() {
             return this.currentConfig().placeholder === true;
         },
@@ -1652,6 +1686,11 @@ export function adminPanel({ page }) {
                 return;
             }
 
+            if (this.page === 'router-sync') {
+                await this.loadRouterSyncPage();
+                return;
+            }
+
             const config = this.currentConfig();
 
             if (config.placeholder) {
@@ -1702,6 +1741,107 @@ export function adminPanel({ page }) {
                 this.toast('error', 'Gagal memuat data', error.message);
             } finally {
                 this.loading = false;
+            }
+        },
+
+        async loadRouterSyncPage() {
+            this.loading = false;
+
+            const activeRouters = this.activeRouterSyncRouters();
+            const selectedRouter = activeRouters.find((router) => Number(router.id) === Number(this.routerSync.router_id));
+
+            if (!selectedRouter) {
+                this.routerSync.router_id = activeRouters[0]?.id ?? '';
+                this.routerSync.result = null;
+            }
+
+            this.items = [];
+            this.pagination = {
+                current_page: 1,
+                last_page: 1,
+                per_page: this.filters.per_page,
+                total: 0,
+                from: 0,
+                to: 0,
+            };
+
+            await this.loadRouterSyncLogs();
+        },
+
+        async loadRouterSyncLogs() {
+            this.routerSync.loadingLogs = true;
+
+            try {
+                const response = await api.get('/api/v1/admin/activity-logs', {
+                    module: 'router-sync',
+                    per_page: 10,
+                });
+
+                const logs = Array.isArray(response.data) ? response.data : [];
+                this.routerSync.recentLogs = logs
+                    .filter((log) => String(log.action ?? '').startsWith('router_sync.'))
+                    .slice(0, 10);
+            } catch (error) {
+                this.routerSync.recentLogs = [];
+                this.toast('error', 'Riwayat router sync gagal dimuat', error.message);
+            } finally {
+                this.routerSync.loadingLogs = false;
+            }
+        },
+
+        async runRouterSync(type) {
+            const endpoints = {
+                pppoe: '/api/v1/admin/router-sync/pppoe',
+                static: '/api/v1/admin/router-sync/static',
+                'address-list': '/api/v1/admin/router-sync/address-list',
+                all: '/api/v1/admin/router-sync/all',
+            };
+            const labels = {
+                pppoe: 'Sync PPPoE',
+                static: 'Sync Static',
+                'address-list': 'Sync Address List',
+                all: 'Sync All',
+            };
+
+            const endpoint = endpoints[type];
+            const label = labels[type] ?? 'Router Sync';
+
+            if (!endpoint) {
+                return;
+            }
+
+            const routerId = Number(this.routerSync.router_id);
+
+            if (!routerId) {
+                this.setRouterSyncResult({
+                    success: false,
+                    message: 'Pilih router aktif terlebih dahulu sebelum sinkronisasi.',
+                    data: {},
+                }, label);
+                return;
+            }
+
+            this.routerSync.loading = true;
+
+            try {
+                const response = await api.post(endpoint, {
+                    router_id: routerId,
+                });
+
+                this.setRouterSyncResult(response, label);
+                this.toast(response.success ? 'success' : 'error', label, response.message);
+                await this.loadRouterSyncLogs();
+            } catch (error) {
+                this.setRouterSyncResult({
+                    success: false,
+                    message: error.message || `${label} gagal diproses.`,
+                    data: {
+                        errors: error.errors ?? {},
+                    },
+                }, label);
+                this.toast('error', `${label} gagal`, error.message);
+            } finally {
+                this.routerSync.loading = false;
             }
         },
 

@@ -6,7 +6,7 @@
                 <h2 class="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white" x-text="currentTitle()"></h2>
                 <p class="mt-2 text-sm text-slate-600 dark:text-slate-400" x-text="currentDescription()"></p>
             </div>
-            <div x-show="!isPlaceholderCurrent() && page !== 'technician-dashboard'" class="flex flex-col gap-3 sm:flex-row">
+            <div x-show="!isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync'" class="flex flex-col gap-3 sm:flex-row">
                 <input
                     class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-blue-500/10"
                     type="search"
@@ -32,7 +32,7 @@
             </div>
         </div>
 
-        <div x-show="hasTabs() && !isPlaceholderCurrent() && page !== 'technician-dashboard'" class="mt-5 flex flex-wrap gap-2">
+        <div x-show="hasTabs() && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync'" class="mt-5 flex flex-wrap gap-2">
             <template x-for="tab in currentTabs()" :key="tab.key">
                 <button
                     type="button"
@@ -521,6 +521,122 @@
         </section>
     </section>
 
+    <section x-show="page === 'router-sync' && !isPlaceholderCurrent()" x-cloak class="space-y-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+        <div class="grid gap-4 lg:grid-cols-[360px_1fr]">
+            <label class="block">
+                <span class="text-sm font-bold text-slate-700 dark:text-slate-200">Pilih Router Aktif</span>
+                <select
+                    class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                    x-model="routerSync.router_id"
+                    @change="onRouterSyncRouterChanged()"
+                >
+                    <option value="">Pilih router...</option>
+                    <template x-for="router in activeRouterSyncRouters()" :key="router.id">
+                        <option :value="router.id" x-text="routerSyncRouterLabel(router)"></option>
+                    </template>
+                </select>
+            </label>
+
+            <div x-show="!routerSync.router_id" class="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+                Router belum dipilih. Pilih router aktif terlebih dahulu untuk menjalankan sinkronisasi.
+            </div>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <button
+                type="button"
+                class="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="!canRunRouterSyncOperation()"
+                @click="runRouterSync('pppoe')"
+            >
+                Sync PPPoE
+            </button>
+            <button
+                type="button"
+                class="rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-800 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="!canRunRouterSyncOperation()"
+                @click="runRouterSync('static')"
+            >
+                Sync Static
+            </button>
+            <button
+                type="button"
+                class="rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-800 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="!canRunRouterSyncOperation()"
+                @click="runRouterSync('address-list')"
+            >
+                Sync Address List
+            </button>
+            <button
+                type="button"
+                class="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="!canRunRouterSyncOperation()"
+                @click="runRouterSync('all')"
+            >
+                Sync All
+            </button>
+        </div>
+
+        <section class="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+            <h3 class="text-sm font-black uppercase tracking-[0.18em] text-slate-700 dark:text-slate-300">Operation Result</h3>
+
+            <div x-show="routerSync.result" x-cloak class="mt-3 rounded-2xl border px-4 py-3" :class="routerSync.result?.success ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200' : 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-200'">
+                <p class="text-sm font-black" x-text="routerSync.result?.success ? 'success' : 'error'"></p>
+                <p class="mt-1 text-sm font-semibold" x-text="routerSync.result?.operation ?? '-'"></p>
+                <p class="mt-1 text-sm font-semibold" x-text="routerSync.result?.message ?? '-'"></p>
+                <p class="mt-1 text-xs" x-text="routerSync.result?.at ? `Updated: ${formatValue(routerSync.result.at)}` : ''"></p>
+                <pre class="mt-3 overflow-auto rounded-xl bg-white/70 p-3 text-xs text-slate-700 dark:bg-[#07111f]/70 dark:text-slate-200" x-text="JSON.stringify(routerSync.result?.data ?? {}, null, 2)"></pre>
+            </div>
+
+            <p x-show="!routerSync.result" class="mt-3 text-sm text-slate-500 dark:text-slate-400">Belum ada sinkronisasi dijalankan.</p>
+        </section>
+
+        <section class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.02]">
+            <div class="flex items-center justify-between gap-3">
+                <h3 class="text-sm font-black uppercase tracking-[0.18em] text-slate-700 dark:text-slate-300">Recent Router Sync Logs</h3>
+                <button
+                    type="button"
+                    class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200"
+                    :disabled="routerSync.loadingLogs"
+                    @click="loadRouterSyncLogs"
+                >
+                    Refresh
+                </button>
+            </div>
+
+            <div x-show="routerSync.loadingLogs" class="mt-3 text-xs text-slate-500 dark:text-slate-400">Memuat riwayat...</div>
+
+            <div x-show="!routerSync.loadingLogs && routerSync.recentLogs.length === 0" class="mt-3 text-sm text-slate-500 dark:text-slate-400">
+                Belum ada riwayat router sync.
+            </div>
+
+            <div x-show="!routerSync.loadingLogs && routerSync.recentLogs.length > 0" class="mt-3 overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-100 text-sm dark:divide-white/10">
+                    <thead class="bg-slate-50 text-left text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:bg-white/[0.03] dark:text-slate-400">
+                        <tr>
+                            <th class="px-3 py-2">Time</th>
+                            <th class="px-3 py-2">Action</th>
+                            <th class="px-3 py-2">User</th>
+                            <th class="px-3 py-2">Description</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-white/10">
+                        <template x-for="log in routerSync.recentLogs" :key="log.id">
+                            <tr>
+                                <td class="px-3 py-2 text-xs text-slate-600 dark:text-slate-300" x-text="formatValue(log.created_at, { type: 'datetime' })"></td>
+                                <td class="px-3 py-2">
+                                    <span class="inline-flex rounded-full bg-blue-100 px-2 py-1 text-[11px] font-bold text-blue-700 dark:bg-blue-500/20 dark:text-blue-200" x-text="log.action"></span>
+                                </td>
+                                <td class="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200" x-text="log.user?.username ?? '-'"></td>
+                                <td class="px-3 py-2 text-xs text-slate-600 dark:text-slate-300" x-text="log.description ?? '-'"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </section>
+
     <section x-show="isPlaceholderCurrent()" x-cloak class="overflow-hidden rounded-[2rem] border border-dashed border-blue-300 bg-white shadow-sm shadow-slate-950/5 dark:border-blue-400/30 dark:bg-white/[0.04]">
         <div class="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
             <div class="p-6 sm:p-8">
@@ -561,13 +677,13 @@
         </div>
     </section>
 
-    <div x-show="loading && !isPlaceholderCurrent() && page !== 'technician-dashboard'" class="grid gap-3">
+    <div x-show="loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync'" class="grid gap-3">
         <template x-for="i in 5" :key="i">
             <div class="h-16 animate-pulse rounded-3xl bg-white/70 dark:bg-white/[0.05]"></div>
         </template>
     </div>
 
-    <x-table x-show="!loading && !isPlaceholderCurrent() && page !== 'technician-dashboard'">
+    <x-table x-show="!loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync'">
         <thead class="bg-slate-50 text-left text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:bg-white/[0.03] dark:text-slate-400">
             <tr>
                 <template x-for="column in currentColumns()" :key="column.key">
@@ -603,12 +719,12 @@
         </tbody>
     </x-table>
 
-    <div x-show="!loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && items.length === 0" class="rounded-[2rem] border border-dashed border-slate-300 bg-white/70 p-10 text-center dark:border-white/10 dark:bg-white/[0.04]">
+    <div x-show="!loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && items.length === 0" class="rounded-[2rem] border border-dashed border-slate-300 bg-white/70 p-10 text-center dark:border-white/10 dark:bg-white/[0.04]">
         <p class="text-2xl font-black text-slate-900 dark:text-white">Belum ada data.</p>
         <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Coba ubah pencarian, refresh, atau buat data baru jika modul ini mendukung create.</p>
     </div>
 
-    <div x-show="!isPlaceholderCurrent() && page !== 'technician-dashboard'">
+    <div x-show="!isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync'">
         <x-pagination />
     </div>
 </div>

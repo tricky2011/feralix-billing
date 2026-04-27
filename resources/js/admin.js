@@ -35,6 +35,7 @@ const baseSelects = {
     password_mode: select(['random_secure', 'same_as_username']),
     username_mode: select(['voucher_code', 'prefix_random']),
     cashflow_type: select(['income', 'expense']),
+    network_entity_status: select(['active', 'inactive']),
     bool: [
         { value: true, label: 'Ya' },
         { value: false, label: 'Tidak' },
@@ -185,6 +186,15 @@ const modules = {
         section: 'Operations',
         description: 'Sinkronisasi router manual dari panel admin.',
         endpoint: '/api/v1/admin/router-sync',
+        noCreate: true,
+        noEdit: true,
+        noDelete: true,
+    },
+    'fiber-network-map': {
+        title: 'Fiber Network Map',
+        section: 'Network',
+        description: 'Ringkasan data master jaringan fiber (placeholder visual map).',
+        endpoint: '/api/v1/admin/fiber-map',
         noCreate: true,
         noEdit: true,
         noDelete: true,
@@ -415,23 +425,25 @@ const networkTabs = {
         deletable: true,
     },
     olts: {
-        label: 'OLTs',
+        label: 'Master OLT',
         endpoint: '/api/v1/admin/olts',
         columns: [
-            { key: 'olt_code', label: 'Kode' },
-            { key: 'olt_name', label: 'Nama' },
-            { key: 'mgmt_ip', label: 'IP' },
-            { key: 'vendor_name', label: 'Vendor' },
-            { key: 'is_active', label: 'Aktif', type: 'status' },
+            { key: 'code', label: 'Kode' },
+            { key: 'name', label: 'Nama' },
+            { key: 'host', label: 'Host' },
+            { key: 'brand', label: 'Brand' },
+            { key: 'status', label: 'Status', type: 'status' },
         ],
         fields: [
-            { name: 'olt_code', label: 'Kode OLT' },
-            { name: 'olt_name', label: 'Nama OLT' },
-            { name: 'mgmt_ip', label: 'Management IP' },
-            { name: 'vendor_name', label: 'Vendor' },
-            { name: 'location_id', label: 'Lokasi', type: 'select', optionsRef: 'locations' },
-            { name: 'location_name', label: 'Nama lokasi' },
-            { name: 'is_active', label: 'Aktif', type: 'select', options: baseSelects.bool },
+            { name: 'name', label: 'Nama OLT' },
+            { name: 'code', label: 'Kode OLT' },
+            { name: 'host', label: 'Host / IP' },
+            { name: 'brand', label: 'Brand' },
+            { name: 'model', label: 'Model' },
+            { name: 'pon_ports', label: 'Jumlah PON port', type: 'number' },
+            { name: 'location_id', label: 'Lokasi', type: 'select', optionsRef: 'network_locations' },
+            { name: 'status', label: 'Status', type: 'select', options: baseSelects.network_entity_status },
+            { name: 'description', label: 'Deskripsi', type: 'textarea' },
         ],
         deletable: true,
     },
@@ -480,17 +492,79 @@ const networkTabs = {
         deletable: true,
     },
     locations: {
-        label: 'Locations',
-        endpoint: '/api/v1/admin/locations',
+        label: 'Master Lokasi',
+        endpoint: '/api/v1/admin/network-locations',
         columns: [
-            { key: 'location_code', label: 'Kode' },
-            { key: 'location_name', label: 'Lokasi' },
-            { key: 'is_active', label: 'Aktif', type: 'status' },
+            { key: 'code', label: 'Kode' },
+            { key: 'name', label: 'Lokasi' },
+            { key: 'address', label: 'Alamat' },
+            { key: 'status', label: 'Status', type: 'status' },
         ],
         fields: [
-            { name: 'location_code', label: 'Kode lokasi' },
-            { name: 'location_name', label: 'Nama lokasi' },
-            { name: 'is_active', label: 'Aktif', type: 'select', options: baseSelects.bool },
+            { name: 'name', label: 'Nama lokasi' },
+            { name: 'code', label: 'Kode lokasi' },
+            { name: 'address', label: 'Alamat', type: 'textarea' },
+            { name: 'latitude', label: 'Latitude', type: 'number' },
+            { name: 'longitude', label: 'Longitude', type: 'number' },
+            { name: 'status', label: 'Status', type: 'select', options: baseSelects.network_entity_status },
+            { name: 'description', label: 'Deskripsi', type: 'textarea' },
+        ],
+        deletable: true,
+    },
+};
+
+const odpOdcTabs = {
+    odp: {
+        label: 'ODP',
+        title: 'Manajemen ODP',
+        section: 'Network',
+        description: 'Kelola ODP dan relasinya ke ODC, OLT, dan lokasi.',
+        endpoint: '/api/v1/admin/odps',
+        columns: [
+            { key: 'code', label: 'Kode' },
+            { key: 'name', label: 'Nama ODP' },
+            { key: 'odc.name', label: 'ODC' },
+            { key: 'olt.name', label: 'OLT' },
+            { key: 'status', label: 'Status', type: 'status' },
+        ],
+        fields: [
+            { name: 'name', label: 'Nama ODP' },
+            { name: 'code', label: 'Kode ODP' },
+            { name: 'odc_id', label: 'ODC', type: 'select', optionsRef: 'network_odcs' },
+            { name: 'olt_id', label: 'OLT', type: 'select', optionsRef: 'olts' },
+            { name: 'location_id', label: 'Lokasi', type: 'select', optionsRef: 'network_locations' },
+            { name: 'latitude', label: 'Latitude', type: 'number' },
+            { name: 'longitude', label: 'Longitude', type: 'number' },
+            { name: 'capacity', label: 'Capacity', type: 'number' },
+            { name: 'used_ports', label: 'Used ports', type: 'number' },
+            { name: 'status', label: 'Status', type: 'select', options: baseSelects.network_entity_status },
+            { name: 'description', label: 'Deskripsi', type: 'textarea' },
+        ],
+        deletable: true,
+    },
+    odc: {
+        label: 'ODC',
+        title: 'Manajemen ODC',
+        section: 'Network',
+        description: 'Kelola ODC sebagai node distribusi pasif.',
+        endpoint: '/api/v1/admin/odcs',
+        columns: [
+            { key: 'code', label: 'Kode' },
+            { key: 'name', label: 'Nama ODC' },
+            { key: 'location.name', label: 'Lokasi' },
+            { key: 'capacity', label: 'Capacity' },
+            { key: 'status', label: 'Status', type: 'status' },
+        ],
+        fields: [
+            { name: 'name', label: 'Nama ODC' },
+            { name: 'code', label: 'Kode ODC' },
+            { name: 'location_id', label: 'Lokasi', type: 'select', optionsRef: 'network_locations' },
+            { name: 'latitude', label: 'Latitude', type: 'number' },
+            { name: 'longitude', label: 'Longitude', type: 'number' },
+            { name: 'capacity', label: 'Capacity', type: 'number' },
+            { name: 'used_ports', label: 'Used ports', type: 'number' },
+            { name: 'status', label: 'Status', type: 'select', options: baseSelects.network_entity_status },
+            { name: 'description', label: 'Deskripsi', type: 'textarea' },
         ],
         deletable: true,
     },
@@ -654,26 +728,6 @@ const placeholderPages = {
             'Endpoint list/create/update IP pool per router dan VID.',
             'Deteksi overlap subnet dan range IP.',
             'Audit pemakaian pool oleh service aktif.',
-        ],
-    },
-    'fiber-network-map': {
-        title: 'Fiber Network Map',
-        section: 'Network',
-        description: 'Peta topologi fiber untuk backbone, ODC, ODP, dan pelanggan.',
-        backendNeeds: [
-            'Endpoint node/link topology fiber.',
-            'Koordinat lokasi OLT, ODC, ODP, dan customer.',
-            'Status kapasitas port dan occupancy per node.',
-        ],
-    },
-    'odp-odc': {
-        title: 'Manajemen ODP/ODC',
-        section: 'Network',
-        description: 'Inventori distribusi pasif fiber untuk ODP dan ODC.',
-        backendNeeds: [
-            'Endpoint CRUD ODP/ODC dan port capacity.',
-            'Relasi ODP/ODC ke lokasi, OLT, customer, dan service.',
-            'Audit port terpakai, kosong, dan rusak.',
         ],
     },
     monitoring: {
@@ -1012,6 +1066,17 @@ export function adminPanel({ page }) {
         items: [],
         pagination: {},
         filters: { search: '', page: 1, per_page: 15 },
+        fiberMap: {
+            summary: {
+                locations: 0,
+                olts: 0,
+                odcs: 0,
+                odps: 0,
+            },
+            nodes: [],
+            edges: [],
+            placeholder: true,
+        },
         cashflow: {
             filters: {
                 type: '',
@@ -1069,6 +1134,8 @@ export function adminPanel({ page }) {
             onts: [],
             packages: [],
             locations: [],
+            network_locations: [],
+            network_odcs: [],
             technicians: [],
             available_vids: [],
             hotspot_profiles: [],
@@ -1309,6 +1376,10 @@ export function adminPanel({ page }) {
                 return networkTabs[this.activeTab] ?? networkTabs.routers;
             }
 
+            if (this.page === 'odp-odc') {
+                return odpOdcTabs[this.activeTab] ?? odpOdcTabs.odp;
+            }
+
             if (this.page === 'hotspot') {
                 return hotspotTabs[this.activeTab] ?? hotspotTabs.profiles;
             }
@@ -1326,13 +1397,14 @@ export function adminPanel({ page }) {
 
         defaultTab() {
             if (this.page === 'network') return 'routers';
+            if (this.page === 'odp-odc') return 'odp';
             if (this.page === 'hotspot') return 'profiles';
             if (this.page === 'settings-telegram') return 'bots';
             return '';
         },
 
         hasTabs() {
-            return ['network', 'hotspot', 'settings-telegram'].includes(this.page);
+            return ['network', 'odp-odc', 'hotspot', 'settings-telegram'].includes(this.page);
         },
 
         currentTabs() {
@@ -1340,7 +1412,9 @@ export function adminPanel({ page }) {
 
             const tabs = this.page === 'network'
                 ? networkTabs
-                : (this.page === 'hotspot' ? hotspotTabs : telegramTabs);
+                : (this.page === 'odp-odc'
+                    ? odpOdcTabs
+                    : (this.page === 'hotspot' ? hotspotTabs : telegramTabs));
             return Object.entries(tabs).map(([key, value]) => ({ key, label: value.label }));
         },
 
@@ -1650,13 +1724,28 @@ export function adminPanel({ page }) {
                 api.get('/api/v1/admin/tickets', { per_page: 10 }),
                 api.get('/api/v1/admin/work-orders', { per_page: 10 }),
                 api.get('/api/v1/admin/telegram-bots', { per_page: 100 }),
+                api.get('/api/v1/admin/olts', { per_page: 200 }),
+                api.get('/api/v1/admin/network-locations', { per_page: 200 }),
+                api.get('/api/v1/admin/odcs', { per_page: 200 }),
             ]);
 
             if (refs[0].status === 'fulfilled') {
                 Object.assign(this.references, refs[0].value.data);
             }
 
-            const pagedKeys = ['customers', 'services', 'invoices', 'hotspot_profiles', 'resellers', 'tickets', 'work_orders', 'telegram_bots'];
+            const pagedKeys = [
+                'customers',
+                'services',
+                'invoices',
+                'hotspot_profiles',
+                'resellers',
+                'tickets',
+                'work_orders',
+                'telegram_bots',
+                'olts',
+                'network_locations',
+                'network_odcs',
+            ];
             refs.slice(1).forEach((result, index) => {
                 if (result.status === 'fulfilled') {
                     this.references[pagedKeys[index]] = result.value.data ?? [];
@@ -1688,6 +1777,11 @@ export function adminPanel({ page }) {
 
             if (this.page === 'router-sync') {
                 await this.loadRouterSyncPage();
+                return;
+            }
+
+            if (this.page === 'fiber-network-map') {
+                await this.loadFiberMap();
                 return;
             }
 
@@ -1739,6 +1833,53 @@ export function adminPanel({ page }) {
             } catch (error) {
                 this.items = [];
                 this.toast('error', 'Gagal memuat data', error.message);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async loadFiberMap() {
+            this.loading = true;
+
+            try {
+                const response = await api.get('/api/v1/admin/fiber-map');
+                const payload = response.data ?? {};
+                const summary = payload.summary ?? {};
+
+                this.fiberMap = {
+                    summary: {
+                        locations: Number(summary.locations ?? 0),
+                        olts: Number(summary.olts ?? 0),
+                        odcs: Number(summary.odcs ?? 0),
+                        odps: Number(summary.odps ?? 0),
+                    },
+                    nodes: Array.isArray(payload.nodes) ? payload.nodes : [],
+                    edges: Array.isArray(payload.edges) ? payload.edges : [],
+                    placeholder: payload.placeholder !== false,
+                };
+
+                this.items = [];
+                this.pagination = {
+                    current_page: 1,
+                    last_page: 1,
+                    per_page: this.filters.per_page,
+                    total: 0,
+                    from: 0,
+                    to: 0,
+                };
+            } catch (error) {
+                this.fiberMap = {
+                    summary: {
+                        locations: 0,
+                        olts: 0,
+                        odcs: 0,
+                        odps: 0,
+                    },
+                    nodes: [],
+                    edges: [],
+                    placeholder: true,
+                };
+                this.toast('error', 'Fiber map gagal dimuat', error.message);
             } finally {
                 this.loading = false;
             }
@@ -2798,10 +2939,12 @@ export function adminPanel({ page }) {
             if (ref === 'customers') return `${row.customer_code ?? row.id} - ${row.full_name}`;
             if (ref === 'services') return `${row.service_code} - ${row.customer?.full_name ?? row.customer_id ?? ''}`;
             if (ref === 'routers') return `${row.router_code ?? row.id} - ${row.router_name ?? row.name ?? row.host ?? '-'}`;
-            if (ref === 'olts') return `${row.olt_code ?? row.id} - ${row.olt_name}`;
+            if (ref === 'olts') return `${row.code ?? row.olt_code ?? row.id} - ${row.name ?? row.olt_name ?? '-'}`;
             if (ref === 'onts') return `${row.ont_sn} - ${row.ont_name ?? row.status ?? ''}`;
             if (ref === 'packages') return `${row.package_name} - ${this.money(row.monthly_price)}`;
             if (ref === 'locations') return `${row.location_code ?? row.id} - ${row.location_name}`;
+            if (ref === 'network_locations') return `${row.code ?? row.id} - ${row.name ?? '-'}`;
+            if (ref === 'network_odcs') return `${row.code ?? row.id} - ${row.name ?? '-'}`;
             if (ref === 'technicians') return `${row.technician_code ?? row.id} - ${row.full_name}`;
             if (ref === 'available_vids') return `${row.router?.router_name ?? row.router_id} / VID ${row.vid} / ${row.subnet_cidr ?? 'no subnet'}`;
             if (ref === 'hotspot_profiles') return `${row.profile_name} - ${this.money(row.selling_price)}`;
@@ -3081,6 +3224,17 @@ export function adminPanel({ page }) {
             if (normalized === 'overdue') return this.ui('overdue');
             if (['pending', 'unpaid', 'issued', 'partially_paid'].includes(normalized)) return this.ui('pending');
             return human(status);
+        },
+
+        fiberMapSummaryCards() {
+            const summary = this.fiberMap?.summary ?? {};
+
+            return [
+                { key: 'locations', label: 'Locations', value: Number(summary.locations ?? 0), tone: 'blue' },
+                { key: 'olts', label: 'OLTs', value: Number(summary.olts ?? 0), tone: 'emerald' },
+                { key: 'odcs', label: 'ODCs', value: Number(summary.odcs ?? 0), tone: 'amber' },
+                { key: 'odps', label: 'ODPs', value: Number(summary.odps ?? 0), tone: 'rose' },
+            ];
         },
 
         networkSummaryCards() {

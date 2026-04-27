@@ -6,7 +6,7 @@
                 <h2 class="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white" x-text="currentTitle()"></h2>
                 <p class="mt-2 text-sm text-slate-600 dark:text-slate-400" x-text="currentDescription()"></p>
             </div>
-            <div x-show="!isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync'" class="flex flex-col gap-3 sm:flex-row">
+            <div x-show="!isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map'" class="flex flex-col gap-3 sm:flex-row">
                 <input
                     class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-blue-500/10"
                     type="search"
@@ -32,7 +32,7 @@
             </div>
         </div>
 
-        <div x-show="hasTabs() && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync'" class="mt-5 flex flex-wrap gap-2">
+        <div x-show="hasTabs() && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map'" class="mt-5 flex flex-wrap gap-2">
             <template x-for="tab in currentTabs()" :key="tab.key">
                 <button
                     type="button"
@@ -78,6 +78,33 @@
                 <button type="button" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200" @click="resetCashflowFilters">Reset</button>
             </div>
         </div>
+    </section>
+
+    <section x-show="page === 'fiber-network-map' && !isPlaceholderCurrent()" x-cloak class="space-y-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <template x-for="card in fiberMapSummaryCards()" :key="card.key">
+                <article class="rounded-3xl border border-slate-200 bg-slate-50/80 p-5 dark:border-white/10 dark:bg-[#07111f]/70">
+                    <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400" x-text="card.label"></p>
+                    <p class="mt-3 text-3xl font-black tracking-tight text-slate-950 dark:text-white" x-text="card.value"></p>
+                </article>
+            </template>
+        </div>
+
+        <article class="rounded-3xl border border-emerald-200 bg-emerald-50/80 p-5 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+            <p class="text-xs font-black uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-200">Fiber Map Placeholder</p>
+            <h3 class="mt-2 text-xl font-black tracking-tight text-emerald-900 dark:text-emerald-100">Visual map belum aktif. Data master jaringan sudah siap.</h3>
+            <p class="mt-3 text-sm text-emerald-800/80 dark:text-emerald-200/80">
+                Placeholder endpoint aktif untuk menyiapkan node dan edge. Implementasi visual map kompleks akan diaktifkan pada fase berikutnya.
+            </p>
+            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                <div class="rounded-2xl border border-emerald-200/70 bg-white/70 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-400/30 dark:bg-white/[0.04] dark:text-emerald-100">
+                    Nodes: <span class="font-black" x-text="fiberMap.nodes.length"></span>
+                </div>
+                <div class="rounded-2xl border border-emerald-200/70 bg-white/70 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-400/30 dark:bg-white/[0.04] dark:text-emerald-100">
+                    Edges: <span class="font-black" x-text="fiberMap.edges.length"></span>
+                </div>
+            </div>
+        </article>
     </section>
 
     <section x-show="page === 'technician-dashboard' && !isPlaceholderCurrent()" x-cloak class="space-y-5">
@@ -677,13 +704,13 @@
         </div>
     </section>
 
-    <div x-show="loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync'" class="grid gap-3">
+    <div x-show="loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map'" class="grid gap-3">
         <template x-for="i in 5" :key="i">
             <div class="h-16 animate-pulse rounded-3xl bg-white/70 dark:bg-white/[0.05]"></div>
         </template>
     </div>
 
-    <x-table x-show="!loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync'">
+    <x-table x-show="!loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map'">
         <thead class="bg-slate-50 text-left text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:bg-white/[0.03] dark:text-slate-400">
             <tr>
                 <template x-for="column in currentColumns()" :key="column.key">
@@ -719,12 +746,12 @@
         </tbody>
     </x-table>
 
-    <div x-show="!loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && items.length === 0" class="rounded-[2rem] border border-dashed border-slate-300 bg-white/70 p-10 text-center dark:border-white/10 dark:bg-white/[0.04]">
+    <div x-show="!loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map' && items.length === 0" class="rounded-[2rem] border border-dashed border-slate-300 bg-white/70 p-10 text-center dark:border-white/10 dark:bg-white/[0.04]">
         <p class="text-2xl font-black text-slate-900 dark:text-white">Belum ada data.</p>
         <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Coba ubah pencarian, refresh, atau buat data baru jika modul ini mendukung create.</p>
     </div>
 
-    <div x-show="!isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync'">
+    <div x-show="!isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map'">
         <x-pagination />
     </div>
 </div>

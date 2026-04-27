@@ -5,11 +5,15 @@ use App\Http\Controllers\Api\V1\Admin\CashflowController;
 use App\Http\Controllers\Api\V1\Admin\CustomerController;
 use App\Http\Controllers\Api\V1\Admin\CustomerReferenceController;
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Api\V1\Admin\FiberMapController;
 use App\Http\Controllers\Api\V1\Admin\HotspotProfileController;
 use App\Http\Controllers\Api\V1\Admin\HotspotVoucherController;
 use App\Http\Controllers\Api\V1\Admin\InvoiceController;
 use App\Http\Controllers\Api\V1\Admin\LocationController;
 use App\Http\Controllers\Api\V1\Admin\ManualIsolirController;
+use App\Http\Controllers\Api\V1\Admin\NetworkLocationController;
+use App\Http\Controllers\Api\V1\Admin\OdcController;
+use App\Http\Controllers\Api\V1\Admin\OdpController;
 use App\Http\Controllers\Api\V1\Admin\OltController;
 use App\Http\Controllers\Api\V1\Admin\OntController;
 use App\Http\Controllers\Api\V1\Admin\PackageController;
@@ -103,7 +107,13 @@ Route::prefix('v1/admin')
             Route::post('router-sync/all', [RouterSyncController::class, 'syncAll'])->middleware('role:superadmin,admin');
             Route::apiResource('routers', RouterController::class)->middleware('role:superadmin,admin');
             Route::apiResource('router-scopes', RouterScopeController::class);
-            Route::apiResource('olts', OltController::class);
+            Route::apiResource('network-locations', NetworkLocationController::class)
+                ->parameters(['network-locations' => 'networkLocation'])
+                ->middleware('role:superadmin,admin');
+            Route::apiResource('olts', OltController::class)->middleware('role:superadmin,admin');
+            Route::apiResource('odcs', OdcController::class)->middleware('role:superadmin,admin');
+            Route::apiResource('odps', OdpController::class)->middleware('role:superadmin,admin');
+            Route::get('fiber-map', [FiberMapController::class, 'index'])->middleware('role:superadmin,admin');
             Route::apiResource('onts', OntController::class);
             Route::apiResource('vids', VidController::class);
             Route::apiResource('services', ServiceController::class);

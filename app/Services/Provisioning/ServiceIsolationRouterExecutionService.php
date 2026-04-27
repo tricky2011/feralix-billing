@@ -27,7 +27,7 @@ class ServiceIsolationRouterExecutionService
         $operationJob = ServiceRouterOperationJob::query()
             ->with([
                 'service:id,customer_id,router_id,vid_id,service_code,access_mode,static_ip_address,static_mac_address,static_queue_name,address_list_name,dhcp_pool_start',
-                'service.vid:id,pool_start_ip',
+                'service.vid:id,vid,pool_start_ip',
                 'service.routerOperationStatus',
                 'serviceIsolation:id,service_id,router_id,status,address_list_name,target_identifier,target_payload',
                 'router:id,router_code,router_name,mgmt_ip,api_port,api_username,api_password,is_active',
@@ -253,14 +253,10 @@ class ServiceIsolationRouterExecutionService
 
     private function buildComment(ServiceRouterOperationJob $operationJob): string
     {
-        $serviceCode = $operationJob->service?->service_code ?? 'unknown';
+        $customerCode = $operationJob->service?->customer?->customer_code ?? 'unknown';
+        $vid = $operationJob->service?->vid?->vid ?? 'unknown';
 
-        return sprintf(
-            'feralix-billing %s service:%s isolation:%d',
-            $operationJob->operation_type?->value ?? 'isolate',
-            $serviceCode,
-            $operationJob->service_isolation_id,
-        );
+        return "{$customerCode} | VID-{$vid}";
     }
 
     private function buildResultMessage(

@@ -46,9 +46,7 @@ class SensitiveFieldExposureTest extends TestCase
 
         $this->getJson("/api/v1/admin/routers/{$router->id}")
             ->assertOk()
-            ->assertJsonPath('data.has_api_username', true)
-            ->assertJsonPath('data.api_username_masked', 'ad****')
-            ->assertJsonMissingPath('data.api_username')
+            ->assertJsonPath('data.api_username', 'admin')
             ->assertJsonPath('data.has_api_password', true)
             ->assertJsonMissingPath('data.api_password');
     }

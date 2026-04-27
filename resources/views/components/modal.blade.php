@@ -17,8 +17,20 @@
         </header>
 
         <form class="max-h-[70vh] overflow-y-auto p-6" @submit.prevent="submitModal">
+            <div x-show="(modal.tabs ?? []).length > 0" class="mb-5 flex flex-wrap gap-2">
+                <template x-for="tab in (modal.tabs ?? [])" :key="tab.key">
+                    <button
+                        type="button"
+                        class="rounded-2xl px-4 py-2 text-sm font-bold transition"
+                        :class="modal.activeTab === tab.key ? 'bg-emerald-900 text-white' : 'bg-slate-100 text-slate-700'"
+                        @click="selectModalTab(tab.key)"
+                        x-text="tab.label"
+                    ></button>
+                </template>
+            </div>
+
             <div class="grid gap-4 sm:grid-cols-2">
-                <template x-for="field in modal.fields" :key="field.name">
+                <template x-for="field in modalVisibleFields()" :key="field.name">
                     <label class="block" :class="field.type === 'textarea' ? 'sm:col-span-2' : ''">
                         <span class="text-sm font-bold text-slate-700" x-text="field.label"></span>
                         <template x-if="field.type === 'select'">
@@ -41,10 +53,15 @@
                         <template x-if="!['select','multiselect','textarea'].includes(field.type)">
                             <input class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-700" :type="field.type ?? 'text'" x-model="modal.form[field.name]" :placeholder="field.placeholder ?? ''" :max="field.max ?? null" :min="field.min ?? null">
                         </template>
+                        <p x-show="field.type === 'password' && field.passwordBadgeKey" class="mt-2">
+                            <span class="inline-flex rounded-full px-3 py-1 text-xs font-black" :class="passwordBadgeClass(field)" x-text="passwordBadgeLabel(field)"></span>
+                        </p>
                         <p class="mt-1 text-xs text-red-600" x-show="modal.errors[field.name]" x-text="firstError(field.name)"></p>
                     </label>
                 </template>
             </div>
+
+            <div x-show="modalVisibleFields().length === 0 && modalActiveTabNote()" class="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700" x-text="modalActiveTabNote()"></div>
 
             <div x-show="modal.message" class="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" x-text="modal.message"></div>
 

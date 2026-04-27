@@ -272,29 +272,57 @@ const modules = {
         noCreate: true,
         noDelete: true,
     },
+    'config-acs': {
+        title: 'Config ACS',
+        section: 'Router Management',
+        description: 'Atur endpoint ACS per router, lakukan test ACS, dan jalankan sinkron ONT placeholder.',
+        endpoint: '/api/v1/admin/routers',
+        columns: [
+            { key: 'name', label: 'Router' },
+            { key: 'host', label: 'Host' },
+            { key: 'acs_nbi_url', label: 'ACS NBI URL' },
+            { key: 'status', label: 'Status', type: 'status' },
+            { key: 'has_acs_password', label: 'ACS Password', type: 'status' },
+        ],
+        noCreate: true,
+        noEdit: true,
+        noDelete: true,
+    },
 };
 
 const networkTabs = {
     routers: {
-        label: 'Routers',
+        label: 'Router List',
         endpoint: '/api/v1/admin/routers',
         columns: [
-            { key: 'router_code', label: 'Kode' },
-            { key: 'router_name', label: 'Nama' },
-            { key: 'router_role', label: 'Role' },
-            { key: 'mgmt_ip', label: 'IP' },
-            { key: 'is_active', label: 'Aktif', type: 'status' },
+            { key: 'name', label: 'Nama Router' },
+            { key: 'host', label: 'Host' },
+            { key: 'api_port', label: 'API Port' },
+            { key: 'status', label: 'Status', type: 'status' },
+            { key: 'has_api_password', label: 'API Password', type: 'status' },
+            { key: 'has_acs_password', label: 'ACS Password', type: 'status' },
         ],
+        modalTabs: [
+            { key: 'router-connection', label: 'Koneksi Router' },
+            { key: 'invoice-branding', label: 'Branding Invoice placeholder' },
+        ],
+        modalTabNotes: {
+            'invoice-branding': 'Placeholder: pengaturan branding invoice akan diaktifkan di fase berikutnya.',
+        },
         fields: [
-            { name: 'router_code', label: 'Kode router' },
-            { name: 'router_name', label: 'Nama router' },
-            { name: 'router_role', label: 'Role' },
-            { name: 'mgmt_ip', label: 'Management IP' },
-            { name: 'api_port', label: 'API port', type: 'number' },
-            { name: 'api_username', label: 'API username' },
-            { name: 'api_password', label: 'API password', type: 'password' },
-            { name: 'location_name', label: 'Lokasi' },
-            { name: 'is_active', label: 'Aktif', type: 'select', options: baseSelects.bool },
+            { name: 'name', label: 'Nama router', tab: 'router-connection' },
+            { name: 'host', label: 'Host / IP router', tab: 'router-connection' },
+            { name: 'api_port', label: 'API port', type: 'number', tab: 'router-connection' },
+            { name: 'timeout', label: 'Timeout (detik)', type: 'number', tab: 'router-connection' },
+            { name: 'use_ssl', label: 'Gunakan SSL', type: 'select', options: baseSelects.bool, tab: 'router-connection' },
+            { name: 'status', label: 'Status', type: 'select', options: select(['active', 'inactive']), tab: 'router-connection' },
+            { name: 'api_username', label: 'API username', tab: 'router-connection' },
+            { name: 'api_password', label: 'API password', type: 'password', passwordBadgeKey: 'has_api_password', tab: 'router-connection' },
+            { name: 'acs_inform_url', label: 'ACS Inform URL', tab: 'router-connection' },
+            { name: 'acs_nbi_url', label: 'ACS NBI URL', tab: 'router-connection' },
+            { name: 'acs_username', label: 'ACS username', tab: 'router-connection' },
+            { name: 'acs_password', label: 'ACS password', type: 'password', passwordBadgeKey: 'has_acs_password', tab: 'router-connection' },
+            { name: 'description', label: 'Deskripsi', type: 'textarea', tab: 'router-connection' },
         ],
         deletable: true,
     },
@@ -668,16 +696,6 @@ const placeholderPages = {
             'Filter durasi offline dan lokasi.',
         ],
     },
-    'config-acs': {
-        title: 'Config ACS',
-        section: 'Router Management',
-        description: 'Konfigurasi ACS/CPE provisioning untuk ONT dan perangkat pelanggan.',
-        backendNeeds: [
-            'Endpoint profile ACS dan mapping vendor/model.',
-            'Endpoint push config atau provisioning task.',
-            'Audit perubahan config dan status apply.',
-        ],
-    },
     'user-management': {
         title: 'User Management',
         section: 'System',
@@ -1004,9 +1022,37 @@ export function adminPanel({ page }) {
         loading: false,
         saving: false,
         toasts: [],
-        modal: { open: false, mode: 'create', title: '', fields: [], form: {}, errors: {}, message: '', endpoint: '', method: 'POST' },
+        modal: {
+            open: false,
+            mode: 'create',
+            title: '',
+            fields: [],
+            form: {},
+            errors: {},
+            message: '',
+            endpoint: '',
+            method: 'POST',
+            tabs: [],
+            activeTab: '',
+            tabNotes: {},
+            passwordState: {},
+        },
         confirm: { open: false, title: '', message: '', action: null },
         detail: { open: false, title: '', row: null, status: '', reply: '' },
+        acsConfig: {
+            router_id: '',
+            router_name: '',
+            host: '',
+            status: '',
+            acs_inform_url: '',
+            acs_nbi_url: '',
+            acs_username: '',
+            acs_password: '',
+            has_acs_password: false,
+            loading: false,
+            saving: false,
+            result: null,
+        },
         ticketStatusOptions: select(['open', 'in_progress', 'resolved', 'closed']),
 
         async init() {
@@ -1335,11 +1381,42 @@ export function adminPanel({ page }) {
                     from: this.items.length > 0 ? 1 : 0,
                     to: this.items.length,
                 };
+
+                if (this.page === 'config-acs') {
+                    await this.syncAcsRouterSelection();
+                }
             } catch (error) {
                 this.items = [];
                 this.toast('error', 'Gagal memuat data', error.message);
             } finally {
                 this.loading = false;
+            }
+        },
+
+        async syncAcsRouterSelection() {
+            if (this.page !== 'config-acs') return;
+
+            if (!Array.isArray(this.items) || this.items.length === 0) {
+                this.acsConfig = {
+                    ...this.acsConfig,
+                    router_id: '',
+                    router_name: '',
+                    host: '',
+                    status: '',
+                    acs_inform_url: '',
+                    acs_nbi_url: '',
+                    acs_username: '',
+                    acs_password: '',
+                    has_acs_password: false,
+                };
+                return;
+            }
+
+            const selected = this.items.find((item) => Number(item.id) === Number(this.acsConfig.router_id));
+            const targetId = selected?.id ?? this.items[0].id;
+
+            if (Number(targetId) !== Number(this.acsConfig.router_id) || this.acsConfig.router_name === '') {
+                await this.selectAcsRouter(targetId);
             }
         },
 
@@ -1419,6 +1496,8 @@ export function adminPanel({ page }) {
 
         openCreate() {
             const config = this.currentConfig();
+            const tabs = config.modalTabs ?? [];
+
             this.modal = {
                 open: true,
                 mode: 'create',
@@ -1429,11 +1508,20 @@ export function adminPanel({ page }) {
                 message: '',
                 endpoint: config.createEndpoint ?? config.endpoint,
                 method: 'POST',
+                tabs,
+                activeTab: tabs[0]?.key ?? '',
+                tabNotes: config.modalTabNotes ?? {},
+                passwordState: {
+                    has_api_password: false,
+                    has_acs_password: false,
+                },
             };
         },
 
         openEdit(row) {
             const config = this.currentConfig();
+            const tabs = config.modalTabs ?? [];
+
             this.modal = {
                 open: true,
                 mode: 'edit',
@@ -1444,7 +1532,48 @@ export function adminPanel({ page }) {
                 message: '',
                 endpoint: `${config.endpoint}/${row.id}`,
                 method: 'PATCH',
+                tabs,
+                activeTab: tabs[0]?.key ?? '',
+                tabNotes: config.modalTabNotes ?? {},
+                passwordState: {
+                    has_api_password: Boolean(row.has_api_password),
+                    has_acs_password: Boolean(row.has_acs_password),
+                },
             };
+        },
+
+        selectModalTab(tabKey) {
+            this.modal.activeTab = tabKey;
+        },
+
+        modalVisibleFields() {
+            if (!this.modal.activeTab) return this.modal.fields ?? [];
+            return (this.modal.fields ?? []).filter((field) => !field.tab || field.tab === this.modal.activeTab);
+        },
+
+        modalActiveTabNote() {
+            if (!this.modal.activeTab) return '';
+            return this.modal.tabNotes?.[this.modal.activeTab] ?? '';
+        },
+
+        passwordBadgeLabel(field) {
+            const current = this.modal.form?.[field.name];
+
+            if (typeof current === 'string' && current !== '') {
+                return 'Password akan diperbarui';
+            }
+
+            const key = field.passwordBadgeKey;
+            const hasValue = Boolean(key && this.modal.passwordState?.[key]);
+
+            return hasValue ? 'Password tersimpan' : 'Password belum ada';
+        },
+
+        passwordBadgeClass(field) {
+            const label = this.passwordBadgeLabel(field).toLowerCase();
+            if (label.includes('diperbarui')) return 'bg-blue-100 text-blue-700';
+            if (label.includes('tersimpan')) return 'bg-emerald-100 text-emerald-700';
+            return 'bg-amber-100 text-amber-700';
         },
 
         async submitModal() {
@@ -1534,6 +1663,24 @@ export function adminPanel({ page }) {
         rowActions(row) {
             if (this.isTechnician()) return [];
 
+            if (this.page === 'network' && this.activeTab === 'routers') {
+                const config = this.currentConfig();
+                return [
+                    { key: 'test-connection', label: 'Test Connection', class: 'bg-emerald-50 text-emerald-800', handler: () => this.testRouterConnection(row) },
+                    ...(config.deletable && !config.noDelete
+                        ? [{ key: 'delete', label: 'Delete', class: 'bg-red-50 text-red-700', handler: () => this.confirmDelete(row) }]
+                        : []),
+                ];
+            }
+
+            if (this.page === 'config-acs') {
+                return [
+                    { key: 'pick-router', label: 'Pilih Router', class: 'bg-slate-100 text-slate-700', handler: () => this.selectAcsRouter(row.id) },
+                    { key: 'test-acs', label: 'Test ACS', class: 'bg-emerald-50 text-emerald-800', handler: () => this.testAcsRouter(row.id) },
+                    { key: 'sync-ont', label: 'Sync ONT', class: 'bg-blue-50 text-blue-700', handler: () => this.syncOntRouter(row.id) },
+                ];
+            }
+
             if (this.page === 'services') {
                 const isolated = ['isolated', 'suspended'].includes(row.overall_status);
                 return isolated
@@ -1613,6 +1760,127 @@ export function adminPanel({ page }) {
 
         runRowAction(action) {
             action.handler();
+        },
+
+        async testRouterConnection(row) {
+            try {
+                const response = await api.post(`/api/v1/admin/routers/${row.id}/test-connection`, {});
+                this.toast(response.success ? 'success' : 'error', response.message, response.data?.host ?? '');
+            } catch (error) {
+                this.toast('error', 'Test connection gagal', error.message);
+            }
+        },
+
+        async selectAcsRouter(routerId) {
+            const selectedId = Number(routerId);
+            if (!selectedId) return;
+
+            this.acsConfig.router_id = selectedId;
+            await this.loadAcsRouter(selectedId);
+        },
+
+        async loadAcsRouter(routerId) {
+            this.acsConfig.loading = true;
+
+            try {
+                const response = await api.get(`/api/v1/admin/routers/${routerId}`);
+                const router = response.data ?? {};
+
+                this.acsConfig = {
+                    ...this.acsConfig,
+                    router_id: router.id ?? routerId,
+                    router_name: router.name ?? router.router_name ?? `Router ${routerId}`,
+                    host: router.host ?? router.mgmt_ip ?? '-',
+                    status: router.status ?? (router.is_active ? 'active' : 'inactive'),
+                    acs_inform_url: router.acs_inform_url ?? '',
+                    acs_nbi_url: router.acs_nbi_url ?? '',
+                    acs_username: router.acs_username ?? '',
+                    acs_password: '',
+                    has_acs_password: Boolean(router.has_acs_password),
+                    result: this.acsConfig.result,
+                };
+            } catch (error) {
+                this.toast('error', 'Gagal memuat Config ACS', error.message);
+            } finally {
+                this.acsConfig.loading = false;
+            }
+        },
+
+        async saveAcsConfig() {
+            if (!this.acsConfig.router_id) return;
+
+            this.acsConfig.saving = true;
+
+            try {
+                const payload = {
+                    acs_inform_url: this.acsConfig.acs_inform_url || null,
+                    acs_nbi_url: this.acsConfig.acs_nbi_url || null,
+                    acs_username: this.acsConfig.acs_username || null,
+                };
+
+                if (this.acsConfig.acs_password !== '') {
+                    payload.acs_password = this.acsConfig.acs_password;
+                }
+
+                const response = await api.patch(`/api/v1/admin/routers/${this.acsConfig.router_id}`, payload);
+                this.acsConfig.acs_password = '';
+                this.acsConfig.has_acs_password = Boolean(response.data?.has_acs_password);
+                this.setAcsOperationResult({
+                    success: true,
+                    message: response.message ?? 'Config ACS tersimpan.',
+                    data: response.data ?? {},
+                });
+                await this.loadPage();
+            } catch (error) {
+                this.setAcsOperationResult({
+                    success: false,
+                    message: error.message || 'Simpan Config ACS gagal.',
+                    data: {},
+                });
+            } finally {
+                this.acsConfig.saving = false;
+            }
+        },
+
+        async testAcsRouter(routerId = null) {
+            const targetId = Number(routerId ?? this.acsConfig.router_id);
+            if (!targetId) return;
+
+            try {
+                const response = await api.post(`/api/v1/admin/routers/${targetId}/test-acs`, {});
+                this.setAcsOperationResult(response);
+            } catch (error) {
+                this.setAcsOperationResult({
+                    success: false,
+                    message: error.message || 'Test ACS gagal.',
+                    data: {},
+                });
+            }
+        },
+
+        async syncOntRouter(routerId = null) {
+            const targetId = Number(routerId ?? this.acsConfig.router_id);
+            if (!targetId) return;
+
+            try {
+                const response = await api.post(`/api/v1/admin/routers/${targetId}/sync-ont`, {});
+                this.setAcsOperationResult(response);
+            } catch (error) {
+                this.setAcsOperationResult({
+                    success: false,
+                    message: error.message || 'Sync ONT gagal.',
+                    data: {},
+                });
+            }
+        },
+
+        setAcsOperationResult(result) {
+            this.acsConfig.result = {
+                success: Boolean(result?.success),
+                message: result?.message ?? 'Operasi selesai.',
+                data: result?.data ?? {},
+                at: new Date().toISOString(),
+            };
         },
 
         isolateService(row) {
@@ -1887,7 +2155,7 @@ export function adminPanel({ page }) {
         referenceLabel(ref, row) {
             if (ref === 'customers') return `${row.customer_code ?? row.id} - ${row.full_name}`;
             if (ref === 'services') return `${row.service_code} - ${row.customer?.full_name ?? row.customer_id ?? ''}`;
-            if (ref === 'routers') return `${row.router_code ?? row.id} - ${row.router_name}`;
+            if (ref === 'routers') return `${row.router_code ?? row.id} - ${row.router_name ?? row.name ?? row.host ?? '-'}`;
             if (ref === 'olts') return `${row.olt_code ?? row.id} - ${row.olt_name}`;
             if (ref === 'onts') return `${row.ont_sn} - ${row.ont_name ?? row.status ?? ''}`;
             if (ref === 'packages') return `${row.package_name} - ${this.money(row.monthly_price)}`;
@@ -1905,6 +2173,8 @@ export function adminPanel({ page }) {
                 if (field.name === 'isolation_type') return [field.name, 'manual'];
                 if (field.name === 'issue_now') return [field.name, true];
                 if (field.name === 'is_active') return [field.name, true];
+                if (field.name === 'use_ssl') return [field.name, false];
+                if (field.name === 'timeout') return [field.name, 5];
                 if (field.name === 'role') return [field.name, 'admin'];
                 if (field.type === 'multiselect') return [field.name, []];
                 if (field.name === 'group_type') return [field.name, 'admin'];
@@ -1978,7 +2248,13 @@ export function adminPanel({ page }) {
         formatValue(value, column = {}) {
             if (value === null || value === undefined || value === '') return '-';
             if (column.type === 'money') return this.money(value);
-            if (typeof value === 'boolean') return value ? 'Aktif' : 'Tidak';
+            if (typeof value === 'boolean') {
+                if (['has_api_password', 'has_acs_password'].includes(column.key)) {
+                    return value ? 'Password tersimpan' : 'Password belum ada';
+                }
+
+                return value ? 'Aktif' : 'Tidak';
+            }
             return human(value);
         },
 
@@ -2025,6 +2301,7 @@ export function adminPanel({ page }) {
                 ?? row.invoice_number
                 ?? row.ticket_number
                 ?? row.wo_number
+                ?? row.name
                 ?? row.router_name
                 ?? row.batch_code
                 ?? row.username

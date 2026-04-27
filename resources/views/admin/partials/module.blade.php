@@ -45,6 +45,95 @@
         </div>
     </section>
 
+    <section x-show="page === 'config-acs' && !isPlaceholderCurrent()" x-cloak class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+        <div class="grid gap-4 lg:grid-cols-[280px_1fr]">
+            <label>
+                <span class="text-sm font-bold text-slate-700 dark:text-slate-200">Pilih Router</span>
+                <select
+                    class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                    x-model="acsConfig.router_id"
+                    @change="selectAcsRouter($event.target.value)"
+                >
+                    <option value="">Pilih router...</option>
+                    <template x-for="router in items" :key="router.id">
+                        <option :value="router.id" x-text="(router.name ?? router.router_name ?? ('#' + router.id)) + ' (' + (router.host ?? router.mgmt_ip ?? '-') + ')'"></option>
+                    </template>
+                </select>
+            </label>
+
+            <div class="grid gap-3 sm:grid-cols-2">
+                <div class="rounded-2xl bg-slate-50 p-3 dark:bg-white/[0.04]">
+                    <p class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Router</p>
+                    <p class="mt-1 text-sm font-bold text-slate-900 dark:text-white" x-text="acsConfig.router_name || '-'"></p>
+                </div>
+                <div class="rounded-2xl bg-slate-50 p-3 dark:bg-white/[0.04]">
+                    <p class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Host</p>
+                    <p class="mt-1 text-sm font-bold text-slate-900 dark:text-white" x-text="acsConfig.host || '-'"></p>
+                </div>
+                <div class="rounded-2xl bg-slate-50 p-3 dark:bg-white/[0.04]">
+                    <p class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Status Router</p>
+                    <span class="mt-1 inline-flex rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide" :class="statusClass(acsConfig.status)" x-text="formatValue(acsConfig.status, { type: 'status' })"></span>
+                </div>
+                <div class="rounded-2xl bg-slate-50 p-3 dark:bg-white/[0.04]">
+                    <p class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">ACS Password</p>
+                    <span class="mt-1 inline-flex rounded-full px-3 py-1 text-xs font-black" :class="acsConfig.has_acs_password ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'" x-text="acsConfig.has_acs_password ? 'Password tersimpan' : 'Password belum ada'"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-5 grid gap-4 sm:grid-cols-2">
+            <label class="block">
+                <span class="text-sm font-bold text-slate-700 dark:text-slate-200">ACS Inform URL</span>
+                <input class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" type="url" x-model="acsConfig.acs_inform_url" placeholder="http://acs.local:7547">
+            </label>
+            <label class="block">
+                <span class="text-sm font-bold text-slate-700 dark:text-slate-200">ACS NBI URL</span>
+                <input class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" type="url" x-model="acsConfig.acs_nbi_url" placeholder="http://acs.local:7557">
+            </label>
+            <label class="block">
+                <span class="text-sm font-bold text-slate-700 dark:text-slate-200">ACS Username</span>
+                <input class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" type="text" x-model="acsConfig.acs_username" placeholder="Username ACS">
+            </label>
+            <label class="block">
+                <span class="text-sm font-bold text-slate-700 dark:text-slate-200">ACS Password</span>
+                <input class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" type="password" x-model="acsConfig.acs_password" placeholder="Kosongkan jika tidak ingin ubah">
+            </label>
+        </div>
+
+        <div class="mt-5 flex flex-wrap gap-3">
+            <button
+                type="button"
+                class="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+                :disabled="!acsConfig.router_id || acsConfig.saving || acsConfig.loading"
+                @click="saveAcsConfig"
+            >
+                Simpan Config ACS
+            </button>
+            <button
+                type="button"
+                class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 disabled:opacity-50"
+                :disabled="!acsConfig.router_id || acsConfig.loading"
+                @click="testAcsRouter()"
+            >
+                Test ACS
+            </button>
+            <button
+                type="button"
+                class="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800 disabled:opacity-50"
+                :disabled="!acsConfig.router_id || acsConfig.loading"
+                @click="syncOntRouter()"
+            >
+                Sync ONT Placeholder
+            </button>
+        </div>
+
+        <div x-show="acsConfig.result" x-cloak class="mt-5 rounded-2xl border px-4 py-3" :class="acsConfig.result?.success ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'">
+            <p class="text-sm font-bold" x-text="acsConfig.result?.message ?? '-'"></p>
+            <p class="mt-1 text-xs" x-text="acsConfig.result?.at ? `Updated: ${formatValue(acsConfig.result.at)}` : ''"></p>
+            <pre class="mt-3 overflow-auto rounded-xl bg-white/70 p-3 text-xs text-slate-700" x-text="JSON.stringify(acsConfig.result?.data ?? {}, null, 2)"></pre>
+        </div>
+    </section>
+
     <section x-show="isPlaceholderCurrent()" x-cloak class="overflow-hidden rounded-[2rem] border border-dashed border-blue-300 bg-white shadow-sm shadow-slate-950/5 dark:border-blue-400/30 dark:bg-white/[0.04]">
         <div class="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
             <div class="p-6 sm:p-8">

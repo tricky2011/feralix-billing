@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Admin\ActivityLogController;
+use App\Http\Controllers\Api\V1\Admin\CashflowController;
 use App\Http\Controllers\Api\V1\Admin\CustomerController;
 use App\Http\Controllers\Api\V1\Admin\CustomerReferenceController;
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
@@ -121,6 +122,8 @@ Route::prefix('v1/admin')
             Route::post('invoices/{invoice}/send-whatsapp', [InvoiceController::class, 'sendWhatsapp']);
             Route::apiResource('invoices', InvoiceController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
             Route::apiResource('payments', PaymentController::class)->only(['index', 'store', 'show']);
+            Route::get('cashflows/summary', [CashflowController::class, 'summary'])->middleware('role:superadmin,admin');
+            Route::apiResource('cashflows', CashflowController::class)->middleware('role:superadmin,admin');
         });
     });
 

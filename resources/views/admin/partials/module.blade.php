@@ -43,6 +43,74 @@
                 ></button>
             </template>
         </div>
+
+        <div x-show="page === 'cashflow' && !isPlaceholderCurrent()" x-cloak class="mt-5 grid gap-3 rounded-3xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-[#07111f]/70 lg:grid-cols-5">
+            <label class="block">
+                <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Type</span>
+                <select class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" x-model="cashflow.filters.type">
+                    <template x-for="option in cashflowTypeOptions()" :key="`type-${option.value}`">
+                        <option :value="option.value" x-text="option.label"></option>
+                    </template>
+                </select>
+            </label>
+
+            <label class="block">
+                <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Category</span>
+                <select class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" x-model="cashflow.filters.category_id">
+                    <template x-for="option in cashflowCategoryOptions()" :key="`category-${option.value}`">
+                        <option :value="option.value" x-text="option.label"></option>
+                    </template>
+                </select>
+            </label>
+
+            <label class="block">
+                <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Date from</span>
+                <input class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" type="date" x-model="cashflow.filters.date_from">
+            </label>
+
+            <label class="block">
+                <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Date to</span>
+                <input class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" type="date" x-model="cashflow.filters.date_to">
+            </label>
+
+            <div class="flex items-end gap-2">
+                <button type="button" class="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white shadow-lg shadow-blue-600/20" @click="applyCashflowFilters">Apply</button>
+                <button type="button" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200" @click="resetCashflowFilters">Reset</button>
+            </div>
+        </div>
+    </section>
+
+    <section x-show="page === 'cashflow' && !isPlaceholderCurrent()" x-cloak class="grid gap-5 lg:grid-cols-[1fr_1.3fr]">
+        <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            <template x-for="card in cashflowSummaryCards()" :key="card.key">
+                <article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+                    <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400" x-text="card.label"></p>
+                    <p class="mt-3 text-2xl font-black tracking-tight" :class="card.class" x-text="card.value"></p>
+                </article>
+            </template>
+        </div>
+
+        <article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <p class="text-xs font-black uppercase tracking-[0.18em] text-blue-700 dark:text-blue-300">Monthly</p>
+                    <h3 class="mt-1 text-xl font-black tracking-tight text-slate-950 dark:text-white">Income vs Expense</h3>
+                </div>
+                <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 dark:bg-white/[0.08] dark:text-slate-300" x-text="`${cashflowMonthlyPoints().length} bulan`"></span>
+            </div>
+
+            <div class="mt-5 flex h-64 items-end gap-2 rounded-2xl border border-slate-100 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-[#07111f]/70">
+                <template x-for="point in cashflowMonthlyPoints()" :key="point.month">
+                    <div class="flex min-w-0 flex-1 flex-col items-center gap-2">
+                        <div class="flex h-44 w-full items-end gap-1 rounded-xl bg-white p-1 dark:bg-white/[0.05]">
+                            <div class="w-1/2 rounded-t-lg bg-emerald-500" :style="`height: ${barHeight(point.income, cashflowMonthlyMax())}%`"></div>
+                            <div class="w-1/2 rounded-t-lg bg-rose-500" :style="`height: ${barHeight(point.expense, cashflowMonthlyMax())}%`"></div>
+                        </div>
+                        <p class="w-full truncate text-center text-[11px] font-bold text-slate-500 dark:text-slate-400" x-text="point.label"></p>
+                    </div>
+                </template>
+            </div>
+        </article>
     </section>
 
     <section x-show="page === 'config-acs' && !isPlaceholderCurrent()" x-cloak class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
@@ -330,7 +398,7 @@
                     <td class="px-5 py-4 text-right">
                         <div class="flex justify-end gap-2">
                             <button class="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 dark:border-white/10 dark:text-slate-300" @click="openDetail(row)">Detail</button>
-                            <button class="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 dark:border-white/10 dark:text-slate-300" x-show="canEditCurrent()" @click="openEdit(row)">Edit</button>
+                            <button class="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 dark:border-white/10 dark:text-slate-300" x-show="canEditCurrent() && canEditRow(row)" @click="openEdit(row)">Edit</button>
                             <template x-for="action in rowActions(row)" :key="action.key">
                                 <button class="rounded-xl px-3 py-2 text-xs font-bold" :class="action.class" @click="runRowAction(action, row)" x-text="action.label"></button>
                             </template>

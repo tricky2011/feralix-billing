@@ -34,6 +34,7 @@ const baseSelects = {
     telegram_group_type: select(['teknisi', 'admin', 'owner', 'alert']),
     password_mode: select(['random_secure', 'same_as_username']),
     username_mode: select(['voucher_code', 'prefix_random']),
+    cashflow_type: select(['income', 'expense']),
     bool: [
         { value: true, label: 'Ya' },
         { value: false, label: 'Tidak' },
@@ -129,6 +130,27 @@ const modules = {
             { name: 'subtotal', label: 'Subtotal', type: 'number' },
             { name: 'penalty_amount', label: 'Denda', type: 'number' },
             { name: 'issue_now', label: 'Terbitkan sekarang', type: 'select', options: baseSelects.bool },
+        ],
+        deletable: true,
+    },
+    cashflow: {
+        title: 'Cashflow',
+        section: 'Operations',
+        description: 'Pencatatan pemasukan dan pengeluaran operasional, termasuk income otomatis dari payment.',
+        endpoint: '/api/v1/admin/cashflows',
+        columns: [
+            { key: 'created_at', label: 'Tanggal', type: 'datetime' },
+            { key: 'type', label: 'Type', type: 'status' },
+            { key: 'amount', label: 'Amount', type: 'money' },
+            { key: 'category.name', label: 'Category' },
+            { key: 'description', label: 'Description' },
+            { key: 'source', label: 'Source' },
+        ],
+        fields: [
+            { name: 'type', label: 'Type', type: 'select', options: baseSelects.cashflow_type },
+            { name: 'amount', label: 'Amount', type: 'number' },
+            { name: 'category_id', label: 'Category', type: 'select', optionsRef: 'cashflow_categories' },
+            { name: 'description', label: 'Description', type: 'textarea' },
         ],
         deletable: true,
     },
@@ -626,16 +648,6 @@ const placeholderPages = {
             'Filter router, status job, dan waktu eksekusi.',
         ],
     },
-    cashflow: {
-        title: 'Cashflow',
-        section: 'Operations',
-        description: 'Ringkasan arus kas operasional dari invoice dan payment.',
-        backendNeeds: [
-            'Endpoint ringkasan income, expense, dan outstanding.',
-            'Endpoint list transaksi cashflow dengan filter periode.',
-            'Role policy agar teknisi tidak melihat data finansial.',
-        ],
-    },
     'fiber-network-map': {
         title: 'Fiber Network Map',
         section: 'Network',
@@ -1002,6 +1014,20 @@ export function adminPanel({ page }) {
         items: [],
         pagination: {},
         filters: { search: '', page: 1, per_page: 15 },
+        cashflow: {
+            filters: {
+                type: '',
+                category_id: '',
+                date_from: '',
+                date_to: '',
+            },
+            summary: {
+                total_income: '0.00',
+                total_expense: '0.00',
+                net_balance: '0.00',
+                monthly: [],
+            },
+        },
         references: {
             customers: [],
             services: [],
@@ -1018,6 +1044,7 @@ export function adminPanel({ page }) {
             tickets: [],
             work_orders: [],
             telegram_bots: [],
+            cashflow_categories: [],
         },
         loading: false,
         saving: false,
@@ -1294,6 +1321,44 @@ export function adminPanel({ page }) {
             return this.currentConfig().description ?? 'Kelola data operasional ISP dari API v1.';
         },
 
+        isCashflowPage() {
+            return this.page === 'cashflow';
+        },
+
+        cashflowTypeOptions() {
+            return [{ value: '', label: 'Semua type' }, ...baseSelects.cashflow_type];
+        },
+
+        cashflowCategoryOptions() {
+            const selectedType = this.cashflow.filters.type;
+            const rows = (this.references.cashflow_categories ?? [])
+                .filter((category) => !selectedType || category.type === selectedType);
+
+            return [
+                { value: '', label: 'Semua category' },
+                ...rows.map((category) => ({
+                    value: category.id,
+                    label: `${category.name} (${human(category.type)})`,
+                })),
+            ];
+        },
+
+        applyCashflowFilters() {
+            this.filters.page = 1;
+            this.loadPage();
+        },
+
+        resetCashflowFilters() {
+            this.cashflow.filters = {
+                type: '',
+                category_id: '',
+                date_from: '',
+                date_to: '',
+            };
+            this.filters.page = 1;
+            this.loadPage();
+        },
+
         activeManualRouters() {
             const routers = this.references.routers ?? [];
 
@@ -1360,6 +1425,22 @@ export function adminPanel({ page }) {
             return !this.isTechnician() && !config.noEdit && Array.isArray(config.fields);
         },
 
+        canEditRow(row) {
+            if (this.isCashflowPage()) {
+                return row?.can_update !== false && row?.source !== 'system';
+            }
+
+            return true;
+        },
+
+        canDeleteRow(row) {
+            if (this.isCashflowPage()) {
+                return row?.can_delete !== false && row?.source !== 'system';
+            }
+
+            return true;
+        },
+
         async loadReferences() {
             if (this.isTechnician()) return;
 
@@ -1423,10 +1504,7 @@ export function adminPanel({ page }) {
             this.loading = true;
 
             try {
-                const params = { ...this.filters };
-                if (config.collection) {
-                    params.limit = this.filters.per_page;
-                }
+                const params = this.buildCurrentParams(config);
 
                 const response = await api.get(config.endpoint, params);
                 const rows = Array.isArray(response.data) ? response.data : [];
@@ -1444,6 +1522,11 @@ export function adminPanel({ page }) {
                     to: this.items.length,
                 };
 
+                if (this.isCashflowPage()) {
+                    this.applyCashflowMeta(response.meta ?? {});
+                    await this.loadCashflowSummary();
+                }
+
                 if (this.page === 'config-acs') {
                     await this.syncAcsRouterSelection();
                 }
@@ -1452,6 +1535,55 @@ export function adminPanel({ page }) {
                 this.toast('error', 'Gagal memuat data', error.message);
             } finally {
                 this.loading = false;
+            }
+        },
+
+        buildCurrentParams(config) {
+            const params = { ...this.filters };
+
+            if (this.isCashflowPage()) {
+                params.type = this.cashflow.filters.type;
+                params.category_id = this.cashflow.filters.category_id;
+                params.date_from = this.cashflow.filters.date_from;
+                params.date_to = this.cashflow.filters.date_to;
+            }
+
+            if (config.collection) {
+                params.limit = this.filters.per_page;
+            }
+
+            return params;
+        },
+
+        applyCashflowMeta(meta = {}) {
+            if (Array.isArray(meta.categories)) {
+                this.references.cashflow_categories = meta.categories;
+            }
+        },
+
+        async loadCashflowSummary() {
+            try {
+                const response = await api.get('/api/v1/admin/cashflows/summary', {
+                    category_id: this.cashflow.filters.category_id,
+                    date_from: this.cashflow.filters.date_from,
+                    date_to: this.cashflow.filters.date_to,
+                    search: this.filters.search,
+                });
+
+                this.cashflow.summary = {
+                    total_income: response.data?.total_income ?? '0.00',
+                    total_expense: response.data?.total_expense ?? '0.00',
+                    net_balance: response.data?.net_balance ?? '0.00',
+                    monthly: Array.isArray(response.data?.monthly) ? response.data.monthly : [],
+                };
+            } catch (error) {
+                this.cashflow.summary = {
+                    total_income: '0.00',
+                    total_expense: '0.00',
+                    net_balance: '0.00',
+                    monthly: [],
+                };
+                this.toast('error', 'Summary cashflow gagal dimuat', error.message);
             }
         },
 
@@ -1581,6 +1713,10 @@ export function adminPanel({ page }) {
         },
 
         openEdit(row) {
+            if (!this.canEditRow(row)) {
+                return;
+            }
+
             const config = this.currentConfig();
             const tabs = config.modalTabs ?? [];
 
@@ -1812,8 +1948,14 @@ export function adminPanel({ page }) {
                 ];
             }
 
+            if (this.page === 'cashflow') {
+                return this.canDeleteRow(row)
+                    ? [{ key: 'delete', label: 'Delete', class: 'bg-red-50 text-red-700', handler: () => this.confirmDelete(row) }]
+                    : [];
+            }
+
             const config = this.currentConfig();
-            if (config.deletable && !config.noDelete) {
+            if (config.deletable && !config.noDelete && this.canDeleteRow(row)) {
                 return [{ key: 'delete', label: 'Delete', class: 'bg-red-50 text-red-700', handler: () => this.confirmDelete(row) }];
             }
 
@@ -2358,6 +2500,7 @@ export function adminPanel({ page }) {
             if (ref === 'hotspot_profiles') return `${row.profile_name} - ${this.money(row.selling_price)}`;
             if (ref === 'resellers') return `${row.reseller_code ?? row.id} - ${row.full_name}`;
             if (ref === 'telegram_bots') return `${row.bot_name} - ${human(row.status)}`;
+            if (ref === 'cashflow_categories') return `${row.name} (${human(row.type)})`;
             return row.name ?? row.label ?? row.id;
         },
 
@@ -2382,6 +2525,7 @@ export function adminPanel({ page }) {
                 if (field.name === 'overall_status') return [field.name, 'active'];
                 if (field.name === 'access_mode') return [field.name, 'vlan'];
                 if (field.name === 'isolation_method') return [field.name, 'address_list'];
+                if (field.name === 'type' && this.isCashflowPage()) return [field.name, 'income'];
                 if (field.name === 'status') return [field.name, 'active'];
                 if (field.type === 'select') return [field.name, field.options?.[0]?.value ?? ''];
                 return [field.name, ''];
@@ -2441,6 +2585,11 @@ export function adminPanel({ page }) {
         formatValue(value, column = {}) {
             if (value === null || value === undefined || value === '') return '-';
             if (column.type === 'money') return this.money(value);
+            if (column.type === 'datetime') {
+                const parsed = new Date(value);
+                if (Number.isNaN(parsed.getTime())) return String(value);
+                return parsed.toLocaleString('id-ID');
+            }
             if (typeof value === 'boolean') {
                 if (['has_api_password', 'has_acs_password'].includes(column.key)) {
                     return value ? 'Password tersimpan' : 'Password belum ada';
@@ -2501,7 +2650,45 @@ export function adminPanel({ page }) {
                 ?? row.bot_name
                 ?? row.group_name
                 ?? row.database
+                ?? row.description
                 ?? `#${row.id}`;
+        },
+
+        cashflowSummaryCards() {
+            const summary = this.cashflow.summary ?? {};
+
+            return [
+                {
+                    key: 'income',
+                    label: 'Total Income',
+                    value: this.moneyValue(summary.total_income ?? 0),
+                    class: 'text-emerald-700 dark:text-emerald-200',
+                },
+                {
+                    key: 'expense',
+                    label: 'Total Expense',
+                    value: this.moneyValue(summary.total_expense ?? 0),
+                    class: 'text-rose-700 dark:text-rose-200',
+                },
+                {
+                    key: 'net',
+                    label: 'Net Balance',
+                    value: this.moneyValue(summary.net_balance ?? 0),
+                    class: this.numeric(summary.net_balance ?? 0) >= 0
+                        ? 'text-blue-700 dark:text-blue-200'
+                        : 'text-amber-700 dark:text-amber-200',
+                },
+            ];
+        },
+
+        cashflowMonthlyPoints() {
+            return this.cashflow.summary?.monthly ?? [];
+        },
+
+        cashflowMonthlyMax() {
+            return Math.max(1, ...this.cashflowMonthlyPoints().map((point) => (
+                Math.max(this.numeric(point.income), this.numeric(point.expense))
+            )));
         },
 
         dashboardCards() {

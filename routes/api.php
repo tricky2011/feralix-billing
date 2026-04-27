@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\V1\Admin\Settings\DatabaseSettingController;
 use App\Http\Controllers\Api\V1\Admin\Settings\TelegramBotController;
 use App\Http\Controllers\Api\V1\Admin\Settings\TelegramGroupController;
 use App\Http\Controllers\Api\V1\Admin\TicketController;
+use App\Http\Controllers\Api\V1\Admin\TechnicianDashboardController as AdminTechnicianDashboardController;
 use App\Http\Controllers\Api\V1\Admin\UserController;
 use App\Http\Controllers\Api\V1\Admin\VidController;
 use App\Http\Controllers\Api\V1\Admin\VoucherBatchController;
@@ -47,6 +48,10 @@ Route::prefix('v1/admin')
         Route::get('dashboard', [AdminDashboardController::class, 'index']);
         Route::patch('dashboard/router-switch', [AdminDashboardController::class, 'switchRouter'])
             ->middleware('panel.role:superadmin,admin');
+        Route::middleware('panel.role:superadmin,admin,technician')->group(function (): void {
+            Route::get('technician-dashboard', [AdminTechnicianDashboardController::class, 'index']);
+            Route::post('technician-dashboard/export-pdf', [AdminTechnicianDashboardController::class, 'exportPdf']);
+        });
 
         Route::middleware(['panel.role:superadmin,admin', 'router.scope.bindings'])->group(function (): void {
             Route::patch('users/{user}/disable', [UserController::class, 'disable'])->middleware('role:superadmin,admin');

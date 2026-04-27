@@ -232,6 +232,15 @@ const modules = {
         ],
         deletable: true,
     },
+    'technician-dashboard': {
+        title: 'Dashboard Teknisi',
+        section: 'Support',
+        description: 'KPI teknisi, target instalasi/ticket, ranking, dan ringkasan work order/ticket per periode.',
+        endpoint: '/api/v1/admin/technician-dashboard',
+        noCreate: true,
+        noEdit: true,
+        noDelete: true,
+    },
     'user-management': {
         title: 'User Management',
         section: 'System',
@@ -668,16 +677,6 @@ const placeholderPages = {
             'Audit port terpakai, kosong, dan rusak.',
         ],
     },
-    'technician-dashboard': {
-        title: 'Dashboard Teknisi',
-        section: 'Support',
-        description: 'Ringkasan pekerjaan teknisi harian berbasis assignment.',
-        backendNeeds: [
-            'Endpoint KPI teknisi per user dan periode.',
-            'List WO dan ticket aktif milik teknisi.',
-            'Status SLA, check-in, dan completion summary.',
-        ],
-    },
     monitoring: {
         title: 'Monitoring',
         section: 'Support',
@@ -1028,6 +1027,40 @@ export function adminPanel({ page }) {
                 monthly: [],
             },
         },
+        technicianDashboard: {
+            loading: false,
+            exporting: false,
+            filters: {
+                technician_id: '',
+                period: 'month',
+                date_from: '',
+                date_to: '',
+            },
+            data: {
+                filters: {
+                    technician_id: null,
+                    period: 'month',
+                    date_from: '',
+                    date_to: '',
+                    technicians: [],
+                },
+                summary: {
+                    total_installations: 0,
+                    completed_installations: 0,
+                    open_tickets: 0,
+                    closed_tickets: 0,
+                    total_points: 0,
+                },
+                targets: {
+                    installation_target: 20,
+                    ticket_target: 50,
+                },
+                ranking: [],
+                work_orders: [],
+                tickets: [],
+                point_rules: [],
+            },
+        },
         references: {
             customers: [],
             services: [],
@@ -1116,6 +1149,11 @@ export function adminPanel({ page }) {
                 const response = await api.get('/api/v1/auth/me');
                 this.user = response.data;
                 tokenStore.setUser(this.user);
+
+                if (this.isTechnician() && this.page === 'dashboard') {
+                    window.location.assign('/admin/technician-dashboard');
+                    return;
+                }
 
                 if (this.isTechnician() && this.forbiddenForTechnician(this.page)) {
                     window.location.assign('/admin/dashboard');
@@ -1359,6 +1397,130 @@ export function adminPanel({ page }) {
             this.loadPage();
         },
 
+        technicianPeriodOptions() {
+            return [
+                { value: 'today', label: this.language === 'id' ? 'Hari ini' : 'Today' },
+                { value: 'week', label: this.language === 'id' ? 'Minggu ini' : 'This week' },
+                { value: 'month', label: this.language === 'id' ? 'Bulan ini' : 'This month' },
+                { value: 'custom', label: this.language === 'id' ? 'Custom' : 'Custom' },
+            ];
+        },
+
+        technicianFilterOptions() {
+            return this.technicianDashboard.data?.filters?.technicians ?? [];
+        },
+
+        onTechnicianDashboardPeriodChanged() {
+            if (this.technicianDashboard.filters.period !== 'custom') {
+                this.technicianDashboard.filters.date_from = '';
+                this.technicianDashboard.filters.date_to = '';
+            }
+        },
+
+        applyTechnicianDashboardFilters() {
+            if (this.technicianDashboard.filters.period !== 'custom') {
+                this.technicianDashboard.filters.date_from = '';
+                this.technicianDashboard.filters.date_to = '';
+            }
+
+            this.loadTechnicianDashboard();
+        },
+
+        resetTechnicianDashboardFilters() {
+            this.technicianDashboard.filters = {
+                technician_id: this.isTechnician()
+                    ? String(this.user?.technician_id ?? '')
+                    : '',
+                period: 'month',
+                date_from: '',
+                date_to: '',
+            };
+
+            this.loadTechnicianDashboard();
+        },
+
+        technicianDashboardParams() {
+            const filters = this.technicianDashboard.filters;
+            const params = {
+                technician_id: filters.technician_id,
+                period: filters.period,
+            };
+
+            if (filters.period === 'custom') {
+                params.date_from = filters.date_from;
+                params.date_to = filters.date_to;
+            }
+
+            return params;
+        },
+
+        async loadTechnicianDashboard() {
+            this.loading = true;
+            this.technicianDashboard.loading = true;
+
+            try {
+                const response = await api.get(
+                    '/api/v1/admin/technician-dashboard',
+                    this.technicianDashboardParams(),
+                );
+
+                const payload = response.data ?? {};
+                const payloadFilters = payload.filters ?? {};
+
+                this.technicianDashboard.data = {
+                    filters: {
+                        technician_id: payloadFilters.technician_id ?? null,
+                        period: payloadFilters.period ?? this.technicianDashboard.filters.period ?? 'month',
+                        date_from: payloadFilters.date_from ?? '',
+                        date_to: payloadFilters.date_to ?? '',
+                        technicians: Array.isArray(payloadFilters.technicians)
+                            ? payloadFilters.technicians
+                            : [],
+                    },
+                    summary: {
+                        total_installations: payload.summary?.total_installations ?? 0,
+                        completed_installations: payload.summary?.completed_installations ?? 0,
+                        open_tickets: payload.summary?.open_tickets ?? 0,
+                        closed_tickets: payload.summary?.closed_tickets ?? 0,
+                        total_points: payload.summary?.total_points ?? 0,
+                    },
+                    targets: {
+                        installation_target: payload.targets?.installation_target ?? 20,
+                        ticket_target: payload.targets?.ticket_target ?? 50,
+                    },
+                    ranking: Array.isArray(payload.ranking) ? payload.ranking : [],
+                    work_orders: Array.isArray(payload.work_orders) ? payload.work_orders : [],
+                    tickets: Array.isArray(payload.tickets) ? payload.tickets : [],
+                    point_rules: Array.isArray(payload.point_rules) ? payload.point_rules : [],
+                };
+
+                this.technicianDashboard.filters.technician_id = payloadFilters.technician_id === null
+                    ? ''
+                    : String(payloadFilters.technician_id ?? '');
+                this.technicianDashboard.filters.period = payloadFilters.period ?? this.technicianDashboard.filters.period;
+                this.technicianDashboard.filters.date_from = payloadFilters.date_from ?? '';
+                this.technicianDashboard.filters.date_to = payloadFilters.date_to ?? '';
+            } catch (error) {
+                this.toast('error', 'Dashboard teknisi gagal dimuat', error.message);
+            } finally {
+                this.loading = false;
+                this.technicianDashboard.loading = false;
+            }
+        },
+
+        async exportTechnicianDashboardPdf() {
+            this.technicianDashboard.exporting = true;
+
+            try {
+                const response = await api.post('/api/v1/admin/technician-dashboard/export-pdf', {});
+                this.toast('success', this.language === 'id' ? 'Export PDF' : 'PDF Export', response.message);
+            } catch (error) {
+                this.toast('error', this.language === 'id' ? 'Export PDF gagal' : 'PDF export failed', error.message);
+            } finally {
+                this.technicianDashboard.exporting = false;
+            }
+        },
+
         activeManualRouters() {
             const routers = this.references.routers ?? [];
 
@@ -1482,6 +1644,11 @@ export function adminPanel({ page }) {
         async loadPage() {
             if (this.page === 'dashboard') {
                 await this.loadDashboard();
+                return;
+            }
+
+            if (this.page === 'technician-dashboard') {
+                await this.loadTechnicianDashboard();
                 return;
             }
 
@@ -2819,6 +2986,64 @@ export function adminPanel({ page }) {
                 { key: 'closed', label: this.language === 'id' ? 'Tiket selesai' : 'Closed tickets', value: tickets.closed ?? 0, tone: 'emerald' },
                 { key: 'wo', label: this.language === 'id' ? 'WO pending' : 'Pending WO', value: installs.pending ?? 0, tone: 'amber' },
             ];
+        },
+
+        technicianDashboardSummary() {
+            return this.technicianDashboard.data?.summary ?? {
+                total_installations: 0,
+                completed_installations: 0,
+                open_tickets: 0,
+                closed_tickets: 0,
+                total_points: 0,
+            };
+        },
+
+        technicianDashboardTargets() {
+            return this.technicianDashboard.data?.targets ?? {
+                installation_target: 20,
+                ticket_target: 50,
+            };
+        },
+
+        technicianDashboardRanking() {
+            return this.technicianDashboard.data?.ranking ?? [];
+        },
+
+        technicianDashboardWorkOrders() {
+            return this.technicianDashboard.data?.work_orders ?? [];
+        },
+
+        technicianDashboardTickets() {
+            return this.technicianDashboard.data?.tickets ?? [];
+        },
+
+        technicianDashboardPointRules() {
+            return this.technicianDashboard.data?.point_rules ?? [];
+        },
+
+        technicianDashboardTargetProgress(type) {
+            const summary = this.technicianDashboardSummary();
+            const targets = this.technicianDashboardTargets();
+
+            if (type === 'installation') {
+                const value = Number(summary.completed_installations ?? 0);
+                const target = Math.max(0, Number(targets.installation_target ?? 0));
+
+                return {
+                    value,
+                    target,
+                    percent: target > 0 ? Math.min(100, Math.round((value / target) * 100)) : 0,
+                };
+            }
+
+            const value = Number(summary.closed_tickets ?? 0);
+            const target = Math.max(0, Number(targets.ticket_target ?? 0));
+
+            return {
+                value,
+                target,
+                percent: target > 0 ? Math.min(100, Math.round((value / target) * 100)) : 0,
+            };
         },
 
         activityRows() {

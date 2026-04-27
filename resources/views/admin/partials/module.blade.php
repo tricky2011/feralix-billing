@@ -6,7 +6,7 @@
                 <h2 class="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white" x-text="currentTitle()"></h2>
                 <p class="mt-2 text-sm text-slate-600 dark:text-slate-400" x-text="currentDescription()"></p>
             </div>
-            <div x-show="!isPlaceholderCurrent()" class="flex flex-col gap-3 sm:flex-row">
+            <div x-show="!isPlaceholderCurrent() && page !== 'technician-dashboard'" class="flex flex-col gap-3 sm:flex-row">
                 <input
                     class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-blue-500/10"
                     type="search"
@@ -32,7 +32,7 @@
             </div>
         </div>
 
-        <div x-show="hasTabs() && !isPlaceholderCurrent()" class="mt-5 flex flex-wrap gap-2">
+        <div x-show="hasTabs() && !isPlaceholderCurrent() && page !== 'technician-dashboard'" class="mt-5 flex flex-wrap gap-2">
             <template x-for="tab in currentTabs()" :key="tab.key">
                 <button
                     type="button"
@@ -78,6 +78,200 @@
                 <button type="button" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200" @click="resetCashflowFilters">Reset</button>
             </div>
         </div>
+    </section>
+
+    <section x-show="page === 'technician-dashboard' && !isPlaceholderCurrent()" x-cloak class="space-y-5">
+        <article class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+            <div class="grid gap-3 lg:grid-cols-[1fr_220px_170px_170px_auto]">
+                <label class="block">
+                    <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Teknisi</span>
+                    <select class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" x-model="technicianDashboard.filters.technician_id">
+                        <option value="" x-show="!isTechnician()">Semua teknisi</option>
+                        <template x-for="technician in technicianFilterOptions()" :key="`tech-${technician.id}`">
+                            <option :value="technician.id" x-text="`${technician.technician_code} - ${technician.full_name}`"></option>
+                        </template>
+                    </select>
+                </label>
+
+                <label class="block">
+                    <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Periode</span>
+                    <select class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" x-model="technicianDashboard.filters.period" @change="onTechnicianDashboardPeriodChanged">
+                        <template x-for="option in technicianPeriodOptions()" :key="`period-${option.value}`">
+                            <option :value="option.value" x-text="option.label"></option>
+                        </template>
+                    </select>
+                </label>
+
+                <label class="block" x-show="technicianDashboard.filters.period === 'custom'">
+                    <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Date from</span>
+                    <input class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" type="date" x-model="technicianDashboard.filters.date_from">
+                </label>
+
+                <label class="block" x-show="technicianDashboard.filters.period === 'custom'">
+                    <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Date to</span>
+                    <input class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" type="date" x-model="technicianDashboard.filters.date_to">
+                </label>
+
+                <div class="flex items-end gap-2">
+                    <button type="button" class="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white shadow-lg shadow-blue-600/20" @click="applyTechnicianDashboardFilters">Apply</button>
+                    <button type="button" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200" @click="resetTechnicianDashboardFilters">Reset</button>
+                    <button type="button" class="w-full rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-800 disabled:opacity-50" :disabled="technicianDashboard.exporting" @click="exportTechnicianDashboardPdf">
+                        Export PDF
+                    </button>
+                </div>
+            </div>
+        </article>
+
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+                <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Total instalasi</p>
+                <p class="mt-3 text-3xl font-black tracking-tight text-slate-950 dark:text-white" x-text="technicianDashboardSummary().total_installations"></p>
+            </article>
+            <article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+                <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Instalasi selesai</p>
+                <p class="mt-3 text-3xl font-black tracking-tight text-slate-950 dark:text-white" x-text="technicianDashboardSummary().completed_installations"></p>
+            </article>
+            <article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+                <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Tiket open</p>
+                <p class="mt-3 text-3xl font-black tracking-tight text-slate-950 dark:text-white" x-text="technicianDashboardSummary().open_tickets"></p>
+            </article>
+            <article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+                <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Tiket selesai</p>
+                <p class="mt-3 text-3xl font-black tracking-tight text-slate-950 dark:text-white" x-text="technicianDashboardSummary().closed_tickets"></p>
+            </article>
+            <article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+                <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Total poin</p>
+                <p class="mt-3 text-3xl font-black tracking-tight text-slate-950 dark:text-white" x-text="technicianDashboardSummary().total_points"></p>
+            </article>
+        </div>
+
+        <div class="grid gap-5 lg:grid-cols-2">
+            <article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+                <div class="flex items-center justify-between gap-3">
+                    <p class="text-sm font-black text-slate-900 dark:text-white">Target instalasi</p>
+                    <span class="text-xs font-bold text-slate-500 dark:text-slate-400">
+                        <span x-text="technicianDashboardTargetProgress('installation').value"></span> /
+                        <span x-text="technicianDashboardTargetProgress('installation').target"></span>
+                    </span>
+                </div>
+                <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+                    <div class="h-full rounded-full bg-blue-500" :style="`width: ${technicianDashboardTargetProgress('installation').percent}%`"></div>
+                </div>
+            </article>
+            <article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+                <div class="flex items-center justify-between gap-3">
+                    <p class="text-sm font-black text-slate-900 dark:text-white">Target tiket</p>
+                    <span class="text-xs font-bold text-slate-500 dark:text-slate-400">
+                        <span x-text="technicianDashboardTargetProgress('ticket').value"></span> /
+                        <span x-text="technicianDashboardTargetProgress('ticket').target"></span>
+                    </span>
+                </div>
+                <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+                    <div class="h-full rounded-full bg-emerald-500" :style="`width: ${technicianDashboardTargetProgress('ticket').percent}%`"></div>
+                </div>
+            </article>
+        </div>
+
+        <article class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+            <div class="border-b border-slate-100 px-5 py-4 text-sm font-black text-slate-900 dark:border-white/10 dark:text-white">Ranking Teknisi</div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-100 text-sm dark:divide-white/10">
+                    <thead class="bg-slate-50 text-left text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:bg-white/[0.03] dark:text-slate-400">
+                        <tr>
+                            <th class="px-5 py-3">Rank</th>
+                            <th class="px-5 py-3">Teknisi</th>
+                            <th class="px-5 py-3">Instalasi selesai</th>
+                            <th class="px-5 py-3">Tiket selesai</th>
+                            <th class="px-5 py-3">Poin</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-white/10">
+                        <template x-for="row in technicianDashboardRanking()" :key="`rank-${row.technician_id}`">
+                            <tr>
+                                <td class="px-5 py-3 font-black text-slate-900 dark:text-white" x-text="row.rank"></td>
+                                <td class="px-5 py-3 text-slate-700 dark:text-slate-200" x-text="row.technician_name"></td>
+                                <td class="px-5 py-3 text-slate-600 dark:text-slate-300" x-text="row.completed_installations"></td>
+                                <td class="px-5 py-3 text-slate-600 dark:text-slate-300" x-text="row.closed_tickets"></td>
+                                <td class="px-5 py-3 font-bold text-blue-700 dark:text-blue-300" x-text="row.points"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+            <div x-show="technicianDashboardRanking().length === 0" class="p-5 text-sm text-slate-500 dark:text-slate-400">Belum ada data ranking untuk filter ini.</div>
+        </article>
+
+        <div class="grid gap-5 xl:grid-cols-2">
+            <article class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+                <div class="border-b border-slate-100 px-5 py-4 text-sm font-black text-slate-900 dark:border-white/10 dark:text-white">Work order terbaru</div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-slate-100 text-sm dark:divide-white/10">
+                        <thead class="bg-slate-50 text-left text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:bg-white/[0.03] dark:text-slate-400">
+                            <tr>
+                                <th class="px-5 py-3">WO</th>
+                                <th class="px-5 py-3">Teknisi</th>
+                                <th class="px-5 py-3">Status</th>
+                                <th class="px-5 py-3">Customer</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-white/10">
+                            <template x-for="row in technicianDashboardWorkOrders()" :key="`wo-${row.id}`">
+                                <tr>
+                                    <td class="px-5 py-3 font-bold text-slate-900 dark:text-white" x-text="row.wo_number"></td>
+                                    <td class="px-5 py-3 text-slate-600 dark:text-slate-300" x-text="row.assigned_technician?.full_name ?? '-'"></td>
+                                    <td class="px-5 py-3">
+                                        <span class="inline-flex rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide" :class="statusClass(row.status)" x-text="formatValue(row.status, { type: 'status' })"></span>
+                                    </td>
+                                    <td class="px-5 py-3 text-slate-600 dark:text-slate-300" x-text="row.customer?.full_name ?? '-'"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+                <div x-show="technicianDashboardWorkOrders().length === 0" class="p-5 text-sm text-slate-500 dark:text-slate-400">Belum ada work order pada periode ini.</div>
+            </article>
+
+            <article class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+                <div class="border-b border-slate-100 px-5 py-4 text-sm font-black text-slate-900 dark:border-white/10 dark:text-white">Ticket terbaru</div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-slate-100 text-sm dark:divide-white/10">
+                        <thead class="bg-slate-50 text-left text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:bg-white/[0.03] dark:text-slate-400">
+                            <tr>
+                                <th class="px-5 py-3">Ticket</th>
+                                <th class="px-5 py-3">Teknisi</th>
+                                <th class="px-5 py-3">Status</th>
+                                <th class="px-5 py-3">Customer</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-white/10">
+                            <template x-for="row in technicianDashboardTickets()" :key="`ticket-${row.id}`">
+                                <tr>
+                                    <td class="px-5 py-3 font-bold text-slate-900 dark:text-white" x-text="row.ticket_number"></td>
+                                    <td class="px-5 py-3 text-slate-600 dark:text-slate-300" x-text="row.assigned_technician?.full_name ?? '-'"></td>
+                                    <td class="px-5 py-3">
+                                        <span class="inline-flex rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide" :class="statusClass(row.status)" x-text="formatValue(row.status, { type: 'status' })"></span>
+                                    </td>
+                                    <td class="px-5 py-3 text-slate-600 dark:text-slate-300" x-text="row.customer?.full_name ?? '-'"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+                <div x-show="technicianDashboardTickets().length === 0" class="p-5 text-sm text-slate-500 dark:text-slate-400">Belum ada ticket pada periode ini.</div>
+            </article>
+        </div>
+
+        <article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+            <p class="text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Point rule</p>
+            <div class="mt-3 grid gap-2">
+                <template x-for="rule in technicianDashboardPointRules()" :key="rule.code">
+                    <div class="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-[#07111f]/70">
+                        <span class="text-sm font-semibold text-slate-700 dark:text-slate-200" x-text="rule.label"></span>
+                        <span class="text-sm font-black text-blue-700 dark:text-blue-300"><span x-text="rule.points"></span> pts</span>
+                    </div>
+                </template>
+            </div>
+        </article>
     </section>
 
     <section x-show="page === 'cashflow' && !isPlaceholderCurrent()" x-cloak class="grid gap-5 lg:grid-cols-[1fr_1.3fr]">
@@ -367,13 +561,13 @@
         </div>
     </section>
 
-    <div x-show="loading && !isPlaceholderCurrent()" class="grid gap-3">
+    <div x-show="loading && !isPlaceholderCurrent() && page !== 'technician-dashboard'" class="grid gap-3">
         <template x-for="i in 5" :key="i">
             <div class="h-16 animate-pulse rounded-3xl bg-white/70 dark:bg-white/[0.05]"></div>
         </template>
     </div>
 
-    <x-table x-show="!loading && !isPlaceholderCurrent()">
+    <x-table x-show="!loading && !isPlaceholderCurrent() && page !== 'technician-dashboard'">
         <thead class="bg-slate-50 text-left text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:bg-white/[0.03] dark:text-slate-400">
             <tr>
                 <template x-for="column in currentColumns()" :key="column.key">
@@ -409,12 +603,12 @@
         </tbody>
     </x-table>
 
-    <div x-show="!loading && !isPlaceholderCurrent() && items.length === 0" class="rounded-[2rem] border border-dashed border-slate-300 bg-white/70 p-10 text-center dark:border-white/10 dark:bg-white/[0.04]">
+    <div x-show="!loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && items.length === 0" class="rounded-[2rem] border border-dashed border-slate-300 bg-white/70 p-10 text-center dark:border-white/10 dark:bg-white/[0.04]">
         <p class="text-2xl font-black text-slate-900 dark:text-white">Belum ada data.</p>
         <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Coba ubah pencarian, refresh, atau buat data baru jika modul ini mendukung create.</p>
     </div>
 
-    <div x-show="!isPlaceholderCurrent()">
+    <div x-show="!isPlaceholderCurrent() && page !== 'technician-dashboard'">
         <x-pagination />
     </div>
 </div>

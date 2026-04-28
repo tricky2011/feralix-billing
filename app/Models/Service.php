@@ -198,7 +198,11 @@ class Service extends Model
 
     public function isolationTargetSubnet(): ?string
     {
-        $targetSubnet = $this->subnet_cidr ?: $this->vid?->subnet_cidr;
+        if ($this->vid !== null) {
+            return $this->vid->resolveNetworkCidr();
+        }
+
+        $targetSubnet = $this->subnet_cidr;
 
         return $targetSubnet !== null && $targetSubnet !== ''
             ? $targetSubnet

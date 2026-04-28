@@ -35,7 +35,7 @@ class ServiceIsolationService
     {
         return DB::transaction(function () use ($payload): ServiceIsolation {
             $service = Service::query()
-                ->with('vid:id,subnet_cidr')
+                ->with('vid:id,vid_type,subnet_cidr')
                 ->lockForUpdate()
                 ->findOrFail((int) $payload['service_id']);
 

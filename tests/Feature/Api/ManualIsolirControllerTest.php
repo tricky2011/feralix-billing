@@ -18,6 +18,7 @@ use App\Models\Router;
 use App\Models\Service;
 use App\Models\ServiceIsolation;
 use App\Models\User;
+use App\Models\Vid;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -163,15 +164,25 @@ class ManualIsolirControllerTest extends TestCase
             'is_active' => true,
         ]);
 
+        $vid = Vid::query()->create([
+            'router_id' => $router->id,
+            'vid' => 310,
+            'subnet_cidr' => '10.30.40.0/29',
+            'gateway_ip' => '10.30.40.1',
+            'pool_start_ip' => '10.30.40.2',
+            'pool_end_ip' => '10.30.40.6',
+        ]);
+
         return Service::query()->create([
             'customer_id' => $customer->id,
             'package_id' => $package->id,
             'router_id' => $router->id,
+            'vid_id' => $vid->id,
             'service_code' => $serviceCode,
             'monitor_vid' => 100,
             'monitor_pppoe_username' => strtolower('monitor.'.$serviceCode),
             'monitor_pppoe_password' => 'secret-monitor',
-            'internet_vid' => random_int(200, 350),
+            'internet_vid' => 310,
             'subnet_cidr' => '10.30.40.0/29',
             'gateway_ip' => '10.30.40.1',
             'dhcp_pool_start' => '10.30.40.2',

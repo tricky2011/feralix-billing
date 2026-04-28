@@ -47,28 +47,30 @@ class ServiceIsolationRouterTargetResolver
 
     private function resolveTargetAddress(ServiceIsolation $serviceIsolation, Service $service): string
     {
-        $candidates = [];
-
         if ($service->resolvedAccessMode() === ServiceAccessMode::Static) {
-            $candidates[] = $service->operationalStaticIpAddress();
-            $candidates[] = $service->routerOperationStatus?->static_ip_address;
-            $candidates[] = data_get($serviceIsolation->target_payload, 'static_ip_address');
+            $candidates = [
+                $service->operationalStaticIpAddress(),
+                $service->routerOperationStatus?->static_ip_address,
+                data_get($serviceIsolation->target_payload, 'static_ip_address'),
+            ];
+
+            foreach ($candidates as $candidate) {
+                if (is_string($candidate) && trim($candidate) !== '' && filter_var(trim($candidate), FILTER_VALIDATE_IP)) {
+                    return trim($candidate);
+                }
+            }
+
+            throw new RuntimeException('No static IP address could be resolved for isolation.');
         }
 
-        $candidates[] = $service->dhcp_pool_start;
-        $candidates[] = $service->vid?->pool_start_ip;
-        $candidates[] = $serviceIsolation->target_identifier;
+        if ($service->vid !== null) {
+            $networkCidr = $service->vid->resolveNetworkCidr();
 
-        foreach ($candidates as $candidate) {
-            if (! is_string($candidate) || trim($candidate) === '') {
-                continue;
+            if ($networkCidr === null) {
+                throw new RuntimeException('VID network belum valid. Jalankan sync VID network.');
             }
 
-            $candidate = trim($candidate);
-
-            if (filter_var($candidate, FILTER_VALIDATE_IP)) {
-                return $candidate;
-            }
+            return $networkCidr;
         }
 
         throw new RuntimeException('No customer IP could be resolved from the service DHCP pool or target payload.');

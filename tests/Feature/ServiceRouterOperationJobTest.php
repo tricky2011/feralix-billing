@@ -21,6 +21,7 @@ use App\Models\Router;
 use App\Models\Service;
 use App\Models\ServiceIsolation;
 use App\Models\ServiceRouterOperationJob;
+use App\Models\Vid;
 use App\Services\Provisioning\ServiceIsolationRouterExecutionService;
 use App\Services\Provisioning\ServiceIsolationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -69,19 +70,19 @@ class ServiceRouterOperationJobTest extends TestCase
             'id' => $operationJob->id,
             'job_status' => ServiceRouterOperationJobStatus::Completed->value,
             'address_list_name' => config('mikrotik.isolation.address_list_name'),
-            'target_address' => $service->dhcp_pool_start,
+            'target_address' => '10.20.30.0/29',
         ]);
 
         $this->assertDatabaseHas('service_router_operation_logs', [
             'operation_job_id' => $operationJob->id,
             'action_type' => ServiceRouterOperationLogAction::Added->value,
-            'target_address' => $service->dhcp_pool_start,
+            'target_address' => '10.20.30.0/29',
         ]);
 
         $this->assertDatabaseHas('service_router_operation_statuses', [
             'service_id' => $service->id,
             'address_list_name' => config('mikrotik.isolation.address_list_name'),
-            'address_list_target' => $service->dhcp_pool_start,
+            'address_list_target' => '10.20.30.0/29',
             'address_list_found' => 1,
         ]);
 
@@ -128,13 +129,13 @@ class ServiceRouterOperationJobTest extends TestCase
         $this->assertDatabaseHas('service_router_operation_jobs', [
             'id' => $operationJob->id,
             'job_status' => ServiceRouterOperationJobStatus::Completed->value,
-            'target_address' => $service->dhcp_pool_start,
+            'target_address' => '10.20.30.0/29',
         ]);
 
         $this->assertDatabaseHas('service_router_operation_logs', [
             'operation_job_id' => $operationJob->id,
             'action_type' => ServiceRouterOperationLogAction::AlreadyAbsent->value,
-            'target_address' => $service->dhcp_pool_start,
+            'target_address' => '10.20.30.0/29',
         ]);
 
         $this->assertDatabaseHas('service_router_operation_statuses', [
@@ -175,10 +176,20 @@ class ServiceRouterOperationJobTest extends TestCase
             'is_active' => true,
         ]);
 
+        $vid = Vid::query()->create([
+            'router_id' => $router->id,
+            'vid' => 310,
+            'subnet_cidr' => '10.20.30.0/29',
+            'gateway_ip' => '10.20.30.1',
+            'pool_start_ip' => '10.20.30.2',
+            'pool_end_ip' => '10.20.30.6',
+        ]);
+
         return Service::query()->create([
             'customer_id' => $customer->id,
             'package_id' => $package->id,
             'router_id' => $router->id,
+            'vid_id' => $vid->id,
             'service_code' => $serviceCode,
             'monitor_vid' => 100,
             'monitor_pppoe_username' => strtolower('monitor.'.$serviceCode),

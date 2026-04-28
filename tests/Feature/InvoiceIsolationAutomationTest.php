@@ -17,6 +17,7 @@ use App\Models\Invoice;
 use App\Models\Package;
 use App\Models\Router;
 use App\Models\Service;
+use App\Models\Vid;
 use App\Services\Billing\InvoiceIsolationAutomationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -274,10 +275,20 @@ class InvoiceIsolationAutomationTest extends TestCase
             'is_active' => true,
         ]);
 
+        $vid = Vid::query()->create([
+            'router_id' => $router->id,
+            'vid' => 320,
+            'subnet_cidr' => '10.40.50.0/29',
+            'gateway_ip' => '10.40.50.1',
+            'pool_start_ip' => '10.40.50.2',
+            'pool_end_ip' => '10.40.50.6',
+        ]);
+
         return Service::query()->create([
             'customer_id' => $customer->id,
             'package_id' => $package->id,
             'router_id' => $router->id,
+            'vid_id' => $vid->id,
             'service_code' => $serviceCode,
             'monitor_vid' => 100,
             'monitor_pppoe_username' => strtolower('monitor.'.$serviceCode),

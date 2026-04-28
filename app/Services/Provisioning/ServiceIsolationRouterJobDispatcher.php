@@ -35,7 +35,7 @@ class ServiceIsolationRouterJobDispatcher
         $serviceIsolation = ServiceIsolation::query()
             ->with([
                 'service:id,customer_id,router_id,vid_id,service_code,access_mode,isolation_method,address_list_name,dhcp_pool_start,static_ip_address',
-                'service.vid:id,pool_start_ip',
+                'service.vid:id,subnet_cidr',
                 'service.routerOperationStatus:id,service_id,static_ip_address',
             ])
             ->find($serviceIsolationId);

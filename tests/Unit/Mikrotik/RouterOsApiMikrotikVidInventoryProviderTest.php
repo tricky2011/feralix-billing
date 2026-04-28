@@ -84,6 +84,106 @@ class RouterOsApiMikrotikVidInventoryProviderTest extends TestCase
         ], $client->requestedPaths);
         $this->assertTrue($client->disconnected);
     }
+
+    public function test_it_maps_v_style_vlan_interfaces_to_network_cidr_not_host_ip(): void
+    {
+        // Two VLANs on the same router with different VID ranges — each must normalize
+        // independently: address field (gateway) must NOT become subnet_cidr.
+        $router = new Router([
+            'router_code' => 'RTR-VNET-1',
+            'router_name' => 'Router VNet 1',
+            'router_role' => 'bng',
+            'mgmt_ip' => '10.10.10.1',
+            'api_port' => 8728,
+            'api_username' => 'admin',
+            'api_password' => 'secret',
+            'is_active' => true,
+        ]);
+        $router->setAttribute('id', 20);
+
+        $client = new FakeMikrotikApiClient([
+            '/interface/vlan' => [
+                ['name' => 'V-1001', 'vlan-id' => '1001', 'disabled' => 'false'],
+                ['name' => 'V-2001', 'vlan-id' => '2001', 'disabled' => 'false'],
+            ],
+            '/ip/address' => [
+                // Router A style: VID in 1xxx range
+                ['interface' => 'V-1001', 'address' => '10.102.1.1/24', 'network' => '10.102.1.0', 'disabled' => 'false', 'dynamic' => 'false', 'invalid' => 'false'],
+                // Router B style: VID in 2xxx range
+                ['interface' => 'V-2001', 'address' => '10.201.1.1/24', 'network' => '10.201.1.0', 'disabled' => 'false', 'dynamic' => 'false', 'invalid' => 'false'],
+            ],
+            '/ip/pool' => [],
+            '/ip/dhcp-server' => [],
+            '/ip/dhcp-server/network' => [],
+        ]);
+
+        $provider = new RouterOsApiMikrotikVidInventoryProvider(
+            new FakeMikrotikApiClientFactory($client),
+            $this->app->make(MikrotikVidInventoryMapper::class),
+            $this->app->make(LogManager::class),
+        );
+
+        $records = $provider->fetchVidInventory($router);
+
+        $this->assertCount(2, $records);
+
+        // V-1001: address 10.102.1.1/24 → gateway=10.102.1.1, subnet=10.102.1.0/24
+        $this->assertSame(1001, $records[0]->vid);
+        $this->assertSame('V-1001', $records[0]->vlanName);
+        $this->assertSame('10.102.1.1', $records[0]->gatewayIp);
+        $this->assertSame('10.102.1.0/24', $records[0]->subnetCidr);
+        $this->assertNotSame('10.102.1.1/24', $records[0]->subnetCidr);
+
+        // V-2001: address 10.201.1.1/24 → gateway=10.201.1.1, subnet=10.201.1.0/24
+        $this->assertSame(2001, $records[1]->vid);
+        $this->assertSame('V-2001', $records[1]->vlanName);
+        $this->assertSame('10.201.1.1', $records[1]->gatewayIp);
+        $this->assertSame('10.201.1.0/24', $records[1]->subnetCidr);
+        $this->assertNotSame('10.201.1.1/24', $records[1]->subnetCidr);
+    }
+
+    public function test_it_calculates_network_cidr_when_network_field_absent_from_ip_address(): void
+    {
+        $router = new Router([
+            'router_code' => 'RTR-VNET-2',
+            'router_name' => 'Router VNet 2',
+            'router_role' => 'bng',
+            'mgmt_ip' => '10.10.10.2',
+            'api_port' => 8728,
+            'api_username' => 'admin',
+            'api_password' => 'secret',
+            'is_active' => true,
+        ]);
+        $router->setAttribute('id', 21);
+
+        // /ip/address without 'network' field — mapper must calculate network from address
+        $client = new FakeMikrotikApiClient([
+            '/interface/vlan' => [
+                ['name' => 'V-1002', 'vlan-id' => '1002', 'disabled' => 'false'],
+            ],
+            '/ip/address' => [
+                ['interface' => 'V-1002', 'address' => '10.102.2.1/24', 'disabled' => 'false', 'dynamic' => 'false', 'invalid' => 'false'],
+            ],
+            '/ip/pool' => [],
+            '/ip/dhcp-server' => [],
+            '/ip/dhcp-server/network' => [],
+        ]);
+
+        $provider = new RouterOsApiMikrotikVidInventoryProvider(
+            new FakeMikrotikApiClientFactory($client),
+            $this->app->make(MikrotikVidInventoryMapper::class),
+            $this->app->make(LogManager::class),
+        );
+
+        $records = $provider->fetchVidInventory($router);
+
+        $this->assertCount(1, $records);
+        $this->assertSame(1002, $records[0]->vid);
+        $this->assertSame('10.102.2.1', $records[0]->gatewayIp);
+        // Fallback calculation must still yield network CIDR, not host IP
+        $this->assertSame('10.102.2.0/24', $records[0]->subnetCidr);
+        $this->assertNotSame('10.102.2.1/24', $records[0]->subnetCidr);
+    }
 }
 
 class FakeMikrotikApiClientFactory implements MikrotikApiClientFactory

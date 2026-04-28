@@ -240,6 +240,81 @@ class SyncMikrotikVidCommandTest extends TestCase
         ]);
     }
 
+    public function test_it_classifies_vid_types_per_router_independently(): void
+    {
+        // Each router defines its own monitor_vid. The classification must be scoped
+        // to that router's own scope — no VID value is globally reserved.
+
+        // Router A: monitor_vid = 1000 (arbitrary choice for this router)
+        $routerA = $this->createRouter('RTR-VIDTYPE-A');
+        RouterScope::query()->create([
+            'router_id' => $routerA->id,
+            'scope_name' => 'Scope A',
+            'monitor_vid' => 1000,
+            'vid_start' => 1000,
+            'vid_end' => 1099,
+            'is_special' => false,
+            'notes' => null,
+        ]);
+        config()->set('mikrotik.fake.routers.'.$routerA->router_code, [
+            ['vid' => 1000, 'vlan_name' => 'V-1000-PPPOE', 'subnet_cidr' => null, 'gateway_ip' => null, 'pool_start_ip' => null, 'pool_end_ip' => null],
+            ['vid' => 1001, 'vlan_name' => 'V-1001', 'subnet_cidr' => '10.102.1.0/24', 'gateway_ip' => '10.102.1.1', 'pool_start_ip' => '10.102.1.2', 'pool_end_ip' => '10.102.1.254'],
+        ]);
+
+        // Router B: monitor_vid = 2000 (completely different VID range)
+        $routerB = $this->createRouter('RTR-VIDTYPE-B');
+        RouterScope::query()->create([
+            'router_id' => $routerB->id,
+            'scope_name' => 'Scope B',
+            'monitor_vid' => 2000,
+            'vid_start' => 2000,
+            'vid_end' => 2099,
+            'is_special' => false,
+            'notes' => null,
+        ]);
+        config()->set('mikrotik.fake.routers.'.$routerB->router_code, [
+            ['vid' => 2000, 'vlan_name' => 'V-2000-PPPOE', 'subnet_cidr' => null, 'gateway_ip' => null, 'pool_start_ip' => null, 'pool_end_ip' => null],
+            ['vid' => 2001, 'vlan_name' => 'V-2001', 'subnet_cidr' => '10.201.1.0/24', 'gateway_ip' => '10.201.1.1', 'pool_start_ip' => '10.201.1.2', 'pool_end_ip' => '10.201.1.254'],
+        ]);
+
+        $this->artisan('mikrotik:sync-vids', ['router' => $routerA->id])->assertSuccessful();
+        $this->artisan('mikrotik:sync-vids', ['router' => $routerB->id])->assertSuccessful();
+
+        // Router A: VID 1000 is monitor_vid for this router only → Monitoring
+        $this->assertDatabaseHas('vids', ['router_id' => $routerA->id, 'vid' => 1000, 'vid_type' => VidType::Monitoring->value]);
+        $this->assertDatabaseMissing('vids', ['router_id' => $routerA->id, 'vid' => 1000, 'vid_type' => VidType::CustomerInternet->value]);
+
+        // Router A: VID 1001 is a customer VLAN → CustomerInternet
+        $this->assertDatabaseHas('vids', [
+            'router_id' => $routerA->id,
+            'vid' => 1001,
+            'vid_type' => VidType::CustomerInternet->value,
+            'subnet_cidr' => '10.102.1.0/24',
+            'gateway_ip' => '10.102.1.1',
+        ]);
+        $this->assertDatabaseMissing('vids', ['router_id' => $routerA->id, 'vid' => 1001, 'subnet_cidr' => '10.102.1.1/24']);
+
+        // Router B: VID 2000 is monitor_vid for this router only → Monitoring
+        $this->assertDatabaseHas('vids', ['router_id' => $routerB->id, 'vid' => 2000, 'vid_type' => VidType::Monitoring->value]);
+        $this->assertDatabaseMissing('vids', ['router_id' => $routerB->id, 'vid' => 2000, 'vid_type' => VidType::CustomerInternet->value]);
+
+        // Router B: VID 2001 is a customer VLAN → CustomerInternet
+        $this->assertDatabaseHas('vids', [
+            'router_id' => $routerB->id,
+            'vid' => 2001,
+            'vid_type' => VidType::CustomerInternet->value,
+            'subnet_cidr' => '10.201.1.0/24',
+            'gateway_ip' => '10.201.1.1',
+        ]);
+        $this->assertDatabaseMissing('vids', ['router_id' => $routerB->id, 'vid' => 2001, 'subnet_cidr' => '10.201.1.1/24']);
+
+        // Cross-check: each router's VIDs are completely isolated from the other router
+        $this->assertDatabaseMissing('vids', ['router_id' => $routerA->id, 'vid' => 2000]);
+        $this->assertDatabaseMissing('vids', ['router_id' => $routerA->id, 'vid' => 2001]);
+        $this->assertDatabaseMissing('vids', ['router_id' => $routerB->id, 'vid' => 1000]);
+        $this->assertDatabaseMissing('vids', ['router_id' => $routerB->id, 'vid' => 1001]);
+    }
+
     private function createRouter(string $routerCode): Router
     {
         return Router::query()->create([

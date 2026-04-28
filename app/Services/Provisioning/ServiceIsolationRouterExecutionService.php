@@ -81,6 +81,7 @@ class ServiceIsolationRouterExecutionService
                     $operationJob->router,
                     $operationJob->address_list_name,
                     $operationJob->target_address,
+                    $this->buildLegacyCommentPatterns($operationJob),
                 ),
             };
         } catch (MikrotikApiException $exception) {
@@ -257,6 +258,31 @@ class ServiceIsolationRouterExecutionService
         $vid = $operationJob->service?->vid?->vid ?? 'unknown';
 
         return "{$customerCode} | VID-{$vid}";
+    }
+
+    /**
+     * Build comment substrings to match address-list entries created by legacy isolation flows.
+     *
+     * Old format: "feralix-billing isolate service:<service_code> isolation:<id>"
+     *
+     * @return list<string>
+     */
+    private function buildLegacyCommentPatterns(ServiceRouterOperationJob $operationJob): array
+    {
+        $patterns = [];
+
+        $serviceCode = $operationJob->service?->service_code;
+        if ($serviceCode !== null && $serviceCode !== '') {
+            $patterns[] = $serviceCode;
+            $patterns[] = "service:{$serviceCode}";
+        }
+
+        $isolationId = $operationJob->service_isolation_id;
+        if ($isolationId !== null) {
+            $patterns[] = "isolation:{$isolationId}";
+        }
+
+        return $patterns;
     }
 
     private function buildResultMessage(

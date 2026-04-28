@@ -68,14 +68,20 @@ class MikrotikAddressListService
     }
 
     /**
+     * @param  list<string>  $legacyCommentPatterns  Partial comment substrings to match legacy entries (backward compatibility)
      * @return array{action:string, router_item_id:string|null, matched:int}
      */
-    public function ensureAddressRemoved(Router $router, string $listName, string $address): array
+    public function ensureAddressRemoved(Router $router, string $listName, string $address, array $legacyCommentPatterns = []): array
     {
         $client = $this->clientFactory->forRouter($router);
 
         try {
-            $existing = $this->findEntries($client, $listName, $address);
+            $byAddress = $this->findEntries($client, $listName, $address);
+            $byComment = $legacyCommentPatterns !== []
+                ? $this->findEntriesByCommentPatterns($client, $listName, $legacyCommentPatterns)
+                : [];
+
+            $existing = $this->mergeUniqueById($byAddress, $byComment);
 
             if ($existing === []) {
                 $this->logger()->info('Mikrotik address-list release skipped because entry is already absent.', [
@@ -131,6 +137,58 @@ class MikrotikAddressListService
                 'address' => $address,
             ],
         );
+    }
+
+    /**
+     * Fetch all entries in the list and filter client-side by partial comment match.
+     *
+     * @param  list<string>  $patterns
+     * @return list<array<string, string>>
+     */
+    private function findEntriesByCommentPatterns(MikrotikApiClient $client, string $listName, array $patterns): array
+    {
+        $all = $client->print(
+            '/ip/firewall/address-list',
+            ['.id', 'list', 'address', 'comment'],
+            ['list' => $listName],
+        );
+
+        return array_values(array_filter(
+            $all,
+            static function (array $entry) use ($patterns): bool {
+                $comment = $entry['comment'] ?? '';
+                foreach ($patterns as $pattern) {
+                    if ($pattern !== '' && str_contains($comment, $pattern)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        ));
+    }
+
+    /**
+     * Merge multiple entry lists, deduplicating by .id.
+     *
+     * @param  list<array<string, string>>  ...$lists
+     * @return list<array<string, string>>
+     */
+    private function mergeUniqueById(array ...$lists): array
+    {
+        $merged = [];
+        $seen = [];
+
+        foreach (array_merge(...$lists) as $entry) {
+            $id = $entry['.id'] ?? '';
+            if ($id === '' || isset($seen[$id])) {
+                continue;
+            }
+            $seen[$id] = true;
+            $merged[] = $entry;
+        }
+
+        return $merged;
     }
 
     private function logger()

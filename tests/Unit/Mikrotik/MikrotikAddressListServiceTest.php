@@ -47,6 +47,80 @@ class MikrotikAddressListServiceTest extends TestCase
         $this->assertCount(0, $client->addressListEntries);
     }
 
+    public function test_it_removes_legacy_format_entries_by_comment_pattern(): void
+    {
+        $router = $this->makeRouter();
+        $client = new AddressListFakeMikrotikApiClient();
+        $service = new MikrotikAddressListService(
+            new AddressListFakeMikrotikApiClientFactory($client),
+            $this->app->make(LogManager::class),
+        );
+
+        // Simulate an entry created by the old isolation flow with a different address
+        // that won't match the current target_address.
+        $client->addressListEntries[] = [
+            '.id' => '*legacy1',
+            'list' => 'ISOLIR_CUSTOMER',
+            'address' => '10.20.30.0/29',
+            'comment' => 'feralix-billing isolate service:SVC-001 isolation:42',
+        ];
+
+        // New-format entry for the same customer using the current target_address.
+        $service->ensureAddressListed($router, 'ISOLIR_CUSTOMER', '10.20.30.2', 'CUST-001 | VID-310');
+
+        $this->assertCount(2, $client->addressListEntries);
+
+        // Release using new target_address + legacy comment patterns.
+        $result = $service->ensureAddressRemoved(
+            $router,
+            'ISOLIR_CUSTOMER',
+            '10.20.30.2',
+            ['SVC-001', 'service:SVC-001', 'isolation:42'],
+        );
+
+        $this->assertSame('removed', $result['action']);
+        $this->assertSame(2, $result['matched']);
+        $this->assertCount(0, $client->addressListEntries);
+    }
+
+    public function test_it_does_not_remove_entries_belonging_to_other_customers(): void
+    {
+        $router = $this->makeRouter();
+        $client = new AddressListFakeMikrotikApiClient();
+        $service = new MikrotikAddressListService(
+            new AddressListFakeMikrotikApiClientFactory($client),
+            $this->app->make(LogManager::class),
+        );
+
+        // Entry for a DIFFERENT customer – should not be touched.
+        $client->addressListEntries[] = [
+            '.id' => '*other1',
+            'list' => 'ISOLIR_CUSTOMER',
+            'address' => '10.20.40.0/29',
+            'comment' => 'feralix-billing isolate service:SVC-999 isolation:99',
+        ];
+
+        // Entry for the target customer.
+        $client->addressListEntries[] = [
+            '.id' => '*mine1',
+            'list' => 'ISOLIR_CUSTOMER',
+            'address' => '10.20.30.2',
+            'comment' => 'feralix-billing isolate service:SVC-001 isolation:42',
+        ];
+
+        $result = $service->ensureAddressRemoved(
+            $router,
+            'ISOLIR_CUSTOMER',
+            '10.20.30.2',
+            ['SVC-001', 'service:SVC-001', 'isolation:42'],
+        );
+
+        $this->assertSame('removed', $result['action']);
+        $this->assertSame(1, $result['matched']);
+        $this->assertCount(1, $client->addressListEntries);
+        $this->assertSame('*other1', $client->addressListEntries[0]['.id']);
+    }
+
     private function makeRouter(): Router
     {
         $router = new Router([

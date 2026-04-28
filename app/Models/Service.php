@@ -225,7 +225,9 @@ class Service extends Model
 
     public function resolvedAccessMode(): ServiceAccessMode
     {
-        if ($this->access_mode === ServiceAccessMode::Vlan) {
+        // Explicit VLAN always wins — pppoe_username may be filled for monitoring/remote
+        if ($this->access_mode === ServiceAccessMode::Vlan ||
+            $this->access_mode === ServiceAccessMode::Vlan->value) {
             return ServiceAccessMode::Vlan;
         }
 
@@ -233,6 +235,7 @@ class Service extends Model
             return $this->access_mode;
         }
 
+        // Legacy fallback: only runs when access_mode is truly not set (null)
         if ($this->pppoe_username !== null && $this->pppoe_username !== '') {
             return ServiceAccessMode::Pppoe;
         }

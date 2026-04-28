@@ -238,7 +238,7 @@ class MikrotikVidSyncService
                 'router_id' => $existingVid->router_id,
                 'scope_id' => $this->resolveScopeId($scopes, $record->vid),
                 'vid' => $existingVid->vid,
-                'vid_type' => $existingVid->vid_type?->value ?? VidType::CustomerInternet->value,
+                'vid_type' => $this->resolveVidType($scopes, $record, $existingVid),
                 'subnet_cidr' => $existingVid->subnet_cidr,
                 'gateway_ip' => $existingVid->gateway_ip,
                 'pool_start_ip' => $existingVid->pool_start_ip,
@@ -259,7 +259,7 @@ class MikrotikVidSyncService
             'router_id' => $router->id,
             'scope_id' => $this->resolveScopeId($scopes, $record->vid),
             'vid' => $record->vid,
-            'vid_type' => $existingVid?->vid_type?->value ?? VidType::CustomerInternet->value,
+            'vid_type' => $this->resolveVidType($scopes, $record, $existingVid),
             'subnet_cidr' => $record->subnetCidr,
             'gateway_ip' => $record->gatewayIp,
             'pool_start_ip' => $record->poolStartIp,
@@ -270,6 +270,51 @@ class MikrotikVidSyncService
             'customer_id' => $activeService?->customer_id,
             'service_id' => $activeService?->id,
         ];
+    }
+
+    private function resolveVidType(
+        Collection $scopes,
+        MikrotikVidInventoryRecord $record,
+        ?Vid $existingVid,
+    ): string {
+        // VID matches a configured monitor_vid → always Monitoring, even overrides existing CustomerInternet
+        if ($this->isMonitorVidByScope($scopes, $record->vid)) {
+            return VidType::Monitoring->value;
+        }
+
+        // Existing has an explicit vid_type → preserve it (keyword alone is not enough to override)
+        if ($existingVid !== null && $existingVid->vid_type !== null) {
+            return $existingVid->vid_type->value;
+        }
+
+        // New VID or null vid_type → apply keyword detection before defaulting
+        if ($this->isMonitoringByKeyword($record->vlanName)) {
+            return VidType::Monitoring->value;
+        }
+
+        return VidType::CustomerInternet->value;
+    }
+
+    private function isMonitorVidByScope(Collection $scopes, int $vid): bool
+    {
+        return $scopes->contains('monitor_vid', $vid);
+    }
+
+    private function isMonitoringByKeyword(?string $name): bool
+    {
+        if ($name === null) {
+            return false;
+        }
+
+        $upper = strtoupper($name);
+
+        foreach (['PPPOE', 'REMOTE', 'MONITORING'] as $keyword) {
+            if (str_contains($upper, $keyword)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function resolveScopeId(Collection $scopes, int $vid): ?int

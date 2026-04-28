@@ -225,6 +225,10 @@ class Service extends Model
 
     public function resolvedAccessMode(): ServiceAccessMode
     {
+        if ($this->access_mode === ServiceAccessMode::Vlan) {
+            return ServiceAccessMode::Vlan;
+        }
+
         if ($this->access_mode instanceof ServiceAccessMode) {
             return $this->access_mode;
         }

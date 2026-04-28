@@ -75,6 +75,40 @@ class Vid extends Model
         return $this->hasMany(Service::class, 'vid_id');
     }
 
+    public function resolveNetworkCidr(): ?string
+    {
+        $raw = $this->subnet_cidr;
+
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+
+        $parts = explode('/', $raw, 2);
+        if (count($parts) !== 2) {
+            return null;
+        }
+
+        [$ip, $prefix] = $parts;
+
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+            return null;
+        }
+
+        if (! ctype_digit($prefix) || (int) $prefix < 1 || (int) $prefix > 32) {
+            return null;
+        }
+
+        $prefix = (int) $prefix;
+        $networkLong = ip2long($ip) & (~0 << (32 - $prefix));
+
+        return long2ip($networkLong) . '/' . $prefix;
+    }
+
+    public function isIsolatable(): bool
+    {
+        return $this->vid_type === VidType::CustomerInternet;
+    }
+
     public function scopeSearch(Builder $query, ?string $search): Builder
     {
         if ($search === null || $search === '') {

@@ -664,6 +664,40 @@
         </section>
     </section>
 
+    <section x-show="page === 'monitoring' && !isPlaceholderCurrent()" x-cloak class="grid gap-3 sm:grid-cols-3 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+        <article class="rounded-3xl border border-slate-200 bg-slate-50/80 p-5 dark:border-white/10 dark:bg-[#07111f]/70">
+            <div class="flex items-center justify-between">
+                <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Total Monitor</p>
+                <span class="rounded-full bg-blue-100 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">MikroTik</span>
+            </div>
+            <p class="mt-3 text-3xl font-black tracking-tight text-slate-950 dark:text-white" x-text="pageMeta.summary?.total ?? pagination.total ?? 0"></p>
+        </article>
+        <article class="rounded-3xl border border-emerald-200 bg-emerald-50/80 p-5 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+            <p class="text-xs font-black uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">PPPoE Online</p>
+            <p class="mt-3 text-3xl font-black tracking-tight text-emerald-900 dark:text-emerald-100" x-text="pageMeta.summary?.online_count ?? '—'"></p>
+        </article>
+        <article class="rounded-3xl border border-rose-200 bg-rose-50/80 p-5 dark:border-rose-500/30 dark:bg-rose-500/10">
+            <p class="text-xs font-black uppercase tracking-[0.18em] text-rose-700 dark:text-rose-300">PPPoE Offline</p>
+            <p class="mt-3 text-3xl font-black tracking-tight text-rose-900 dark:text-rose-100" x-text="pageMeta.summary?.offline_count ?? '—'"></p>
+        </article>
+    </section>
+
+    <section x-show="(page === 'ont-online' || page === 'ont-offline') && !isPlaceholderCurrent()" x-cloak class="flex flex-wrap items-center gap-3 rounded-[2rem] border border-slate-200 bg-white px-5 py-4 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+        <span class="inline-flex items-center gap-2 rounded-full bg-indigo-100 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+            <span class="h-2 w-2 rounded-full bg-indigo-500"></span>
+            Sumber: GenieACS
+        </span>
+        <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
+            Threshold online: last_seen_at &lt; 10 menit
+        </span>
+        <span x-show="page === 'ont-online'" class="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+            <span x-text="pagination.total ?? 0"></span> ONT online
+        </span>
+        <span x-show="page === 'ont-offline'" class="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
+            <span x-text="pagination.total ?? 0"></span> ONT offline / belum terdeteksi
+        </span>
+    </section>
+
     <section x-show="isPlaceholderCurrent()" x-cloak class="overflow-hidden rounded-[2rem] border border-dashed border-blue-300 bg-white shadow-sm shadow-slate-950/5 dark:border-blue-400/30 dark:bg-white/[0.04]">
         <div class="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
             <div class="p-6 sm:p-8">

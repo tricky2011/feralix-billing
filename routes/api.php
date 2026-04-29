@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\Admin\HotspotVoucherController;
 use App\Http\Controllers\Api\V1\Admin\InvoiceController;
 use App\Http\Controllers\Api\V1\Admin\LocationController;
 use App\Http\Controllers\Api\V1\Admin\ManualIsolirController;
+use App\Http\Controllers\Api\V1\Admin\MonitoringController;
 use App\Http\Controllers\Api\V1\Admin\NetworkLocationController;
 use App\Http\Controllers\Api\V1\Admin\OdcController;
 use App\Http\Controllers\Api\V1\Admin\OdpController;
@@ -114,7 +115,10 @@ Route::prefix('v1/admin')
             Route::apiResource('odcs', OdcController::class)->middleware('role:superadmin,admin');
             Route::apiResource('odps', OdpController::class)->middleware('role:superadmin,admin');
             Route::get('fiber-map', [FiberMapController::class, 'index'])->middleware('role:superadmin,admin');
+            Route::get('onts/online', [OntController::class, 'online']);
+            Route::get('onts/offline', [OntController::class, 'offline']);
             Route::apiResource('onts', OntController::class);
+            Route::get('monitoring/pppoe', [MonitoringController::class, 'pppoe']);
             Route::apiResource('vids', VidController::class);
             Route::apiResource('services', ServiceController::class);
             Route::apiResource('tickets', TicketController::class)->only(['index', 'store', 'show']);

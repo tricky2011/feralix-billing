@@ -9,6 +9,7 @@ use App\Http\Requests\Ont\UpdateOntRequest;
 use App\Http\Resources\OntResource;
 use App\Models\Ont;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class OntController extends Controller
 {
@@ -75,5 +76,76 @@ class OntController extends Controller
         $ont->delete();
 
         return $this->successResponse('ONT deleted successfully.');
+    }
+
+    public function online(Request $request): JsonResponse
+    {
+        $filters = $request->validate([
+            'search' => 'nullable|string|max:100',
+            'olt_id' => 'nullable|integer|exists:olts,id',
+            'per_page' => 'nullable|integer|min:1|max:100',
+        ]);
+
+        $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 100));
+        $threshold = now()->subMinutes(10);
+
+        $onts = Ont::query()
+            ->with('olt:id,olt_code,olt_name')
+            ->search($filters['search'] ?? null)
+            ->when($filters['olt_id'] ?? null, fn ($q, $oltId) => $q->where('olt_id', $oltId))
+            ->whereNotNull('last_seen_at')
+            ->where('last_seen_at', '>=', $threshold)
+            ->orderByDesc('last_seen_at')
+            ->orderBy('ont_sn')
+            ->paginate($perPage)
+            ->withQueryString();
+
+        return $this->paginatedResponse(
+            $onts,
+            OntResource::class,
+            'Online ONTs retrieved.',
+            [
+                'filters' => $filters,
+                'source' => 'genieacs',
+                'threshold_minutes' => 10,
+            ],
+        );
+    }
+
+    public function offline(Request $request): JsonResponse
+    {
+        $filters = $request->validate([
+            'search' => 'nullable|string|max:100',
+            'olt_id' => 'nullable|integer|exists:olts,id',
+            'per_page' => 'nullable|integer|min:1|max:100',
+        ]);
+
+        $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 100));
+        $threshold = now()->subMinutes(10);
+
+        $onts = Ont::query()
+            ->with('olt:id,olt_code,olt_name')
+            ->search($filters['search'] ?? null)
+            ->when($filters['olt_id'] ?? null, fn ($q, $oltId) => $q->where('olt_id', $oltId))
+            ->where(function ($query) use ($threshold): void {
+                $query
+                    ->whereNull('last_seen_at')
+                    ->orWhere('last_seen_at', '<', $threshold);
+            })
+            ->orderByDesc('last_seen_at')
+            ->orderBy('ont_sn')
+            ->paginate($perPage)
+            ->withQueryString();
+
+        return $this->paginatedResponse(
+            $onts,
+            OntResource::class,
+            'Offline ONTs retrieved.',
+            [
+                'filters' => $filters,
+                'source' => 'genieacs',
+                'threshold_minutes' => 10,
+            ],
+        );
     }
 }

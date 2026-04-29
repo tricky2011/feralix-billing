@@ -338,6 +338,53 @@ const modules = {
         noEdit: true,
         noDelete: true,
     },
+    monitoring: {
+        title: 'Monitoring PPPoE',
+        section: 'Support',
+        description: 'Pantauan status PPPoE online/offline pelanggan dari MikroTik.',
+        endpoint: '/api/v1/admin/monitoring/pppoe',
+        columns: [
+            { key: 'service_code', label: 'Service' },
+            { key: 'customer_name', label: 'Customer' },
+            { key: 'router_name', label: 'Router' },
+            { key: 'monitor_pppoe_username', label: 'PPPoE Username' },
+            { key: 'status', label: 'Status', type: 'status' },
+            { key: 'last_seen_at', label: 'Last Seen', type: 'datetime' },
+        ],
+        noCreate: true,
+        noEdit: true,
+    },
+    'ont-online': {
+        title: 'ONT Online',
+        section: 'ONT Monitoring',
+        description: 'ONT yang terdeteksi online oleh GenieACS (last_seen_at < 10 menit).',
+        endpoint: '/api/v1/admin/onts/online',
+        columns: [
+            { key: 'ont_sn', label: 'SN' },
+            { key: 'ont_name', label: 'Nama' },
+            { key: 'olt.olt_name', label: 'OLT' },
+            { key: 'optical_status', label: 'Optic' },
+            { key: 'rx_power', label: 'RX (dBm)' },
+            { key: 'last_seen_at', label: 'Last Seen', type: 'datetime' },
+        ],
+        noCreate: true,
+        noEdit: true,
+    },
+    'ont-offline': {
+        title: 'ONT Offline',
+        section: 'ONT Monitoring',
+        description: 'ONT offline atau belum pernah terdeteksi oleh GenieACS.',
+        endpoint: '/api/v1/admin/onts/offline',
+        columns: [
+            { key: 'ont_sn', label: 'SN' },
+            { key: 'ont_name', label: 'Nama' },
+            { key: 'olt.olt_name', label: 'OLT' },
+            { key: 'optical_status', label: 'Optic' },
+            { key: 'last_seen_at', label: 'Last Seen', type: 'datetime' },
+        ],
+        noCreate: true,
+        noEdit: true,
+    },
 };
 
 const networkTabs = {
@@ -728,36 +775,6 @@ const placeholderPages = {
             'Endpoint list/create/update IP pool per router dan VID.',
             'Deteksi overlap subnet dan range IP.',
             'Audit pemakaian pool oleh service aktif.',
-        ],
-    },
-    monitoring: {
-        title: 'Monitoring',
-        section: 'Support',
-        description: 'Pantauan operasional jaringan dan customer-facing incidents.',
-        backendNeeds: [
-            'Endpoint health monitoring router, OLT, ONT, dan PPP.',
-            'Endpoint incident aktif dan alarm summary.',
-            'Sumber data polling atau webhook monitoring.',
-        ],
-    },
-    'ont-online': {
-        title: 'ONT Online',
-        section: 'ONT Monitoring',
-        description: 'Daftar ONT online berdasarkan status monitoring terakhir.',
-        backendNeeds: [
-            'Endpoint ONT dengan filter status online.',
-            'Timestamp last seen dan optical power terbaru.',
-            'Filter OLT, lokasi, dan pelanggan.',
-        ],
-    },
-    'ont-offline': {
-        title: 'ONT Offline',
-        section: 'ONT Monitoring',
-        description: 'Daftar ONT offline untuk prioritas gangguan lapangan.',
-        backendNeeds: [
-            'Endpoint ONT dengan filter status offline/down.',
-            'Korelasi ticket dan work order aktif.',
-            'Filter durasi offline dan lokasi.',
         ],
     },
     'user-management': {
@@ -1203,6 +1220,7 @@ export function adminPanel({ page }) {
             loadingLogs: false,
         },
         ticketStatusOptions: select(['open', 'in_progress', 'resolved', 'closed']),
+        pageMeta: {},
 
         async init() {
             this.loadSidebarState();
@@ -1821,6 +1839,8 @@ export function adminPanel({ page }) {
                     from: this.items.length > 0 ? 1 : 0,
                     to: this.items.length,
                 };
+
+                this.pageMeta = response.meta ?? {};
 
                 if (this.isCashflowPage()) {
                     this.applyCashflowMeta(response.meta ?? {});

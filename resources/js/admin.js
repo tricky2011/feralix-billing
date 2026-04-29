@@ -769,13 +769,12 @@ const placeholderPages = {
     },
     'ip-pools': {
         title: 'IP Pools',
-        section: 'Access',
-        description: 'Manajemen pool IP pelanggan untuk DHCP dan dedicated VID.',
-        backendNeeds: [
-            'Endpoint list/create/update IP pool per router dan VID.',
-            'Deteksi overlap subnet dan range IP.',
-            'Audit pemakaian pool oleh service aktif.',
-        ],
+        section: 'Provisioning',
+        description: 'Pool IP dari MikroTik untuk pencocokan VID saat add customer dan auto-assign. Data diambil langsung dari router via API.',
+        endpoint: null,
+        noCreate: true,
+        noEdit: true,
+        noDelete: true,
     },
     'user-management': {
         title: 'User Management',
@@ -1218,9 +1217,25 @@ export function adminPanel({ page }) {
             result: null,
             recentLogs: [],
             loadingLogs: false,
+            stats: null,
+            loadingStats: false,
         },
         ticketStatusOptions: select(['open', 'in_progress', 'resolved', 'closed']),
         pageMeta: {},
+        ipPools: {
+            router_id: '',
+            loading: false,
+            pools: [],
+            summary: null,
+            utilization: null,
+            vidsWithAvailability: [],
+            selectedPool: null,
+            filters: {
+                vlan_id: '',
+                available_only: false,
+                min_free_ips: 1,
+            },
+        },
 
         async init() {
             this.loadSidebarState();
@@ -1677,6 +1692,7 @@ export function adminPanel({ page }) {
 
         onRouterSyncRouterChanged() {
             this.routerSync.result = null;
+            this.loadRouterStats();
         },
 
         canRunRouterSyncOperation() {
@@ -1695,6 +1711,102 @@ export function adminPanel({ page }) {
 
         isPlaceholderCurrent() {
             return this.currentConfig().placeholder === true;
+        },
+
+        // IP Pools functions
+        activeIpPoolsRouters() {
+            const routers = this.references.routers ?? [];
+            return routers.filter((router) => router.is_active !== false);
+        },
+
+        routerIpPoolsLabel(router) {
+            return `${router.router_code ?? router.id} - ${router.router_name ?? '-'}`;
+        },
+
+        async loadIpPoolsPage() {
+            const activeRouters = this.activeIpPoolsRouters();
+            const selectedRouter = activeRouters.find((router) => Number(router.id) === Number(this.ipPools.router_id));
+
+            if (!selectedRouter && activeRouters.length > 0) {
+                this.ipPools.router_id = String(activeRouters[0].id);
+            }
+
+            if (!this.ipPools.router_id) {
+                this.ipPools.pools = [];
+                this.ipPools.summary = null;
+                this.ipPools.utilization = null;
+                this.ipPools.vidsWithAvailability = [];
+                this.loading = false;
+                return;
+            }
+
+            this.loading = true;
+            this.ipPools.loading = true;
+
+            try {
+                const routerId = Number(this.ipPools.router_id);
+
+                // Load pools
+                const poolsResponse = await api.get(`/api/v1/admin/routers/${routerId}/ip-pools`, {
+                    ...this.ipPools.filters,
+                });
+                this.ipPools.pools = Array.isArray(poolsResponse.data) ? poolsResponse.data : [];
+
+                // Load summary
+                const summaryResponse = await api.get(`/api/v1/admin/routers/${routerId}/ip-pools/summary`);
+                this.ipPools.summary = summaryResponse.data ?? null;
+
+                // Load utilization
+                const utilizationResponse = await api.get(`/api/v1/admin/routers/${routerId}/ip-pools/utilization`, {
+                    min_free_ips: this.ipPools.filters.min_free_ips,
+                    limit: 20,
+                });
+                this.ipPools.utilization = utilizationResponse.data ?? null;
+
+                // Load VIDs with availability
+                const vidsResponse = await api.get(`/api/v1/admin/routers/${routerId}/ip-pools/vids-with-availability`, {
+                    min_free_ips: this.ipPools.filters.min_free_ips,
+                });
+                this.ipPools.vidsWithAvailability = Array.isArray(vidsResponse.data?.vids) ? vidsResponse.data.vids : [];
+
+            } catch (error) {
+                this.toast('error', 'Gagal memuat IP Pools', error.message);
+                this.ipPools.pools = [];
+            } finally {
+                this.loading = false;
+                this.ipPools.loading = false;
+            }
+        },
+
+        async refreshIpPools() {
+            await this.loadIpPoolsPage();
+        },
+
+        async checkPoolForVid(vlanId) {
+            if (!this.ipPools.router_id || !vlanId) return;
+
+            try {
+                const response = await api.get(`/api/v1/admin/routers/${this.ipPools.router_id}/ip-pools/suggest-for-vid`, {
+                    vlan_id: vlanId,
+                    min_free_ips: this.ipPools.filters.min_free_ips,
+                });
+                return response.data;
+            } catch (error) {
+                this.toast('error', 'Gagal check pool untuk VID', error.message);
+                return null;
+            }
+        },
+
+        usageColorClass(percentage) {
+            if (percentage >= 90) return 'bg-rose-500';
+            if (percentage >= 75) return 'bg-amber-500';
+            return 'bg-emerald-500';
+        },
+
+        usageTextClass(percentage) {
+            if (percentage >= 90) return 'text-rose-700 dark:text-rose-300';
+            if (percentage >= 75) return 'text-amber-700 dark:text-amber-300';
+            return 'text-emerald-700 dark:text-emerald-300';
         },
 
         currentColumns() {
@@ -1800,6 +1912,11 @@ export function adminPanel({ page }) {
 
             if (this.page === 'fiber-network-map') {
                 await this.loadFiberMap();
+                return;
+            }
+
+            if (this.page === 'ip-pools') {
+                await this.loadIpPoolsPage();
                 return;
             }
 
@@ -1926,7 +2043,29 @@ export function adminPanel({ page }) {
                 to: 0,
             };
 
-            await this.loadRouterSyncLogs();
+            await Promise.all([
+                this.loadRouterSyncLogs(),
+                this.loadRouterStats(),
+            ]);
+        },
+
+        async loadRouterStats() {
+            if (!this.routerSync.router_id) {
+                this.routerSync.stats = null;
+                return;
+            }
+
+            this.routerSync.loadingStats = true;
+
+            try {
+                const response = await api.get(`/api/v1/admin/routers/${this.routerSync.router_id}/stats`);
+                this.routerSync.stats = response.data ?? null;
+            } catch (error) {
+                this.routerSync.stats = null;
+                // Don't show toast for stats failure, it's not critical
+            } finally {
+                this.routerSync.loadingStats = false;
+            }
         },
 
         async loadRouterSyncLogs() {

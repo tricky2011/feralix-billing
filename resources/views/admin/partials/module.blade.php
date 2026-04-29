@@ -569,6 +569,81 @@
             </div>
         </div>
 
+        {{-- Router Stats Section --}}
+        <div x-show="routerSync.router_id" class="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-[#07111f]/70">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-black uppercase tracking-[0.18em] text-slate-700 dark:text-slate-300">Statistik Router</h3>
+                <button
+                    type="button"
+                    class="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200"
+                    :disabled="routerSync.loadingStats"
+                    @click="loadRouterStats()"
+                >
+                    <span x-show="routerSync.loadingStats">Loading...</span>
+                    <span x-show="!routerSync.loadingStats">Refresh</span>
+                </button>
+            </div>
+
+            <div x-show="routerSync.loadingStats" class="text-sm text-slate-500 dark:text-slate-400">Memuat statistik router...</div>
+
+            {{-- PPPoE Stats --}}
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-4">
+                <article class="rounded-2xl border border-blue-200 bg-blue-50/70 p-3 dark:border-blue-400/20 dark:bg-blue-500/10">
+                    <p class="text-[10px] font-black uppercase tracking-wide text-blue-700 dark:text-blue-300">PPPoE Secrets</p>
+                    <p class="mt-1 text-2xl font-black text-blue-900 dark:text-blue-100" x-text="routerSync.stats?.pppoe?.active_secrets ?? '-'"></p>
+                    <p class="text-[10px] text-blue-600 dark:text-blue-400">dari <span x-text="routerSync.stats?.pppoe?.total_secrets ?? '-'" ></span> total</p>
+                </article>
+                <article class="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-400/20 dark:bg-emerald-500/10">
+                    <p class="text-[10px] font-black uppercase tracking-wide text-emerald-700 dark:text-emerald-300">PPPoE Active</p>
+                    <p class="mt-1 text-2xl font-black text-emerald-900 dark:text-emerald-100" x-text="routerSync.stats?.pppoe?.active_users ?? '-'"></p>
+                    <p class="text-[10px] text-emerald-600 dark:text-emerald-400">user aktif</p>
+                </article>
+                <article class="rounded-2xl border border-indigo-200 bg-indigo-50/70 p-3 dark:border-indigo-400/20 dark:bg-indigo-500/10">
+                    <p class="text-[10px] font-black uppercase tracking-wide text-indigo-700 dark:text-indigo-300">DHCP Leases</p>
+                    <p class="mt-1 text-2xl font-black text-indigo-900 dark:text-indigo-100" x-text="routerSync.stats?.dhcp?.bound_leases ?? '-'"></p>
+                    <p class="text-[10px] text-indigo-600 dark:text-indigo-400">bound / <span x-text="routerSync.stats?.dhcp?.total_leases ?? '-'" ></span></p>
+                </article>
+                <article class="rounded-2xl border border-violet-200 bg-violet-50/70 p-3 dark:border-violet-400/20 dark:bg-violet-500/10">
+                    <p class="text-[10px] font-black uppercase tracking-wide text-violet-700 dark:text-violet-300">IP Pool Addr</p>
+                    <p class="mt-1 text-2xl font-black text-violet-900 dark:text-violet-100" x-text="routerSync.stats?.ip_pool?.total_addresses ?? '-'"></p>
+                    <p class="text-[10px] text-violet-600 dark:text-violet-400"><span x-text="routerSync.stats?.ip_pool?.total_pools ?? '-'" ></span> pools</p>
+                </article>
+            </div>
+
+            {{-- Interface Stats --}}
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <article class="rounded-2xl border border-slate-200 bg-white/70 p-3 dark:border-white/10 dark:bg-white/[0.05]">
+                    <p class="text-[10px] font-black uppercase tracking-wide text-slate-600 dark:text-slate-400">Interfaces</p>
+                    <p class="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">
+                        <span x-text="routerSync.stats?.interfaces?.active ?? '-'"></span>
+                        <span class="text-sm font-normal">/ <span x-text="routerSync.stats?.interfaces?.total ?? '-'" ></span></span>
+                    </p>
+                    <p class="text-[10px] text-slate-500 dark:text-slate-400">active interfaces</p>
+                </article>
+                <article class="rounded-2xl border border-slate-200 bg-white/70 p-3 dark:border-white/10 dark:bg-white/[0.05]">
+                    <p class="text-[10px] font-black uppercase tracking-wide text-slate-600 dark:text-slate-400">VLAN Interfaces</p>
+                    <p class="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100" x-text="routerSync.stats?.interfaces?.vlan_count ?? '-'"></p>
+                    <p class="text-[10px] text-slate-500 dark:text-slate-400">VLAN aktif</p>
+                </article>
+                <article class="rounded-2xl border border-slate-200 bg-white/70 p-3 dark:border-white/10 dark:bg-white/[0.05]">
+                    <p class="text-[10px] font-black uppercase tracking-wide text-slate-600 dark:text-slate-400">IP Addresses</p>
+                    <p class="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">
+                        <span x-text="routerSync.stats?.addresses?.active ?? '-'"></span>
+                        <span class="text-sm font-normal">/ <span x-text="routerSync.stats?.addresses?.total ?? '-'" ></span></span>
+                    </p>
+                    <p class="text-[10px] text-slate-500 dark:text-slate-400">static addresses</p>
+                </article>
+                <article class="rounded-2xl border border-slate-200 bg-white/70 p-3 dark:border-white/10 dark:bg-white/[0.05]">
+                    <p class="text-[10px] font-black uppercase tracking-wide text-slate-600 dark:text-slate-400">Status</p>
+                    <p class="mt-1">
+                        <span x-show="routerSync.stats?.success !== false" class="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-black text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">Connected</span>
+                        <span x-show="routerSync.stats?.success === false" class="inline-flex rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-black text-rose-700 dark:bg-rose-500/20 dark:text-rose-300">Error</span>
+                    </p>
+                    <p class="text-[10px] text-slate-500 dark:text-slate-400" x-text="routerSync.stats?.message ?? ''"></p>
+                </article>
+            </div>
+        </div>
+
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <button
                 type="button"
@@ -698,6 +773,235 @@
         </span>
     </section>
 
+    {{-- IP Pools Section --}}
+    <section x-show="page === 'ip-pools' && !isPlaceholderCurrent()" x-cloak class="space-y-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+        {{-- Router Selection --}}
+        <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-[#07111f]/70">
+            <div class="grid gap-4 lg:grid-cols-[1fr_auto]">
+                <label class="block">
+                    <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Pilih Router (Wajib)</span>
+                    <select
+                        class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                        x-model="ipPools.router_id"
+                        @change="loadIpPoolsPage()"
+                    >
+                        <option value="">Pilih router aktif...</option>
+                        <template x-for="router in activeIpPoolsRouters()" :key="router.id">
+                            <option :value="router.id" x-text="routerIpPoolsLabel(router)"></option>
+                        </template>
+                    </select>
+                </label>
+
+                <div class="flex items-end gap-2">
+                    <button
+                        type="button"
+                        class="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 disabled:opacity-50"
+                        :disabled="!ipPools.router_id || ipPools.loading"
+                        @click="refreshIpPools()"
+                    >
+                        Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="!ipPools.router_id" class="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+            Pilih router terlebih dahulu untuk melihat IP Pools.
+        </div>
+
+        {{-- Summary Cards --}}
+        <div x-show="ipPools.router_id && ipPools.summary" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <article class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+                <p class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Pools</p>
+                <p class="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white" x-text="ipPools.summary?.total_pools ?? 0"></p>
+            </article>
+            <article class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+                <p class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Total IP</p>
+                <p class="mt-2 text-2xl font-black tracking-tight text-slate-950 dark:text-white" x-text="ipPools.summary?.total_ips ?? 0"></p>
+            </article>
+            <article class="rounded-3xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+                <p class="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">IP Free</p>
+                <p class="mt-2 text-2xl font-black tracking-tight text-emerald-900 dark:text-emerald-100" x-text="ipPools.summary?.total_free_ips ?? 0"></p>
+            </article>
+            <article class="rounded-3xl border border-rose-200 bg-rose-50/80 p-4 dark:border-rose-500/30 dark:bg-rose-500/10">
+                <p class="text-[10px] font-black uppercase tracking-wider text-rose-700 dark:text-rose-300">IP Used</p>
+                <p class="mt-2 text-2xl font-black tracking-tight text-rose-900 dark:text-rose-100" x-text="ipPools.summary?.total_used_ips ?? 0"></p>
+            </article>
+            <article class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+                <p class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Usage</p>
+                <p class="mt-2 text-2xl font-black tracking-tight" :class="usageTextClass(ipPools.summary?.overall_usage_percentage ?? 0)" x-text="(ipPools.summary?.overall_usage_percentage ?? 0) + '%'"></p>
+            </article>
+        </div>
+
+        {{-- Filters --}}
+        <div x-show="ipPools.router_id" class="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-[#07111f]/70">
+            <div class="grid gap-3 lg:grid-cols-3">
+                <label class="block">
+                    <span class="text-[10px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Filter VLAN ID</span>
+                    <input
+                        class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                        type="number"
+                        min="1"
+                        max="4094"
+                        placeholder="Semua VID"
+                        x-model="ipPools.filters.vlan_id"
+                        @change="refreshIpPools()"
+                    >
+                </label>
+                <label class="block">
+                    <span class="text-[10px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Min Free IPs</span>
+                    <input
+                        class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                        type="number"
+                        min="1"
+                        placeholder="1"
+                        x-model.number="ipPools.filters.min_free_ips"
+                        @change="refreshIpPools()"
+                    >
+                </label>
+                <label class="flex items-center gap-2 pt-5">
+                    <input
+                        type="checkbox"
+                        class="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        x-model="ipPools.filters.available_only"
+                        @change="refreshIpPools()"
+                    >
+                    <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Pool dengan IP tersedia</span>
+                </label>
+            </div>
+        </div>
+
+        {{-- IP Pools Table --}}
+        <div x-show="ipPools.router_id && ipPools.pools.length > 0" class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+            <div class="border-b border-slate-100 px-5 py-3 text-sm font-black text-slate-900 dark:border-white/10 dark:text-white">
+                Daftar IP Pools
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-100 text-sm dark:divide-white/10">
+                    <thead class="bg-slate-50 text-left text-[10px] font-black uppercase tracking-[0.16em] text-slate-500 dark:bg-white/[0.03] dark:text-slate-400">
+                        <tr>
+                            <th class="px-4 py-3">Pool Name</th>
+                            <th class="px-4 py-3">VLAN ID</th>
+                            <th class="px-4 py-3">Interface</th>
+                            <th class="px-4 py-3">DHCP Server</th>
+                            <th class="px-4 py-3">Ranges</th>
+                            <th class="px-4 py-3 text-right">Total</th>
+                            <th class="px-4 py-3 text-right">Used</th>
+                            <th class="px-4 py-3 text-right">Free</th>
+                            <th class="px-4 py-3 text-right">Usage %</th>
+                            <th class="px-4 py-3">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-white/10">
+                        <template x-for="pool in ipPools.pools" :key="pool.name">
+                            <tr class="transition hover:bg-blue-50/50 dark:hover:bg-white/[0.03]">
+                                <td class="px-4 py-3 font-bold text-slate-900 dark:text-white" x-text="pool.name"></td>
+                                <td class="px-4 py-3">
+                                    <span x-show="pool.vlan_id" class="inline-flex rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-bold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300" x-text="pool.vlan_id"></span>
+                                    <span x-show="!pool.vlan_id" class="text-slate-400">-</span>
+                                </td>
+                                <td class="px-4 py-3 text-slate-600 dark:text-slate-300" x-text="pool.interface ?? '-'"></td>
+                                <td class="px-4 py-3 text-slate-600 dark:text-slate-300" x-text="pool.dhcp_server_name ?? '-'"></td>
+                                <td class="px-4 py-3 text-xs text-slate-500 dark:text-slate-400" x-text="pool.all_ranges_string ?? pool.primary_range ?? '-'"></td>
+                                <td class="px-4 py-3 text-right font-mono text-slate-700 dark:text-slate-200" x-text="pool.total_ips"></td>
+                                <td class="px-4 py-3 text-right font-mono text-rose-600 dark:text-rose-300" x-text="pool.used_ips"></td>
+                                <td class="px-4 py-3 text-right font-mono text-emerald-600 dark:text-emerald-300" x-text="pool.free_ips"></td>
+                                <td class="px-4 py-3 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <div class="w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+                                            <div class="h-full rounded-full" :class="usageColorClass(pool.usage_percentage)" :style="`width: ${pool.usage_percentage}%`"></div>
+                                        </div>
+                                        <span class="w-10 text-right text-xs font-bold" :class="usageTextClass(pool.usage_percentage)" x-text="pool.usage_percentage + '%'"></span>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span x-show="pool.is_full" class="inline-flex rounded-full bg-rose-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-rose-700 dark:bg-rose-500/20 dark:text-rose-300">Full</span>
+                                    <span x-show="!pool.is_full && pool.free_ips > 0" class="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">Available</span>
+                                    <span x-show="!pool.is_full && pool.free_ips === 0" class="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">Empty</span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div x-show="ipPools.router_id && ipPools.pools.length === 0 && !ipPools.loading" class="rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 p-8 text-center dark:border-white/10 dark:bg-white/[0.02]">
+            <p class="text-lg font-black text-slate-700 dark:text-slate-200">Tidak ada IP Pool</p>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Pool tidak ditemukan di router ini atau filter terlalu ketat.</p>
+        </div>
+
+        {{-- VID Availability Section --}}
+        <div x-show="ipPools.router_id && ipPools.vidsWithAvailability.length > 0" class="space-y-3">
+            <h3 class="text-sm font-black text-slate-900 dark:text-white">VID dengan Ketersediaan IP Pool</h3>
+            <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-slate-100 text-sm dark:divide-white/10">
+                        <thead class="bg-slate-50 text-left text-[10px] font-black uppercase tracking-[0.16em] text-slate-500 dark:bg-white/[0.03] dark:text-slate-400">
+                            <tr>
+                                <th class="px-4 py-3">VID</th>
+                                <th class="px-4 py-3">VLAN Name</th>
+                                <th class="px-4 py-3">Status</th>
+                                <th class="px-4 py-3 text-right">Pool Count</th>
+                                <th class="px-4 py-3 text-right">Total IPs</th>
+                                <th class="px-4 py-3 text-right">Free IPs</th>
+                                <th class="px-4 py-3 text-right">Usage</th>
+                                <th class="px-4 py-3">Available</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-white/10">
+                            <template x-for="vid in ipPools.vidsWithAvailability" :key="vid.vid_id ?? vid.vid">
+                                <tr class="transition hover:bg-blue-50/50 dark:hover:bg-white/[0.03]">
+                                    <td class="px-4 py-3 font-bold text-slate-900 dark:text-white" x-text="vid.vid"></td>
+                                    <td class="px-4 py-3 text-slate-600 dark:text-slate-300" x-text="vid.vlan_name ?? '-'"></td>
+                                    <td class="px-4 py-3">
+                                        <span class="inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide" :class="statusClass(vid.status)" x-text="formatValue(vid.status, { type: 'status' })"></span>
+                                    </td>
+                                    <td class="px-4 py-3 text-right font-mono text-slate-700 dark:text-slate-200" x-text="vid.pool_utilization?.pool_count ?? 0"></td>
+                                    <td class="px-4 py-3 text-right font-mono text-slate-700 dark:text-slate-200" x-text="vid.pool_utilization?.total_ips ?? 0"></td>
+                                    <td class="px-4 py-3 text-right font-mono text-emerald-600 dark:text-emerald-300" x-text="vid.pool_utilization?.free_ips ?? 0"></td>
+                                    <td class="px-4 py-3 text-right">
+                                        <span class="text-xs font-bold" :class="usageTextClass(vid.pool_utilization?.usage_percentage ?? 0)" x-text="(vid.pool_utilization?.usage_percentage ?? 0) + '%'"></span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span x-show="vid.is_available" class="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">Yes</span>
+                                        <span x-show="!vid.is_available" class="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-600 dark:bg-white/10 dark:text-slate-400">No</span>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        {{-- Suggested VIDs for Assignment --}}
+        <div x-show="ipPools.router_id && ipPools.utilization?.suggested_vids_for_assignment?.length > 0" class="space-y-3">
+            <h3 class="text-sm font-black text-slate-900 dark:text-white">VID yang Disarankan untuk Assignment Customer Baru</h3>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <template x-for="suggestion in (ipPools.utilization?.suggested_vids_for_assignment ?? [])" :key="suggestion.vlan_id">
+                    <article class="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+                        <div class="flex items-center justify-between">
+                            <span class="text-lg font-black text-emerald-800 dark:text-emerald-100">VID <span x-text="suggestion.vlan_id"></span></span>
+                            <span class="rounded-full bg-emerald-200 px-2 py-0.5 text-[10px] font-black text-emerald-800 dark:bg-emerald-500/30 dark:text-emerald-200" x-text="suggestion.pool_count + ' pools'"></span>
+                        </div>
+                        <div class="mt-2 flex items-center justify-between text-sm">
+                            <span class="text-emerald-700 dark:text-emerald-300">Free IPs:</span>
+                            <span class="font-bold text-emerald-800 dark:text-emerald-100" x-text="suggestion.free_ips"></span>
+                        </div>
+                        <div class="mt-1 flex items-center justify-between text-xs">
+                            <span class="text-emerald-600 dark:text-emerald-400">Usage:</span>
+                            <span class="font-bold text-emerald-700 dark:text-emerald-200" x-text="suggestion.usage_percentage + '%'"></span>
+                        </div>
+                        <div class="mt-2 w-full overflow-hidden rounded-full bg-emerald-200 dark:bg-emerald-500/30">
+                            <div class="h-1.5 rounded-full bg-emerald-500" :style="`width: ${100 - suggestion.usage_percentage}%`"></div>
+                        </div>
+                    </article>
+                </template>
+            </div>
+        </div>
+    </section>
+
     <section x-show="isPlaceholderCurrent()" x-cloak class="overflow-hidden rounded-[2rem] border border-dashed border-blue-300 bg-white shadow-sm shadow-slate-950/5 dark:border-blue-400/30 dark:bg-white/[0.04]">
         <div class="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
             <div class="p-6 sm:p-8">
@@ -738,13 +1042,13 @@
         </div>
     </section>
 
-    <div x-show="loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map'" class="grid gap-3">
+    <div x-show="loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map' && page !== 'ip-pools'" class="grid gap-3">
         <template x-for="i in 5" :key="i">
             <div class="h-16 animate-pulse rounded-3xl bg-white/70 dark:bg-white/[0.05]"></div>
         </template>
     </div>
 
-    <x-table x-show="!loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map'">
+    <x-table x-show="!loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map' && page !== 'ip-pools'">
         <thead class="bg-slate-50 text-left text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:bg-white/[0.03] dark:text-slate-400">
             <tr>
                 <template x-for="column in currentColumns()" :key="column.key">
@@ -780,12 +1084,12 @@
         </tbody>
     </x-table>
 
-    <div x-show="!loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map' && items.length === 0" class="rounded-[2rem] border border-dashed border-slate-300 bg-white/70 p-10 text-center dark:border-white/10 dark:bg-white/[0.04]">
+    <div x-show="!loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map' && page !== 'ip-pools' && items.length === 0" class="rounded-[2rem] border border-dashed border-slate-300 bg-white/70 p-10 text-center dark:border-white/10 dark:bg-white/[0.04]">
         <p class="text-2xl font-black text-slate-900 dark:text-white">Belum ada data.</p>
         <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Coba ubah pencarian, refresh, atau buat data baru jika modul ini mendukung create.</p>
     </div>
 
-    <div x-show="!isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map'">
+    <div x-show="!isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map' && page !== 'ip-pools'">
         <x-pagination />
     </div>
 </div>

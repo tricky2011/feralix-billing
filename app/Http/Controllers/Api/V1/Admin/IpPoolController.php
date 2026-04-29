@@ -1,0 +1,188 @@
+<?php
+
+namespace App\Http\Controllers\Api\V1\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\IpPool\FetchIpPoolRequest;
+use App\Http\Requests\IpPool\IndexIpPoolRequest;
+use App\Http\Resources\IpPoolResource;
+use App\Models\Router;
+use App\Models\Vid;
+use App\Services\Mikrotik\IpPoolService;
+use Illuminate\Http\JsonResponse;
+
+class IpPoolController extends Controller
+{
+    public function __construct(private readonly IpPoolService $ipPoolService) {}
+
+    public function index(IndexIpPoolRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+        $routerId = (int) ($validated['router_id'] ?? 0);
+
+        $router = Router::query()->findOrFail($routerId);
+
+        $pools = $this->ipPoolService->fetchFromRouter($router);
+
+        return $this->collectionResponse(
+            $pools,
+            IpPoolResource::class,
+            'IP pools retrieved successfully.',
+            ['router_id' => $router->id],
+        );
+    }
+
+    public function show(FetchIpPoolRequest $request, Router $router): JsonResponse
+    {
+        $validated = $request->validated();
+
+        $pools = $this->ipPoolService->fetchFromRouter($router);
+
+        if (isset($validated['pool_name'])) {
+            $pools = array_values(array_filter(
+                $pools,
+                static fn ($pool): bool => $pool->name === $validated['pool_name'],
+            ));
+        }
+
+        if (isset($validated['vlan_id'])) {
+            $vlanId = (int) $validated['vlan_id'];
+            $pools = $this->ipPoolService->getPoolsByVlan($router, $vlanId);
+        }
+
+        if (isset($validated['available_only']) && filter_var($validated['available_only'], FILTER_VALIDATE_BOOLEAN)) {
+            $minFreeIps = max(1, (int) ($validated['min_free_ips'] ?? 1));
+            $pools = $this->ipPoolService->getAvailablePools($router, $minFreeIps);
+        }
+
+        return $this->collectionResponse(
+            $pools,
+            IpPoolResource::class,
+            'IP pools retrieved successfully.',
+            [
+                'router_id' => $router->id,
+                'router_code' => $router->router_code,
+                'total' => count($pools),
+            ],
+        );
+    }
+
+    public function summary(FetchIpPoolRequest $request, Router $router): JsonResponse
+    {
+        $request->validate([]);
+        $validated = $request->validated();
+
+        $summary = $this->ipPoolService->getPoolStatusSummary($router);
+
+        return $this->successResponse(
+            'IP pool summary retrieved successfully.',
+            $summary,
+        );
+    }
+
+    public function utilization(FetchIpPoolRequest $request, Router $router): JsonResponse
+    {
+        $validated = $request->validated();
+        $minFreeIps = max(1, (int) ($validated['min_free_ips'] ?? 1));
+        $limit = max(1, min((int) ($validated['limit'] ?? 10), 100));
+
+        $utilization = $this->ipPoolService->getPoolUtilizationByVid($router);
+
+        $availableVids = $this->ipPoolService->suggestAvailableVids($router, $minFreeIps, $limit);
+
+        return $this->successResponse(
+            'IP pool utilization by VID retrieved successfully.',
+            [
+                'router_id' => $router->id,
+                'router_code' => $router->router_code,
+                'pool_utilization_by_vid' => array_values($utilization),
+                'suggested_vids_for_assignment' => $availableVids,
+            ],
+        );
+    }
+
+    public function suggestForVid(FetchIpPoolRequest $request, Router $router): JsonResponse
+    {
+        $validated = $request->validated();
+        $vlanId = (int) ($validated['vlan_id'] ?? 0);
+        $minFreeIps = max(1, (int) ($validated['min_free_ips'] ?? 1));
+
+        if ($vlanId < 1 || $vlanId > 4094) {
+            return $this->successResponse(
+                'Invalid VLAN ID.',
+                ['vlan_id' => $vlanId, 'pools' => [], 'is_available' => false],
+            );
+        }
+
+        $isAvailable = $this->ipPoolService->isVidPoolAvailable($router, $vlanId, $minFreeIps);
+        $pools = $this->ipPoolService->findPoolsForVid($router, $vlanId, $minFreeIps);
+
+        return $this->successResponse(
+            'IP pool suggestions for VID retrieved successfully.',
+            [
+                'vlan_id' => $vlanId,
+                'is_available' => $isAvailable,
+                'pools' => IpPoolResource::collection($pools),
+            ],
+        );
+    }
+
+    public function vidsWithAvailability(FetchIpPoolRequest $request, Router $router): JsonResponse
+    {
+        $request->validate([]);
+        $validated = $request->validated();
+
+        $minFreeIps = max(1, (int) ($validated['min_free_ips'] ?? 1));
+
+        $vids = Vid::query()
+            ->where('router_id', $router->id)
+            ->whereIn('vid_type', ['customer_internet', 'CustomerInternet'])
+            ->orderBy('vid')
+            ->get();
+
+        $enriched = $this->ipPoolService->enrichVidsWithPoolUtilization($vids, $router);
+
+        $result = [];
+
+        foreach ($enriched as $vidId => $data) {
+            /** @var Vid $vid */
+            $vid = $data['vid'];
+            $utilization = $data['pool_utilization'];
+            $pools = $utilization['pools'] ?? [];
+
+            $vlanName = null;
+            foreach ($pools as $pool) {
+                if ($pool->vlanName !== null) {
+                    $vlanName = $pool->vlanName;
+                    break;
+                }
+            }
+
+            $result[] = [
+                'vid_id' => $vid->id,
+                'vid' => $vid->vid,
+                'vlan_name' => $vlanName,
+                'status' => $vid->status?->value,
+                'is_available' => $utilization['free_ips'] >= $minFreeIps,
+                'pool_utilization' => [
+                    'free_ips' => $utilization['free_ips'],
+                    'total_ips' => $utilization['total_ips'],
+                    'usage_percentage' => $utilization['usage_percentage'],
+                    'pool_count' => $utilization['pool_count'],
+                ],
+                'pools' => IpPoolResource::collection(collect($pools)),
+            ];
+        }
+
+        usort($result, static fn (array $a, array $b): int => $b['pool_utilization']['free_ips'] <=> $a['pool_utilization']['free_ips']);
+
+        return $this->successResponse(
+            'VIDs with pool availability retrieved successfully.',
+            [
+                'router_id' => $router->id,
+                'router_code' => $router->router_code,
+                'vids' => $result,
+            ],
+        );
+    }
+}

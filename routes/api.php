@@ -9,7 +9,9 @@ use App\Http\Controllers\Api\V1\Admin\FiberMapController;
 use App\Http\Controllers\Api\V1\Admin\HotspotProfileController;
 use App\Http\Controllers\Api\V1\Admin\HotspotVoucherController;
 use App\Http\Controllers\Api\V1\Admin\InvoiceController;
+use App\Http\Controllers\Api\V1\Admin\IpPoolController;
 use App\Http\Controllers\Api\V1\Admin\LocationController;
+use App\Http\Controllers\Api\V1\Admin\RouterStatsController;
 use App\Http\Controllers\Api\V1\Admin\ManualIsolirController;
 use App\Http\Controllers\Api\V1\Admin\MonitoringController;
 use App\Http\Controllers\Api\V1\Admin\NetworkLocationController;
@@ -107,6 +109,7 @@ Route::prefix('v1/admin')
             Route::post('router-sync/address-list', [RouterSyncController::class, 'syncAddressList'])->middleware('role:superadmin,admin');
             Route::post('router-sync/all', [RouterSyncController::class, 'syncAll'])->middleware('role:superadmin,admin');
             Route::apiResource('routers', RouterController::class)->middleware('role:superadmin,admin');
+            Route::get('routers/{router}/stats', [RouterStatsController::class, 'show']);
             Route::apiResource('router-scopes', RouterScopeController::class);
             Route::apiResource('network-locations', NetworkLocationController::class)
                 ->parameters(['network-locations' => 'networkLocation'])
@@ -120,6 +123,12 @@ Route::prefix('v1/admin')
             Route::apiResource('onts', OntController::class);
             Route::get('monitoring/pppoe', [MonitoringController::class, 'pppoe']);
             Route::apiResource('vids', VidController::class);
+            Route::get('ip-pools', [IpPoolController::class, 'index']);
+            Route::get('routers/{router}/ip-pools', [IpPoolController::class, 'show']);
+            Route::get('routers/{router}/ip-pools/summary', [IpPoolController::class, 'summary']);
+            Route::get('routers/{router}/ip-pools/utilization', [IpPoolController::class, 'utilization']);
+            Route::get('routers/{router}/ip-pools/suggest-for-vid', [IpPoolController::class, 'suggestForVid']);
+            Route::get('routers/{router}/ip-pools/vids-with-availability', [IpPoolController::class, 'vidsWithAvailability']);
             Route::apiResource('services', ServiceController::class);
             Route::apiResource('tickets', TicketController::class)->only(['index', 'store', 'show']);
             Route::patch('tickets/{ticket}/status', [TicketController::class, 'updateStatus']);

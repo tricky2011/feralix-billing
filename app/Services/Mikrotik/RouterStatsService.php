@@ -31,32 +31,38 @@ class RouterStatsService
 
             $client->disconnect();
 
+            $isTruthy = fn (?string $value): bool => in_array(strtolower((string) ($value ?? '')), ['true', 'yes', 'on', '1'], true);
+
             $activeSecrets = collect($pppoeSecrets)
-                ->filter(fn (array $s): bool => ! $this->isTruthy($s['disabled'] ?? null))
+                ->filter(fn (array $s): bool => ! $isTruthy($s['disabled'] ?? null))
                 ->count();
 
             $activePppoeUsers = collect($pppoeActive)
-                ->filter(fn (array $a): bool => ! $this->isDisabled($a))
+                ->filter(fn (array $a): bool => ! $isTruthy($a['disabled'] ?? null))
                 ->count();
 
             $dhcpLeasesBound = collect($dhcpLeases)
-                ->filter(fn (array $l): bool => in_array($l['status'] ?? '', ['bound', 'busy'], true) && ! $this->isTruthy($l['disabled'] ?? null))
+                ->filter(fn (array $l): bool => in_array($l['status'] ?? '', ['bound', 'busy'], true) && ! $isTruthy($l['disabled'] ?? null))
                 ->count();
 
             $totalDhcpLeases = count($dhcpLeases);
 
             $totalIpPoolAddresses = 0;
+            $activeIpPoolCount = 0;
+
             foreach ($ipPools as $pool) {
-                if ($this->isTruthy($pool['disabled'] ?? null)) {
+                if ($isTruthy($pool['disabled'] ?? null)) {
                     continue;
                 }
+
+                $activeIpPoolCount++;
 
                 $ranges = trim($pool['ranges'] ?? '');
                 if ($ranges === '') {
                     continue;
                 }
 
-                $segments = array_filter(array_map('trim', explode(',', $ranges)));
+                $segments = array_values(array_filter(array_map('trim', explode(',', $ranges))));
                 foreach ($segments as $segment) {
                     $parts = array_map('trim', explode('-', $segment, 2));
                     $start = $parts[0] ?? '';
@@ -72,11 +78,15 @@ class RouterStatsService
             }
 
             $activeVlanInterfaces = collect($vlanInterfaces)
-                ->filter(fn (array $v): bool => ! $this->isTruthy($v['disabled'] ?? null))
+                ->filter(fn (array $v): bool => ! $isTruthy($v['disabled'] ?? null))
                 ->count();
 
             $activeInterfaces = collect($interfaces)
-                ->filter(fn (array $i): bool => ! $this->isTruthy($i['disabled'] ?? null) && $this->isTruthy($i['running'] ?? null))
+                ->filter(fn (array $i): bool => ! $isTruthy($i['disabled'] ?? null) && $isTruthy($i['running'] ?? null))
+                ->count();
+
+            $activeStaticAddresses = collect($addresses)
+                ->filter(fn (array $a): bool => ! $isTruthy($a['disabled'] ?? null) && ! $isTruthy($a['dynamic'] ?? null))
                 ->count();
 
             return [
@@ -96,7 +106,7 @@ class RouterStatsService
                         'bound_leases' => $dhcpLeasesBound,
                     ],
                     'ip_pool' => [
-                        'total_pools' => count(array_filter($ipPools, static fn (array $p): bool => ! $this->isTruthy($p['disabled'] ?? null))),
+                        'total_pools' => $activeIpPoolCount,
                         'total_addresses' => $totalIpPoolAddresses,
                     ],
                     'interfaces' => [
@@ -106,7 +116,7 @@ class RouterStatsService
                     ],
                     'addresses' => [
                         'total' => count($addresses),
-                        'active' => count(array_filter($addresses, static fn (array $a): bool => ! $this->isTruthy($a['disabled'] ?? null) && ! $this->isTruthy($a['dynamic'] ?? null))),
+                        'active' => $activeStaticAddresses,
                     ],
                 ],
             ];
@@ -127,16 +137,6 @@ class RouterStatsService
                 ],
             ];
         }
-    }
-
-    private function isTruthy(?string $value): bool
-    {
-        return in_array(strtolower((string) ($value ?? '')), ['true', 'yes', 'on', '1'], true);
-    }
-
-    private function isDisabled(array $record): bool
-    {
-        return $this->isTruthy($record['disabled'] ?? null);
     }
 
     private function logger()

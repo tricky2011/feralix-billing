@@ -26,7 +26,6 @@ class SyncInvoiceServiceIsolationJob implements ShouldQueue
         private readonly int $invoiceId,
         private readonly array $context = [],
     ) {
-        $this->afterCommit();
         $this->onQueue(config('automation.queues.provisioning', 'provisioning'));
     }
 

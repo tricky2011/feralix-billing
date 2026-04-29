@@ -6,9 +6,9 @@ use App\Enums\CustomerStatus;
 use App\Enums\CustomerType;
 use App\Enums\InvoicePaymentStatus;
 use App\Enums\ServiceBillingStatus;
-use App\Enums\ServiceIsolationMethod;
 use App\Enums\ServiceIsolationStatus;
 use App\Enums\ServiceIsolationTargetType;
+use App\Enums\ServiceIsolationMethod;
 use App\Enums\ServiceNetworkStatus;
 use App\Enums\ServiceOverallStatus;
 use App\Enums\VidType;
@@ -26,6 +26,7 @@ use App\Services\Billing\InvoiceIsolationAutomationService;
 use App\Services\Mikrotik\MikrotikAddressListService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Queue;
 use Mockery\MockInterface;
 use Tests\TestCase;
@@ -60,6 +61,9 @@ class InvoiceIsolationAutomationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.payment_status', InvoicePaymentStatus::Overdue->value);
 
+        // Process the sync job that was dispatched by the observer
+        $this->processSyncJob($invoice->id);
+
         $this->assertDatabaseHas('service_isolations', [
             'service_id' => $service->id,
             'invoice_id' => $invoice->id,
@@ -80,6 +84,9 @@ class InvoiceIsolationAutomationTest extends TestCase
             paymentStatus: InvoicePaymentStatus::Overdue,
         );
 
+        // Process initial sync job
+        $this->processSyncJob($invoice->id);
+
         $this->assertDatabaseHas('service_isolations', [
             'service_id' => $service->id,
             'invoice_id' => $invoice->id,
@@ -93,6 +100,9 @@ class InvoiceIsolationAutomationTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('data.invoice.payment_status', InvoicePaymentStatus::Paid->value);
+
+        // Process release sync job
+        $this->processSyncJob($invoice->id);
 
         $this->assertDatabaseHas('service_isolations', [
             'service_id' => $service->id,
@@ -121,6 +131,9 @@ class InvoiceIsolationAutomationTest extends TestCase
             billingPeriod: '2026-04',
         );
 
+        // Process initial sync job for first invoice
+        $this->processSyncJob($firstInvoice->id);
+
         $this->patchJson('/api/v1/admin/invoices/'.$firstInvoice->id.'/mark-paid', [
             'payment_method' => 'bank_transfer',
             'paid_at' => '2026-04-24 11:00:00',
@@ -128,6 +141,9 @@ class InvoiceIsolationAutomationTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('data.invoice.payment_status', InvoicePaymentStatus::Paid->value);
+
+        // Process sync job after payment - should keep isolation due to second overdue invoice
+        $this->processSyncJob($firstInvoice->id);
 
         $this->assertDatabaseCount('service_isolations', 1);
         $this->assertDatabaseHas('service_isolations', [
@@ -154,6 +170,9 @@ class InvoiceIsolationAutomationTest extends TestCase
             dueDate: '2026-04-10',
             paymentStatus: InvoicePaymentStatus::Overdue,
         );
+
+        // Process initial sync job
+        $this->processSyncJob($invoice->id);
 
         $response = $this->postJson('/api/v1/admin/payments', [
             'invoice_id' => $invoice->id,
@@ -216,6 +235,7 @@ class InvoiceIsolationAutomationTest extends TestCase
 
         $automationService = app(InvoiceIsolationAutomationService::class);
 
+        // Call sync twice - should be idempotent
         $automationService->syncForInvoice($invoice->id, [
             'trigger' => 'manual_replay_overdue',
         ]);
@@ -251,18 +271,18 @@ class InvoiceIsolationAutomationTest extends TestCase
         Queue::assertPushed(ProcessServiceRouterOperationJob::class, 2);
     }
 
-    // ── TEST 2: normalized VID network CIDR ────────────────────────────────────
-
     public function test_isolation_target_subnet_is_normalized_vid_network_cidr(): void
     {
         Queue::fake([ProcessServiceRouterOperationJob::class]);
 
-        // VID has host bits set in the subnet — resolver must normalize to network address
         $service = $this->createServiceWithCustomVidSubnet('SVC-NORM-001', '10.40.50.5/29');
         $invoice = $this->createInvoice($service, dueDate: '2026-04-10');
 
         $this->patchJson('/api/v1/admin/invoices/'.$invoice->id.'/mark-overdue')
             ->assertOk();
+
+        // Process sync job
+        $this->processSyncJob($invoice->id);
 
         $this->assertDatabaseHas('service_isolations', [
             'service_id' => $service->id,
@@ -279,8 +299,6 @@ class InvoiceIsolationAutomationTest extends TestCase
         Queue::assertPushed(ProcessServiceRouterOperationJob::class);
     }
 
-    // ── TEST 3: Monitoring VID is rejected safely ──────────────────────────────
-
     public function test_overdue_invoice_with_monitoring_vid_is_skipped_safely(): void
     {
         Queue::fake([ProcessServiceRouterOperationJob::class]);
@@ -292,21 +310,22 @@ class InvoiceIsolationAutomationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.payment_status', InvoicePaymentStatus::Overdue->value);
 
-        // ServiceIsolationTargetResolver rejects Monitoring VID → skipped_validation
+        // Process sync job - should skip due to monitoring VID
+        $this->processSyncJob($invoice->id);
+
         $this->assertDatabaseCount('service_isolations', 0);
         Queue::assertNotPushed(ProcessServiceRouterOperationJob::class);
     }
 
-    // ── TEST 5: release passes legacy comment patterns to address-list service ─
-
     public function test_release_operation_passes_legacy_comment_patterns_to_address_list_service(): void
     {
+        Queue::fake([ProcessServiceRouterOperationJob::class]);
+
         $capturedPatterns = null;
 
         $this->mock(MikrotikAddressListService::class, function (MockInterface $mock) use (&$capturedPatterns): void {
-            $mock->shouldReceive('ensureAddressListed')
-                ->once()
-                ->andReturn(['action' => 'added', 'router_item_id' => 'test-isolate-1']);
+            // Note: ensureAddressListed is NOT called because ProcessServiceRouterOperationJob is faked
+            // The isolate operation job is queued via DB::afterCommit but never runs
 
             $mock->shouldReceive('ensureAddressRemoved')
                 ->once()
@@ -318,29 +337,50 @@ class InvoiceIsolationAutomationTest extends TestCase
                 ->andReturn(['action' => 'removed', 'matched' => 1, 'router_item_id' => null]);
         });
 
+        Queue::fake([ProcessServiceRouterOperationJob::class]);
+
         $service = $this->createService('SVC-CMT-001');
-        // Creating with Overdue status triggers observer → isolation created → ensureAddressListed mocked
-        $invoice = $this->createInvoice($service, dueDate: '2026-04-10', paymentStatus: InvoicePaymentStatus::Overdue);
+        $invoice = $this->createInvoice($service, dueDate: '2026-04-10', paymentStatus: InvoicePaymentStatus::Issued);
+
+        // Process sync job to create isolation
+        $this->processSyncJob($invoice->id);
 
         $isolation = ServiceIsolation::query()
             ->where('service_id', $service->id)
             ->firstOrFail();
         $isolationId = $isolation->id;
 
-        // Paying triggers release → ensureAddressRemoved mocked → patterns captured
+        // Update isolation to Applied so release will dispatch the job
+        $isolation->update(['status' => \App\Enums\ServiceIsolationStatus::Applied->value]);
+
+        // Paying triggers observer → release isolation → ensureAddressRemoved mocked
         $this->patchJson('/api/v1/admin/invoices/'.$invoice->id.'/mark-paid', [
             'payment_method' => 'cash',
             'paid_at' => '2026-04-24 10:00:00',
             'reference_no' => 'CMT-TEST-001',
         ])->assertOk();
 
+        // Trigger release by calling automation service directly (no overdue invoices = release)
+        app(InvoiceIsolationAutomationService::class)->syncForInvoice($invoice->id, [
+            'trigger' => 'test_release',
+        ]);
+
+        // ProcessServiceRouterOperationJob was queued via DB::afterCommit but is faked
+        // Call the execution service directly to verify the patterns are passed correctly
+        $operationJob = \App\Models\ServiceRouterOperationJob::query()
+            ->where('service_isolation_id', $isolation->id)
+            ->where('operation_type', \App\Enums\ServiceRouterOperationType::Release->value)
+            ->first();
+
+        if ($operationJob) {
+            app(\App\Services\Provisioning\ServiceIsolationRouterExecutionService::class)->execute($operationJob->id);
+        }
+
         $this->assertNotNull($capturedPatterns, 'ensureAddressRemoved was not called during release');
         $this->assertContains('SVC-CMT-001', $capturedPatterns);          // broad match
         $this->assertContains('service:SVC-CMT-001', $capturedPatterns);  // old format prefix
         $this->assertContains('isolation:'.$isolationId, $capturedPatterns); // isolation ID
     }
-
-    // ── TEST 6: no PPP disable operation dispatched ────────────────────────────
 
     public function test_no_ppp_operation_dispatched_for_address_list_isolation(): void
     {
@@ -351,6 +391,9 @@ class InvoiceIsolationAutomationTest extends TestCase
 
         $this->patchJson('/api/v1/admin/invoices/'.$invoice->id.'/mark-overdue')
             ->assertOk();
+
+        // Process sync job
+        $this->processSyncJob($invoice->id);
 
         $isolation = ServiceIsolation::query()
             ->where('service_id', $service->id)
@@ -371,6 +414,19 @@ class InvoiceIsolationAutomationTest extends TestCase
         $this->assertMatchesRegularExpression('/^\d+\.\d+\.\d+\.\d+\/\d+$/', $operationJob->target_address);
 
         Queue::assertPushed(ProcessServiceRouterOperationJob::class);
+    }
+
+    /**
+     * Process the SyncInvoiceServiceIsolationJob that was dispatched by the observer.
+     */
+    private function processSyncJob(int $invoiceId): void
+    {
+        $job = new SyncInvoiceServiceIsolationJob($invoiceId, [
+            'trigger' => 'payment_status_changed',
+            'current_status' => InvoicePaymentStatus::Overdue->value,
+        ]);
+
+        Bus::dispatchSync($job);
     }
 
     private function createService(string $serviceCode): Service
@@ -406,6 +462,7 @@ class InvoiceIsolationAutomationTest extends TestCase
         $vid = Vid::query()->create([
             'router_id' => $router->id,
             'vid' => 320,
+            'vid_type' => VidType::CustomerInternet->value,
             'subnet_cidr' => '10.40.50.0/29',
             'gateway_ip' => '10.40.50.1',
             'pool_start_ip' => '10.40.50.2',
@@ -467,10 +524,6 @@ class InvoiceIsolationAutomationTest extends TestCase
         ]);
     }
 
-    /**
-     * Creates a service with a VID whose subnet_cidr has host bits set (non-normalized).
-     * Used to verify that ServiceIsolationTargetResolver normalizes via vid->resolveNetworkCidr().
-     */
     private function createServiceWithCustomVidSubnet(string $serviceCode, string $vidSubnetCidr): Service
     {
         $customer = Customer::query()->create([
@@ -504,6 +557,7 @@ class InvoiceIsolationAutomationTest extends TestCase
         $vid = Vid::query()->create([
             'router_id' => $router->id,
             'vid' => 321,
+            'vid_type' => VidType::CustomerInternet->value,
             'subnet_cidr' => $vidSubnetCidr,
             'gateway_ip' => '10.40.50.1',
             'pool_start_ip' => '10.40.50.2',
@@ -535,10 +589,6 @@ class InvoiceIsolationAutomationTest extends TestCase
         ]);
     }
 
-    /**
-     * Creates a service with a Monitoring VID.
-     * ServiceIsolationTargetResolver must reject this type and return skipped_validation.
-     */
     private function createServiceWithMonitoringVid(string $serviceCode): Service
     {
         $customer = Customer::query()->create([

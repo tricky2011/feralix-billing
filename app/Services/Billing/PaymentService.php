@@ -136,10 +136,6 @@ class PaymentService
             );
             $this->cashflowIncomeService->recordPayment($payment, $invoice->loadMissing('service'));
 
-            if ((float) $invoice->remainingAmount() <= 0) {
-                $this->handleInvoiceSettlement($invoice->refresh()->load('service'), $payment);
-            }
-
             return $this->loadPayment($payment);
         });
     }
@@ -182,21 +178,6 @@ class PaymentService
     private function loadPayment(Payment $payment): Payment
     {
         return $payment->refresh()->load($this->paymentRelations());
-    }
-
-    private function handleInvoiceSettlement(Invoice $invoice, Payment $payment): void
-    {
-        $this->dispatchPostSettlementHooks($invoice, $payment);
-    }
-
-    private function dispatchPostSettlementHooks(Invoice $invoice, Payment $payment): void
-    {
-        $this->queueAutomaticIsolationRelease($invoice, $payment);
-    }
-
-    private function queueAutomaticIsolationRelease(Invoice $invoice, Payment $payment): void
-    {
-        // Placeholder hook for future FTTH automation, for example router/OLT unisolation after settlement.
     }
 
     private function paymentRelations(): array

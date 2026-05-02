@@ -1746,10 +1746,14 @@ export function adminPanel({ page }) {
             try {
                 const routerId = Number(this.ipPools.router_id);
 
+                // Build params, only include available_only if it's true
+                const params = { ...this.ipPools.filters };
+                if (!params.available_only) {
+                    delete params.available_only;
+                }
+
                 // Load pools
-                const poolsResponse = await api.get(`/api/v1/admin/routers/${routerId}/ip-pools`, {
-                    ...this.ipPools.filters,
-                });
+                const poolsResponse = await api.get(`/api/v1/admin/routers/${routerId}/ip-pools`, params);
                 this.ipPools.pools = Array.isArray(poolsResponse.data) ? poolsResponse.data : [];
 
                 // Load summary

@@ -25,6 +25,7 @@ Route::get('/admin/{page}', function (string $page) {
         'service-plan',
         'ip-pools',
         'router-sync',
+        'pppoe-import',
         'cashflow',
         'fiber-network-map',
         'odp-odc',

@@ -90,11 +90,20 @@ class PppoeImportController extends Controller
         $secrets = $client->print('/ppp/secret', ['name', 'password', 'profile', 'comment']);
         $secretMap = collect($secrets)->keyBy('name');
 
+        // Generate all customer codes first to avoid race conditions
+        $lastCode = Customer::query()
+            ->lockForUpdate()
+            ->orderBy('id', 'desc')
+            ->value('customer_code');
+        $lastNumber = $lastCode
+            ? (int) preg_replace('/[^0-9]/', '', $lastCode)
+            : 0;
+
         $imported = 0;
         $skipped = 0;
         $errors = [];
 
-        DB::transaction(function () use ($request, $router, $secretMap, &$imported, &$skipped, &$errors): void {
+        DB::transaction(function () use ($request, $router, $secretMap, &$imported, &$skipped, &$errors, &$lastNumber): void {
             foreach ($request->usernames as $username) {
                 $username = trim($username);
 
@@ -112,8 +121,13 @@ class PppoeImportController extends Controller
                 }
 
                 try {
+                    // Generate sequential customer_code
+                    $lastNumber++;
+                    $customerCode = 'CUST-' . str_pad($lastNumber, 4, '0', STR_PAD_LEFT);
+
                     // Create new customer
                     $customer = Customer::create([
+                        'customer_code' => $customerCode,
                         'full_name' => $username,
                         'status' => 'active',
                         'notes' => 'Diimport dari PPPoE secret Mikrotik ' . now()->toDateString(),

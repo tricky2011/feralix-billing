@@ -750,7 +750,7 @@
                     <span x-show="pppoeImport.router" class="text-xs text-slate-500 dark:text-slate-400" x-text="pppoeImport.router?.name ?? ''"></span>
                 </div>
                 <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                    Menampilkan <span class="font-bold text-slate-700 dark:text-slate-200" x-text="pppoeImport.candidates.length"></span> PPPoE secret yang belum diimport.
+                    <span x-text="pppoeImport.candidates.length"></span> PPPoE secret belum diimport.
                     Pilih username yang akan diimport sebagai customer baru.
                 </p>
             </div>
@@ -778,6 +778,28 @@
             </div>
         </div>
 
+        {{-- Prefix Filter --}}
+        <div x-show="pppoeImport.candidates.length > 0" class="flex items-center gap-3">
+            <input
+                type="text"
+                class="w-full max-w-xs rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                placeholder="Filter prefix (contoh: ModeM-)"
+                x-model.debounce.300ms="pppoeImport.prefixFilter"
+            >
+            <button
+                type="button"
+                class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 dark:border-white/10 dark:text-slate-200"
+                @click="pppoeImport.prefixFilter = ''"
+            >
+                Reset
+            </button>
+        </div>
+
+        {{-- Filter Info --}}
+        <div x-show="pppoeImport.prefixFilter" class="rounded-2xl border border-blue-200 bg-blue-50/70 px-4 py-2 text-sm text-blue-700 dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-200">
+            Menampilkan <span class="font-bold" x-text="pppoeFilteredCount"></span> dari <span x-text="pppoeImport.candidates.length"></span> secret (filter: "<span x-text="pppoeImport.prefixFilter"></span>")
+        </div>
+
         {{-- Selection Controls --}}
         <div x-show="pppoeImport.candidates.length > 0" class="flex items-center gap-3">
             <button
@@ -785,17 +807,17 @@
                 class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 dark:border-white/10 dark:text-slate-200"
                 @click="selectAllPppoeCandidates(true)"
             >
-                Pilih Semua
+                ✓ Pilih Semua yang Tampil (<span x-text="pppoeFilteredCount"></span>)
             </button>
             <button
                 type="button"
                 class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 dark:border-white/10 dark:text-slate-200"
                 @click="selectAllPppoeCandidates(false)"
             >
-                Batal Semua
+                ✗ Batal Semua
             </button>
             <span class="text-xs text-slate-500 dark:text-slate-400">
-                <span x-text="pppoeImport.selected.size"></span> / <span x-text="pppoeImport.candidates.length"></span> dipilih
+                <span x-text="pppoeImport.selected.size"></span> / <span x-text="pppoeFilteredCount"></span> dipilih
             </span>
         </div>
 
@@ -824,7 +846,7 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 bg-white dark:divide-white/10 dark:bg-transparent">
-                        <template x-for="candidate in pppoeImport.candidates" :key="candidate.username">
+                        <template x-for="candidate in getFilteredPppoeCandidates()" :key="candidate.username">
                             <tr class="transition hover:bg-blue-50/50 dark:hover:bg-white/[0.04]">
                                 <td class="px-4 py-3">
                                     <input

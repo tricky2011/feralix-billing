@@ -1259,6 +1259,7 @@ export function adminPanel({ page }) {
             selected: new Set(),
             loading: false,
             importing: false,
+            prefixFilter: '',
         },
 
         async init() {
@@ -2229,8 +2230,23 @@ export function adminPanel({ page }) {
             }
         },
 
+        getFilteredPppoeCandidates() {
+            if (!this.pppoeImport.prefixFilter.trim()) {
+                return this.pppoeImport.candidates;
+            }
+            const prefix = this.pppoeImport.prefixFilter.trim().toLowerCase();
+            return this.pppoeImport.candidates.filter(c =>
+                c.username.toLowerCase().startsWith(prefix)
+            );
+        },
+
+        setPppoeFilter(prefix) {
+            this.pppoeImport.prefixFilter = prefix;
+        },
+
         selectAllPppoeCandidates(select) {
-            this.pppoeImport.candidates.forEach((candidate) => {
+            const filtered = this.getFilteredPppoeCandidates();
+            filtered.forEach((candidate) => {
                 if (select) {
                     this.pppoeImport.selected.add(candidate.username);
                 } else {
@@ -2241,6 +2257,10 @@ export function adminPanel({ page }) {
 
         get selectedPppoeCount() {
             return this.pppoeImport.selected.size;
+        },
+
+        get pppoeFilteredCount() {
+            return this.getFilteredPppoeCandidates().length;
         },
 
         async executePppoeImport() {

@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\V1\Admin\OltController;
 use App\Http\Controllers\Api\V1\Admin\OntController;
 use App\Http\Controllers\Api\V1\Admin\PackageController;
 use App\Http\Controllers\Api\V1\Admin\PaymentController;
+use App\Http\Controllers\Api\V1\Admin\PppoeImportController;
 use App\Http\Controllers\Api\V1\Admin\ResellerController;
 use App\Http\Controllers\Api\V1\Admin\RouterController;
 use App\Http\Controllers\Api\V1\Admin\RouterSyncController;
@@ -108,6 +109,8 @@ Route::prefix('v1/admin')
             Route::post('router-sync/static', [RouterSyncController::class, 'syncStatic'])->middleware('role:superadmin,admin');
             Route::post('router-sync/address-list', [RouterSyncController::class, 'syncAddressList'])->middleware('role:superadmin,admin');
             Route::post('router-sync/all', [RouterSyncController::class, 'syncAll'])->middleware('role:superadmin,admin');
+            Route::get('pppoe-import/candidates', [PppoeImportController::class, 'candidates'])->middleware('role:superadmin,admin');
+            Route::post('pppoe-import/import', [PppoeImportController::class, 'import'])->middleware('role:superadmin,admin');
             Route::apiResource('routers', RouterController::class)->middleware('role:superadmin,admin');
             Route::get('routers/{router}/stats', [RouterStatsController::class, 'show']);
             Route::apiResource('router-scopes', RouterScopeController::class);

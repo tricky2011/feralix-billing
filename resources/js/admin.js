@@ -158,6 +158,15 @@ const modules = {
         ],
         deletable: true,
     },
+    'pppoe-import': {
+        title: 'Import PPPoE',
+        section: 'Operations',
+        description: 'Import customer dari PPPoE secret Mikrotik CCR-Warnet.',
+        endpoint: '/api/v1/admin/pppoe-import',
+        noCreate: true,
+        noEdit: true,
+        noDelete: true,
+    },
     isolations: {
         title: 'Isolations',
         section: 'Mikrotik guardrail',
@@ -702,6 +711,14 @@ const hotspotTabs = {
         noCreate: true,
         noEdit: true,
     },
+    'ip-pools': {
+        title: 'IP Pools',
+        section: 'Provisioning',
+        description: 'Pool IP dari MikroTik untuk pencocokan VID saat add customer dan auto-assign. Data diambil langsung dari router via API.',
+        noCreate: true,
+        noEdit: true,
+        noDelete: true,
+    },
 };
 
 const telegramTabs = {
@@ -773,15 +790,6 @@ const placeholderPages = {
             'Validasi plan aktif agar tidak dipakai oleh service baru jika dinonaktifkan.',
         ],
     },
-    'ip-pools': {
-        title: 'IP Pools',
-        section: 'Provisioning',
-        description: 'Pool IP dari MikroTik untuk pencocokan VID saat add customer dan auto-assign. Data diambil langsung dari router via API.',
-        endpoint: null,
-        noCreate: true,
-        noEdit: true,
-        noDelete: true,
-    },
     'user-management': {
         title: 'User Management',
         section: 'System',
@@ -847,6 +855,7 @@ const sidebarGroups = [
             { page: 'billing', label: 'Invoice', icon: 'IN', badgeKey: 'invoices', adminOnly: true },
             { page: 'isolations', label: 'System Isolir Manual', icon: 'IS', badgeKey: 'isolations', adminOnly: true },
             { page: 'router-sync', label: 'Router Sync', icon: 'RS', adminOnly: true },
+            { page: 'pppoe-import', label: 'Import PPPoE', icon: 'IP', adminOnly: true },
             { page: 'cashflow', label: 'Cashflow', icon: 'CF', adminOnly: true },
         ],
     },
@@ -1001,6 +1010,7 @@ const navText = {
             billing: 'Invoice',
             isolations: 'System Manual',
             'router-sync': 'Router Sync',
+            'pppoe-import': 'Import PPPoE',
             cashflow: 'Cashflow',
             'fiber-network-map': 'Fiber Network Map',
             'odp-odc': 'ODP/ODC Management',
@@ -1045,6 +1055,7 @@ const navText = {
             billing: 'Invoice',
             isolations: 'Sistem Manual',
             'router-sync': 'Sinkron Router',
+            'pppoe-import': 'Import PPPoE',
             cashflow: 'Cashflow',
             'fiber-network-map': 'Peta Fiber',
             'odp-odc': 'Manajemen ODP/ODC',
@@ -1242,6 +1253,13 @@ export function adminPanel({ page }) {
                 min_free_ips: 1,
             },
         },
+        pppoeImport: {
+            router: null,
+            candidates: [],
+            selected: new Set(),
+            loading: false,
+            importing: false,
+        },
 
         async init() {
             this.loadSidebarState();
@@ -1294,6 +1312,7 @@ export function adminPanel({ page }) {
                 'service-plan',
                 'ip-pools',
                 'router-sync',
+                'pppoe-import',
                 'cashflow',
                 'fiber-network-map',
                 'odp-odc',
@@ -1944,6 +1963,11 @@ export function adminPanel({ page }) {
                 return;
             }
 
+            if (this.page === 'pppoe-import') {
+                await this.loadPppoeImportCandidates();
+                return;
+            }
+
             const config = this.currentConfig();
 
             if (config.placeholder) {
@@ -2166,6 +2190,96 @@ export function adminPanel({ page }) {
                 this.toast('error', `${label} gagal`, error.message);
             } finally {
                 this.routerSync.loading = false;
+            }
+        },
+
+        // PPPoE Import
+        async loadPppoeImportCandidates() {
+            this.pppoeImport.loading = true;
+            this.pppoeImport.candidates = [];
+            this.pppoeImport.selected = new Set();
+
+            try {
+                const response = await api.get('/api/v1/admin/pppoe-import/candidates');
+                this.pppoeImport.candidates = Array.isArray(response.data) ? response.data : [];
+                this.pppoeImport.router = response.router ?? null;
+
+                // Reset items to show candidates
+                this.items = this.pppoeImport.candidates;
+                this.pagination = {
+                    current_page: 1,
+                    last_page: 1,
+                    per_page: this.pppoeImport.candidates.length,
+                    total: this.pppoeImport.candidates.length,
+                    from: 1,
+                    to: this.pppoeImport.candidates.length,
+                };
+            } catch (error) {
+                this.toast('error', 'Gagal memuat data PPPoE', error.message);
+            } finally {
+                this.pppoeImport.loading = false;
+            }
+        },
+
+        togglePppoeCandidate(username, checked) {
+            if (checked) {
+                this.pppoeImport.selected.add(username);
+            } else {
+                this.pppoeImport.selected.delete(username);
+            }
+        },
+
+        selectAllPppoeCandidates(select) {
+            this.pppoeImport.candidates.forEach((candidate) => {
+                if (select) {
+                    this.pppoeImport.selected.add(candidate.username);
+                } else {
+                    this.pppoeImport.selected.delete(candidate.username);
+                }
+            });
+        },
+
+        get selectedPppoeCount() {
+            return this.pppoeImport.selected.size;
+        },
+
+        async executePppoeImport() {
+            const usernames = Array.from(this.pppoeImport.selected);
+            if (usernames.length === 0) return;
+
+            const confirmed = confirm(
+                `Anda akan mengimport ${usernames.length} customer.\n\n` +
+                'Nama customer = username PPPoE (bisa diedit setelah import).\n' +
+                'Harga dan data layanan harus diisi manual setelah import.\n\n' +
+                'Lanjutkan?',
+            );
+            if (!confirmed) return;
+
+            this.pppoeImport.importing = true;
+
+            try {
+                const response = await api.post('/api/v1/admin/pppoe-import/import', {
+                    usernames,
+                });
+
+                const { imported = 0, skipped = 0, errors = [] } = response;
+
+                let message = `Berhasil import ${imported} customer.`;
+                if (skipped > 0) message += ` Skip ${skipped}.`;
+                if (errors.length > 0) message += ` Error: ${errors.length}.`;
+
+                if (errors.length > 0) {
+                    this.toast('warning', 'Import Selesai (dengan error)', message);
+                } else {
+                    this.toast('success', 'Import Berhasil', message);
+                }
+
+                // Reload candidates
+                await this.loadPppoeImportCandidates();
+            } catch (error) {
+                this.toast('error', 'Import Gagal', error.message);
+            } finally {
+                this.pppoeImport.importing = false;
             }
         },
 

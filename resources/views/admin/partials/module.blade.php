@@ -739,6 +739,123 @@
         </section>
     </section>
 
+    {{-- PPPoE Import Section --}}
+    <section x-show="page === 'pppoe-import' && !isPlaceholderCurrent()" x-cloak class="space-y-5 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+        <div class="flex items-center justify-between gap-4">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="rounded-full bg-indigo-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                        CCR-Warnet
+                    </span>
+                    <span x-show="pppoeImport.router" class="text-xs text-slate-500 dark:text-slate-400" x-text="pppoeImport.router?.name ?? ''"></span>
+                </div>
+                <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                    Menampilkan <span class="font-bold text-slate-700 dark:text-slate-200" x-text="pppoeImport.candidates.length"></span> PPPoE secret yang belum diimport.
+                    Pilih username yang akan diimport sebagai customer baru.
+                </p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button
+                    type="button"
+                    class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200"
+                    :disabled="pppoeImport.loading"
+                    @click="loadPppoeImportCandidates"
+                >
+                    <span x-show="pppoeImport.loading">Memuat...</span>
+                    <span x-show="!pppoeImport.loading">Muat Ulang</span>
+                </button>
+                <button
+                    type="button"
+                    class="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    :disabled="pppoeImport.selected.size === 0 || pppoeImport.importing"
+                    @click="executePppoeImport"
+                >
+                    <span x-show="pppoeImport.importing">Mengimport...</span>
+                    <span x-show="!pppoeImport.importing">
+                        Import <span x-text="pppoeImport.selected.size"></span> Customer Terpilih
+                    </span>
+                </button>
+            </div>
+        </div>
+
+        {{-- Selection Controls --}}
+        <div x-show="pppoeImport.candidates.length > 0" class="flex items-center gap-3">
+            <button
+                type="button"
+                class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 dark:border-white/10 dark:text-slate-200"
+                @click="selectAllPppoeCandidates(true)"
+            >
+                Pilih Semua
+            </button>
+            <button
+                type="button"
+                class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 dark:border-white/10 dark:text-slate-200"
+                @click="selectAllPppoeCandidates(false)"
+            >
+                Batal Semua
+            </button>
+            <span class="text-xs text-slate-500 dark:text-slate-400">
+                <span x-text="pppoeImport.selected.size"></span> / <span x-text="pppoeImport.candidates.length"></span> dipilih
+            </span>
+        </div>
+
+        {{-- Loading State --}}
+        <div x-show="pppoeImport.loading" class="flex items-center justify-center py-12">
+            <div class="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600"></div>
+            <span class="ml-3 text-slate-500">Memuat data dari Mikrotik...</span>
+        </div>
+
+        {{-- Empty State --}}
+        <div x-show="!pppoeImport.loading && pppoeImport.candidates.length === 0" class="rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 p-8 text-center dark:border-white/10 dark:bg-white/[0.02]">
+            <p class="text-lg font-black text-slate-700 dark:text-slate-200">Semua PPPoE secret sudah diimport</p>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Tidak ada username baru yang bisa diimport dari Mikrotik.</p>
+        </div>
+
+        {{-- Candidates Table --}}
+        <div x-show="!pppoeImport.loading && pppoeImport.candidates.length > 0" class="overflow-hidden rounded-3xl border border-slate-200 dark:border-white/10">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-100 text-sm dark:divide-white/10">
+                    <thead class="bg-slate-50 text-left text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:bg-white/[0.03] dark:text-slate-400">
+                        <tr>
+                            <th class="px-4 py-3 w-10"></th>
+                            <th class="px-4 py-3">Username PPPoE</th>
+                            <th class="px-4 py-3">Profile</th>
+                            <th class="px-4 py-3">Comment (dari Mikrotik)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 bg-white dark:divide-white/10 dark:bg-transparent">
+                        <template x-for="candidate in pppoeImport.candidates" :key="candidate.username">
+                            <tr class="transition hover:bg-blue-50/50 dark:hover:bg-white/[0.04]">
+                                <td class="px-4 py-3">
+                                    <input
+                                        type="checkbox"
+                                        class="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                        :checked="pppoeImport.selected.has(candidate.username)"
+                                        @change="togglePppoeCandidate(candidate.username, $event.target.checked)"
+                                    >
+                                </td>
+                                <td class="px-4 py-3 font-mono font-bold text-slate-900 dark:text-white" x-text="candidate.username"></td>
+                                <td class="px-4 py-3 text-slate-600 dark:text-slate-300" x-text="candidate.profile || '-'"></td>
+                                <td class="px-4 py-3 text-slate-500 dark:text-slate-400 text-sm" x-text="candidate.comment || '-'"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {{-- Info Note --}}
+        <div class="rounded-2xl border border-blue-200 bg-blue-50/70 p-4 dark:border-blue-400/20 dark:bg-blue-500/10">
+            <p class="text-sm font-bold text-blue-800 dark:text-blue-200">Informasi Import</p>
+            <ul class="mt-2 space-y-1 text-xs text-blue-700 dark:text-blue-300">
+                <li>- Customer baru akan menggunakan <strong>nama = username PPPoE</strong> (bisa diedit setelah import)</li>
+                <li>- Default: status=active, ip_count=1, monthly_price=0, billing_day=1</li>
+                <li>- Password PPPoE diambil dari Mikrotik dan disimpan apa adanya</li>
+                <li>- Data harga dan layanan harus diisi manual setelah import</li>
+            </ul>
+        </div>
+    </section>
+
     <section x-show="page === 'monitoring' && !isPlaceholderCurrent()" x-cloak class="grid gap-3 sm:grid-cols-3 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
         <article class="rounded-3xl border border-slate-200 bg-slate-50/80 p-5 dark:border-white/10 dark:bg-[#07111f]/70">
             <div class="flex items-center justify-between">

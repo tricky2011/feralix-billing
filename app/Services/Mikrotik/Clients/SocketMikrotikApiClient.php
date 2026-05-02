@@ -5,6 +5,7 @@ namespace App\Services\Mikrotik\Clients;
 use App\Contracts\Mikrotik\MikrotikApiClient;
 use App\Data\Mikrotik\MikrotikApiConnectionConfig;
 use App\Exceptions\Mikrotik\MikrotikAuthenticationException;
+use App\Exceptions\Mikrotik\MikrotikCommandException;
 use App\Exceptions\Mikrotik\MikrotikConnectionException;
 use App\Exceptions\Mikrotik\MikrotikQueryException;
 use Illuminate\Log\LogManager;
@@ -44,6 +45,12 @@ class SocketMikrotikApiClient implements MikrotikApiClient
             $words[] = sprintf('?%s=%s', $property, (string) $value);
         }
 
+        $this->logger()->debug('Mikrotik print', [
+            ...$this->config->logContext(),
+            'path' => $menuPath,
+            'params' => $this->sanitizeParamsForLog(['where' => $where, 'properties' => $properties]),
+        ]);
+
         $replies = $this->talk($words);
 
         $records = [];
@@ -72,12 +79,24 @@ class SocketMikrotikApiClient implements MikrotikApiClient
             $words[] = sprintf('=%s=%s', $key, (string) $value);
         }
 
+        $this->logger()->debug('Mikrotik add', [
+            ...$this->config->logContext(),
+            'path' => $menuPath,
+            'params' => $this->sanitizeParamsForLog($attributes),
+        ]);
+
         $this->talk($words);
     }
 
     public function remove(string $menuPath, string $id): void
     {
         $normalizedPath = '/'.trim($menuPath, '/');
+
+        $this->logger()->debug('Mikrotik remove', [
+            ...$this->config->logContext(),
+            'path' => $menuPath,
+            'id' => $id,
+        ]);
 
         $this->talk([
             rtrim($normalizedPath, '/').'/remove',
@@ -99,6 +118,13 @@ class SocketMikrotikApiClient implements MikrotikApiClient
 
             $words[] = sprintf('=%s=%s', $key, (string) $value);
         }
+
+        $this->logger()->debug('Mikrotik set', [
+            ...$this->config->logContext(),
+            'path' => $menuPath,
+            'id' => $id,
+            'params' => $this->sanitizeParamsForLog($attributes),
+        ]);
 
         $this->talk($words);
     }
@@ -124,11 +150,24 @@ class SocketMikrotikApiClient implements MikrotikApiClient
             $words[] = sprintf('=%s=%s', $key, (string) $value);
         }
 
+        $this->logger()->debug('Mikrotik setWhere', [
+            ...$this->config->logContext(),
+            'path' => $menuPath,
+            'where' => $where,
+            'params' => $this->sanitizeParamsForLog($attributes),
+        ]);
+
         $this->talk($words);
     }
 
     public function removeWhere(string $menuPath, array $where): void
     {
+        $this->logger()->debug('Mikrotik removeWhere', [
+            ...$this->config->logContext(),
+            'path' => $menuPath,
+            'where' => $where,
+        ]);
+
         $items = $this->print($menuPath, ['.id'], $where);
 
         foreach ($items as $item) {
@@ -150,6 +189,12 @@ class SocketMikrotikApiClient implements MikrotikApiClient
 
             $words[] = sprintf('=%s=%s', $key, (string) $value);
         }
+
+        $this->logger()->debug('Mikrotik command', [
+            ...$this->config->logContext(),
+            'path' => $menuPath,
+            'params' => $this->sanitizeParamsForLog($attributes),
+        ]);
 
         $this->talk($words);
     }
@@ -199,7 +244,13 @@ class SocketMikrotikApiClient implements MikrotikApiClient
         }
 
         if ($errors !== []) {
-            throw new MikrotikQueryException(implode(' | ', $errors));
+            $errorMessage = implode(' | ', $errors);
+            $this->logger()->error('Mikrotik query error', [
+                ...$this->config->logContext(),
+                'command' => $words[0] ?? null,
+                'error' => $errorMessage,
+            ]);
+            throw new MikrotikCommandException($words[0] ?? $menuPath ?? 'unknown', $errorMessage);
         }
 
         $this->logger()->debug('Mikrotik API query completed.', [
@@ -516,5 +567,29 @@ class SocketMikrotikApiClient implements MikrotikApiClient
         }
 
         return $sanitized;
+    }
+
+    /**
+     * Mask sensitive values before logging.
+     * Passwords, secrets, and passphrases must not appear in log files.
+     */
+    private function sanitizeParamsForLog(array $params): array
+    {
+        $sensitiveKeys = ['password', 'pass', 'secret', 'passphrase'];
+        $safe = $params;
+
+        foreach ($sensitiveKeys as $key) {
+            if (isset($safe[$key])) {
+                $safe[$key] = '********';
+            }
+        }
+
+        foreach ($safe as $k => $v) {
+            if (is_string($v) && preg_match('/(=password=)(.*)$/i', $v)) {
+                $safe[$k] = preg_replace('/(=password=)(.*)$/i', '$1********', $v);
+            }
+        }
+
+        return $safe;
     }
 }

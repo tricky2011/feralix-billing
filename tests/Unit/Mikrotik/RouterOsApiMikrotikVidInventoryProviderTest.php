@@ -202,10 +202,28 @@ class FakeMikrotikApiClient implements MikrotikApiClient
 
     public bool $disconnected = false;
 
+    /** @var list<array<string, mixed>> */
+    public array $calls = [];
+
     /**
      * @param  array<string, list<array<string, string>>>  $responses
      */
     public function __construct(private readonly array $responses) {}
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function getCalls(?string $method = null): array
+    {
+        if ($method === null) {
+            return $this->calls;
+        }
+
+        return array_values(array_filter(
+            $this->calls,
+            static fn(array $c): bool => ($c['method'] ?? '') === $method
+        ));
+    }
 
     public function print(string $menuPath, array $properties = [], array $where = []): array
     {
@@ -217,32 +235,32 @@ class FakeMikrotikApiClient implements MikrotikApiClient
 
     public function add(string $menuPath, array $attributes = []): void
     {
-        // Not needed for this test.
+        $this->calls[] = ['method' => 'add', 'menuPath' => $menuPath, 'attributes' => $attributes];
     }
 
     public function remove(string $menuPath, string $id): void
     {
-        // Not needed for this test.
+        $this->calls[] = ['method' => 'remove', 'menuPath' => $menuPath, 'id' => $id];
     }
 
     public function set(string $menuPath, string $id, array $attributes): void
     {
-        // Not needed for this test.
+        $this->calls[] = ['method' => 'set', 'menuPath' => $menuPath, 'id' => $id, 'attributes' => $attributes];
     }
 
     public function setWhere(string $menuPath, array $where, array $attributes): void
     {
-        // Not needed for this test.
+        $this->calls[] = ['method' => 'setWhere', 'menuPath' => $menuPath, 'where' => $where, 'attributes' => $attributes];
     }
 
     public function removeWhere(string $menuPath, array $where): void
     {
-        // Not needed for this test.
+        $this->calls[] = ['method' => 'removeWhere', 'menuPath' => $menuPath, 'where' => $where];
     }
 
     public function command(string $menuPath, array $attributes = []): void
     {
-        // Not needed for this test.
+        $this->calls[] = ['method' => 'command', 'menuPath' => $menuPath, 'attributes' => $attributes];
     }
 
     public function disconnect(): void

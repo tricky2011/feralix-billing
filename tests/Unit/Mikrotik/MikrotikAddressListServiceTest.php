@@ -154,7 +154,25 @@ class AddressListFakeMikrotikApiClient implements MikrotikApiClient
     /** @var list<array<string, string>> */
     public array $addressListEntries = [];
 
+    /** @var list<array<string, mixed>> */
+    public array $calls = [];
+
     private int $sequence = 0;
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function getCalls(?string $method = null): array
+    {
+        if ($method === null) {
+            return $this->calls;
+        }
+
+        return array_values(array_filter(
+            $this->calls,
+            static fn(array $c): bool => ($c['method'] ?? '') === $method
+        ));
+    }
 
     public function print(string $menuPath, array $properties = [], array $where = []): array
     {
@@ -185,6 +203,7 @@ class AddressListFakeMikrotikApiClient implements MikrotikApiClient
             'address' => (string) ($attributes['address'] ?? ''),
             'comment' => (string) ($attributes['comment'] ?? ''),
         ];
+        $this->calls[] = ['method' => 'add', 'menuPath' => $menuPath, 'attributes' => $attributes];
     }
 
     public function remove(string $menuPath, string $id): void
@@ -193,26 +212,27 @@ class AddressListFakeMikrotikApiClient implements MikrotikApiClient
             $this->addressListEntries,
             static fn (array $entry): bool => ($entry['.id'] ?? null) !== $id
         ));
+        $this->calls[] = ['method' => 'remove', 'menuPath' => $menuPath, 'id' => $id];
     }
 
     public function set(string $menuPath, string $id, array $attributes): void
     {
-        // No-op for fake client.
+        $this->calls[] = ['method' => 'set', 'menuPath' => $menuPath, 'id' => $id, 'attributes' => $attributes];
     }
 
     public function setWhere(string $menuPath, array $where, array $attributes): void
     {
-        // No-op for fake client.
+        $this->calls[] = ['method' => 'setWhere', 'menuPath' => $menuPath, 'where' => $where, 'attributes' => $attributes];
     }
 
     public function removeWhere(string $menuPath, array $where): void
     {
-        // No-op for fake client.
+        $this->calls[] = ['method' => 'removeWhere', 'menuPath' => $menuPath, 'where' => $where];
     }
 
     public function command(string $menuPath, array $attributes = []): void
     {
-        // No-op for fake client.
+        $this->calls[] = ['method' => 'command', 'menuPath' => $menuPath, 'attributes' => $attributes];
     }
 
     public function disconnect(): void

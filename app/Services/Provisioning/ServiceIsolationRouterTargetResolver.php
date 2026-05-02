@@ -47,6 +47,21 @@ class ServiceIsolationRouterTargetResolver
 
     private function resolveTargetAddress(ServiceIsolation $serviceIsolation, Service $service): string
     {
+        // CRITICAL FIX: Always prioritize VID for Customer VID types
+        // Isolasi harus target /24 network, BUKAN individual IP
+        if ($service->vid !== null) {
+            $networkCidr = $service->vid->resolveNetworkCidr();
+
+            if ($networkCidr !== null) {
+                return $networkCidr;
+            }
+
+            // If VID exists but no valid network, check if we can still get individual IP
+            // This handles edge cases where VID subnet is not configured
+        }
+
+        // Only fallback to individual IP if no VID is available
+        // This applies to services without VID assignment
         if ($service->resolvedAccessMode() === ServiceAccessMode::Static) {
             $candidates = [
                 $service->operationalStaticIpAddress(),
@@ -63,14 +78,9 @@ class ServiceIsolationRouterTargetResolver
             throw new RuntimeException('No static IP address could be resolved for isolation.');
         }
 
+        // If we reach here with VID but no valid network, throw error
         if ($service->vid !== null) {
-            $networkCidr = $service->vid->resolveNetworkCidr();
-
-            if ($networkCidr === null) {
-                throw new RuntimeException('VID network belum valid. Jalankan sync VID network.');
-            }
-
-            return $networkCidr;
+            throw new RuntimeException('VID network belum valid. Jalankan sync VID network.');
         }
 
         throw new RuntimeException('No customer IP could be resolved from the service DHCP pool or target payload.');

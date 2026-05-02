@@ -43,6 +43,12 @@ class ServiceIsolationTargetResolver
 
     public function inferTargetType(Service $service): ServiceIsolationTargetType
     {
+        // CRITICAL FIX: Customer VID types ALWAYS use Subnet isolation (/24 network)
+        // Isolasi harus target /24 network, BUKAN individual IP
+        if ($service->vid !== null && $service->vid->isIsolatable()) {
+            return ServiceIsolationTargetType::Subnet;
+        }
+
         $accessMode = $service->resolvedAccessMode();
 
         if (

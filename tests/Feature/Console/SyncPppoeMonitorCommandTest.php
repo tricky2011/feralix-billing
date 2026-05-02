@@ -237,6 +237,14 @@ class SyncPppoeMonitorCommandTest extends TestCase
 
             public function remove(string $menuPath, string $id): void {}
 
+            public function set(string $menuPath, string $id, array $attributes): void {}
+
+            public function setWhere(string $menuPath, array $where, array $attributes): void {}
+
+            public function removeWhere(string $menuPath, array $where): void {}
+
+            public function command(string $menuPath, array $attributes = []): void {}
+
             public function disconnect(): void {}
         };
     }

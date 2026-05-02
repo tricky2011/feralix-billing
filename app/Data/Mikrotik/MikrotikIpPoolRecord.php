@@ -179,7 +179,7 @@ final readonly class MikrotikIpPoolRecord
         foreach ($segments as $segment) {
             $parts = array_map('trim', explode('-', $segment, 2));
 
-            if (count($parts) < 1) {
+            if (empty($parts[0])) {
                 continue;
             }
 

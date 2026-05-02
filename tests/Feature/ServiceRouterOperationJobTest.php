@@ -264,6 +264,26 @@ class FeatureFakeMikrotikApiClient implements MikrotikApiClient
         ));
     }
 
+    public function set(string $menuPath, string $id, array $attributes): void
+    {
+        // No-op for fake client.
+    }
+
+    public function setWhere(string $menuPath, array $where, array $attributes): void
+    {
+        // No-op for fake client.
+    }
+
+    public function removeWhere(string $menuPath, array $where): void
+    {
+        // No-op for fake client.
+    }
+
+    public function command(string $menuPath, array $attributes = []): void
+    {
+        // No-op for fake client.
+    }
+
     public function disconnect(): void
     {
         // No-op for fake client.

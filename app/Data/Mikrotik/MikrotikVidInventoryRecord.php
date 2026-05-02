@@ -33,9 +33,14 @@ final readonly class MikrotikVidInventoryRecord
 
     public function inferredStatus(): VidStatus
     {
-        return $this->isComplete()
-            ? VidStatus::Available
-            : VidStatus::Unknown;
+        if (! $this->isComplete()) {
+            return VidStatus::Unknown;
+        }
+
+        // VID yang baru di-pull dari Mikrotik belum diketahui siapa yang pakai.
+        // Bisa saja ada client existing yang belum tercatat di DB.
+        // Sync service yang akan cross-check DB dan tentukan status final.
+        return VidStatus::Unregistered;
     }
 
     public function isComplete(): bool

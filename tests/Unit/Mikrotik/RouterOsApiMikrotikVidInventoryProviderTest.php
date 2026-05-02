@@ -225,6 +225,26 @@ class FakeMikrotikApiClient implements MikrotikApiClient
         // Not needed for this test.
     }
 
+    public function set(string $menuPath, string $id, array $attributes): void
+    {
+        // Not needed for this test.
+    }
+
+    public function setWhere(string $menuPath, array $where, array $attributes): void
+    {
+        // Not needed for this test.
+    }
+
+    public function removeWhere(string $menuPath, array $where): void
+    {
+        // Not needed for this test.
+    }
+
+    public function command(string $menuPath, array $attributes = []): void
+    {
+        // Not needed for this test.
+    }
+
     public function disconnect(): void
     {
         $this->disconnected = true;

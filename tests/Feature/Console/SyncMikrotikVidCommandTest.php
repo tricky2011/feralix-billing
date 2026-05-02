@@ -65,7 +65,7 @@ class SyncMikrotikVidCommandTest extends TestCase
             'router_id' => $router->id,
             'scope_id' => $scope->id,
             'vid' => 110,
-            'status' => VidStatus::Available->value,
+            'status' => VidStatus::Unregistered->value,
             'subnet_cidr' => '10.10.110.0/29',
             'gateway_ip' => '10.10.110.1',
             'pool_start_ip' => '10.10.110.2',
@@ -207,7 +207,7 @@ class SyncMikrotikVidCommandTest extends TestCase
             'gateway_ip' => '10.20.210.9',
             'pool_start_ip' => '10.20.210.10',
             'pool_end_ip' => '10.20.210.14',
-            'status' => VidStatus::Available->value,
+            'status' => VidStatus::Unregistered->value,
             'sync_source' => 'mikrotik:fake',
         ]);
 

@@ -11,6 +11,7 @@ enum VidStatus: string
     case Conflict = 'conflict';
     case Incomplete = 'incomplete';
     case Disabled = 'disabled';
+    case Unregistered = 'unregistered';
 
     public static function values(): array
     {

@@ -36,7 +36,7 @@ class SocketMikrotikApiClient implements MikrotikApiClient
             $words[] = '=.proplist='.implode(',', $properties);
         }
 
-        foreach ($where as $property => $value) {
+        foreach ($this->sanitizeParams($where) as $property => $value) {
             if ($value === null || $value === '') {
                 continue;
             }
@@ -64,7 +64,7 @@ class SocketMikrotikApiClient implements MikrotikApiClient
         $normalizedPath = '/'.trim($menuPath, '/');
         $words = [rtrim($normalizedPath, '/').'/add'];
 
-        foreach ($attributes as $key => $value) {
+        foreach ($this->sanitizeParams($attributes) as $key => $value) {
             if ($value === null || $value === '') {
                 continue;
             }
@@ -83,6 +83,75 @@ class SocketMikrotikApiClient implements MikrotikApiClient
             rtrim($normalizedPath, '/').'/remove',
             '=.id='.$id,
         ]);
+    }
+
+    public function set(string $menuPath, string $id, array $attributes): void
+    {
+        $normalizedPath = '/'.trim($menuPath, '/');
+        $words = [rtrim($normalizedPath, '/').'/set'];
+
+        $words[] = '=.id='.$id;
+
+        foreach ($this->sanitizeParams($attributes) as $key => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            $words[] = sprintf('=%s=%s', $key, (string) $value);
+        }
+
+        $this->talk($words);
+    }
+
+    public function setWhere(string $menuPath, array $where, array $attributes): void
+    {
+        $normalizedPath = '/'.trim($menuPath, '/');
+        $words = [rtrim($normalizedPath, '/').'/set'];
+
+        foreach ($this->sanitizeParams($where) as $key => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            $words[] = sprintf('?%s=%s', $key, (string) $value);
+        }
+
+        foreach ($this->sanitizeParams($attributes) as $key => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            $words[] = sprintf('=%s=%s', $key, (string) $value);
+        }
+
+        $this->talk($words);
+    }
+
+    public function removeWhere(string $menuPath, array $where): void
+    {
+        $items = $this->print($menuPath, ['.id'], $where);
+
+        foreach ($items as $item) {
+            if (isset($item['.id'])) {
+                $this->remove($menuPath, $item['.id']);
+            }
+        }
+    }
+
+    public function command(string $menuPath, array $attributes = []): void
+    {
+        $normalizedPath = '/'.trim($menuPath, '/');
+        $words = [$normalizedPath];
+
+        foreach ($this->sanitizeParams($attributes) as $key => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            $words[] = sprintf('=%s=%s', $key, (string) $value);
+        }
+
+        $this->talk($words);
     }
 
     public function disconnect(): void
@@ -428,5 +497,24 @@ class SocketMikrotikApiClient implements MikrotikApiClient
         $channel = (string) (config('mikrotik.logging.channel') ?: config('logging.default', 'stack'));
 
         return $this->logManager->channel($channel);
+    }
+
+    /**
+     * Sanitize parameters for Mikrotik API.
+     * Mikrotik RouterOS API expects string values, so PHP booleans must be converted.
+     */
+    private function sanitizeParams(array $params): array
+    {
+        $sanitized = [];
+
+        foreach ($params as $key => $value) {
+            if (is_bool($value)) {
+                $sanitized[$key] = $value ? 'true' : 'false';
+            } else {
+                $sanitized[$key] = $value;
+            }
+        }
+
+        return $sanitized;
     }
 }

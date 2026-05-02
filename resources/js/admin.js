@@ -1724,11 +1724,25 @@ export function adminPanel({ page }) {
         },
 
         async loadIpPoolsPage() {
+            const params = new URLSearchParams(window.location.search);
+            const urlRouterId = params.get('router_id');
+
+            if (urlRouterId && urlRouterId !== 'all') {
+                this.ipPools.router_id = urlRouterId;
+            }
+
             const activeRouters = this.activeIpPoolsRouters();
             const selectedRouter = activeRouters.find((router) => Number(router.id) === Number(this.ipPools.router_id));
 
             if (!selectedRouter && activeRouters.length > 0) {
                 this.ipPools.router_id = String(activeRouters[0].id);
+                const url = new URL(window.location);
+                url.searchParams.set('router_id', this.ipPools.router_id);
+                window.history.replaceState({}, '', url);
+            } else if (this.ipPools.router_id) {
+                const url = new URL(window.location);
+                url.searchParams.set('router_id', this.ipPools.router_id);
+                window.history.replaceState({}, '', url);
             }
 
             if (!this.ipPools.router_id) {

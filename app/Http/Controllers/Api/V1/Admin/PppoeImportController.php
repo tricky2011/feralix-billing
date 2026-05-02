@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Contracts\Mikrotik\MikrotikApiClientFactory;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Models\Package;
 use App\Models\Router;
 use App\Models\Service;
 use Illuminate\Http\JsonResponse;
@@ -99,11 +100,17 @@ class PppoeImportController extends Controller
             ? (int) preg_replace('/[^0-9]/', '', $lastCode)
             : 0;
 
+        // Get or create default package for imported services
+        $defaultPackage = Package::firstOrCreate(
+            ['package_name' => 'Import Default'],
+            ['monthly_price' => 0, 'is_active' => true],
+        );
+
         $imported = 0;
         $skipped = 0;
         $errors = [];
 
-        DB::transaction(function () use ($request, $router, $secretMap, &$imported, &$skipped, &$errors, &$lastNumber): void {
+        DB::transaction(function () use ($request, $router, $secretMap, &$imported, &$skipped, &$errors, &$lastNumber, $defaultPackage): void {
             foreach ($request->usernames as $username) {
                 $username = trim($username);
 
@@ -135,17 +142,25 @@ class PppoeImportController extends Controller
                         'notes' => 'Diimport dari PPPoE Mikrotik ' . now()->toDateString(),
                     ]);
 
-                    // Create service with default values
+                    // Create service with default values (fill all NOT NULL fields)
                     Service::create([
                         'customer_id' => $customer->id,
+                        'package_id' => $defaultPackage->id,
                         'router_id' => $router->id,
+                        'service_code' => '',
+                        'monitor_vid' => 0,
+                        'monitor_pppoe_username' => $username,
+                        'monitor_pppoe_password' => '',
+                        'internet_vid' => 0,
+                        'subnet_cidr' => '',
+                        'dhcp_pool_start' => '',
+                        'dhcp_pool_end' => '',
                         'pppoe_username' => $username,
                         'pppoe_password' => $secret['password'] ?? '',
                         'ip_count' => 1,
                         'monthly_price' => 0,
                         'billing_day' => 1,
                         'status' => 'active',
-                        'monitor_pppoe_username' => $username,
                     ]);
 
                     $imported++;

@@ -11,6 +11,7 @@ class DatabaseFoundationSeeder extends Seeder
         $this->call([
             AppSettingSeeder::class,
             InitialSuperadminSeeder::class,
+            CashflowCategorySeeder::class,
         ]);
     }
 }

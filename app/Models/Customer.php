@@ -29,6 +29,11 @@ class Customer extends Model
         'longitude',
         'customer_type',
         'status',
+        'ip_count',
+        'monthly_price',
+        'billing_day',
+        'pppoe_username',
+        'pppoe_password',
     ];
 
     protected function casts(): array

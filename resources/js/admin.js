@@ -59,12 +59,15 @@ const modules = {
             { name: 'customer_code', label: 'Kode customer', placeholder: 'CUST-001' },
             { name: 'full_name', label: 'Nama lengkap' },
             { name: 'phone', label: 'Telepon' },
-            { name: 'customer_type', label: 'Tipe', type: 'select', options: baseSelects.customer_type },
-            { name: 'status', label: 'Status', type: 'select', options: baseSelects.customer_status },
             { name: 'location_id', label: 'Lokasi', type: 'select', optionsRef: 'locations' },
+            { name: 'address', label: 'Alamat', type: 'textarea' },
+            { name: 'ip_count', label: 'Jumlah IP Aktif', type: 'number', min: 1, max: 5, default: 1 },
+            { name: 'monthly_price', label: 'Harga per Bulan', type: 'currency' },
+            { name: 'billing_day', label: 'Tanggal Tagihan', type: 'number', min: 1, max: 28, default: 1 },
+            { name: 'pppoe_username', label: 'PPPoE Username', readonly: true },
+            { name: 'pppoe_password', label: 'PPPoE Password', readonly: true },
             { name: 'preferred_olt_id', label: 'Preferred OLT', type: 'select', optionsRef: 'olts' },
             { name: 'assigned_technician_id', label: 'Teknisi', type: 'select', optionsRef: 'technicians' },
-            { name: 'address', label: 'Alamat', type: 'textarea' },
         ],
         deletable: true,
     },
@@ -447,6 +450,7 @@ const networkTabs = {
     vids: {
         label: 'VIDs',
         endpoint: '/api/v1/admin/vids',
+        noCreate: true,
         columns: [
             { key: 'vid', label: 'VID' },
             { key: 'router.router_name', label: 'Router' },
@@ -469,7 +473,9 @@ const networkTabs = {
             { name: 'sync_source', label: 'Sync source' },
             { name: 'status', label: 'Status', type: 'select', options: baseSelects.vid_status },
         ],
-        deletable: true,
+        noDelete: true,
+        noEdit: true,
+        description: 'VID dikelola otomatis dari sync Mikrotik. Gunakan fitur Sinkron Router untuk memperbarui data.',
     },
     olts: {
         label: 'Master OLT',
@@ -2248,6 +2254,10 @@ export function adminPanel({ page }) {
             this.loading = true;
 
             try {
+                // Check URL for router_id parameter and use it if present
+                const params = new URLSearchParams(window.location.search);
+                const urlRouterId = params.get('router_id');
+
                 const endpoint = this.isTechnician() ? '/api/v1/technician/dashboard' : '/api/v1/admin/dashboard';
                 const response = await api.get(endpoint);
                 this.dashboard = response.data;
@@ -2256,7 +2266,7 @@ export function adminPanel({ page }) {
                 if (switcher) {
                     this.routerSwitcher = {
                         enabled: Boolean(switcher.enabled),
-                        active_router_id: switcher.active_router_id ?? '',
+                        active_router_id: urlRouterId ?? switcher.active_router_id ?? '',
                         available_routers: switcher.available_routers ?? [],
                     };
                 }
@@ -2299,6 +2309,16 @@ export function adminPanel({ page }) {
         async switchRouter() {
             try {
                 const routerId = this.routerSwitcher.active_router_id === '' ? null : Number(this.routerSwitcher.active_router_id);
+
+                // Persist router selection to URL
+                const url = new URL(window.location);
+                if (routerId === null) {
+                    url.searchParams.delete('router_id');
+                } else {
+                    url.searchParams.set('router_id', routerId);
+                }
+                window.history.replaceState({}, '', url);
+
                 const response = await api.patch('/api/v1/admin/dashboard/router-switch', { router_id: routerId });
                 this.dashboard = response.data;
                 this.toast('success', 'Router dashboard diganti', 'Scope dashboard sudah diperbarui.');
@@ -2317,12 +2337,23 @@ export function adminPanel({ page }) {
             const config = this.currentConfig();
             const tabs = config.modalTabs ?? [];
 
+            const form = this.defaultsFor(config.fields);
+
+            // Auto-generate PPPoE password with today's date
+            if (form.pppoe_password !== undefined) {
+                const now = new Date();
+                const dd = String(now.getDate()).padStart(2, '0');
+                const mm = String(now.getMonth() + 1).padStart(2, '0');
+                const yyyy = now.getFullYear();
+                form.pppoe_password = `${dd}${mm}${yyyy}`;
+            }
+
             this.modal = {
                 open: true,
                 mode: 'create',
                 title: `Tambah ${config.title ?? config.label}`,
                 fields: this.resolveFields(config.fields),
-                form: this.defaultsFor(config.fields),
+                form,
                 errors: {},
                 message: '',
                 endpoint: config.createEndpoint ?? config.endpoint,
@@ -3139,6 +3170,8 @@ export function adminPanel({ page }) {
                 if (field.name === 'use_ssl') return [field.name, false];
                 if (field.name === 'timeout') return [field.name, 5];
                 if (field.name === 'role') return [field.name, 'admin'];
+                if (field.name === 'ip_count') return [field.name, field.default ?? 1];
+                if (field.name === 'billing_day') return [field.name, field.default ?? 1];
                 if (field.type === 'multiselect') return [field.name, []];
                 if (field.name === 'group_type') return [field.name, 'admin'];
                 if (field.name === 'port') return [field.name, 3306];
@@ -3177,6 +3210,12 @@ export function adminPanel({ page }) {
 
                 if (value === '') {
                     payload[key] = null;
+                    return;
+                }
+
+                if (field.type === 'currency') {
+                    // Remove thousand separators before sending to API
+                    payload[key] = parseFloat(String(value).replace(/\./g, '')) || 0;
                     return;
                 }
 
@@ -3233,6 +3272,31 @@ export function adminPanel({ page }) {
             if (statusGroups.red.includes(status) || value === false) return 'bg-red-100 text-red-800 dark:bg-red-500/10 dark:text-red-200';
             if (statusGroups.yellow.includes(status)) return 'bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-200';
             return 'bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-200';
+        },
+
+        formatCurrencyOnInput(event) {
+            const input = event.target;
+            let raw = input.value.replace(/\D/g, '');
+            if (raw === '') {
+                input.dataset.rawValue = '';
+                return;
+            }
+            const num = parseInt(raw, 10);
+            input.value = num.toLocaleString('id-ID');
+            input.dataset.rawValue = raw;
+        },
+
+        formatCurrencyOnBlur(event) {
+            const input = event.target;
+            const raw = input.dataset.rawValue ?? input.value.replace(/\D/g, '');
+            if (raw === '') {
+                input.value = '';
+                return;
+            }
+            const num = parseInt(raw, 10);
+            input.value = num.toLocaleString('id-ID');
+            input.dataset.rawValue = raw;
+            input.form[input.name] = raw;
         },
 
         detailRows() {

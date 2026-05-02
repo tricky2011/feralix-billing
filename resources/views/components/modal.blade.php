@@ -51,7 +51,17 @@
                             <textarea class="mt-2 min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-700" x-model="modal.form[field.name]" :placeholder="field.placeholder ?? ''"></textarea>
                         </template>
                         <template x-if="!['select','multiselect','textarea'].includes(field.type)">
-                            <input class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-700" :type="field.type ?? 'text'" x-model="modal.form[field.name]" :placeholder="field.placeholder ?? ''" :max="field.max ?? null" :min="field.min ?? null">
+                            <input
+                                class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-700"
+                                :type="field.type === 'currency' ? 'text' : (field.type ?? 'text')"
+                                x-model="modal.form[field.name]"
+                                :placeholder="field.placeholder ?? ''"
+                                :max="field.max ?? null"
+                                :min="field.min ?? null"
+                                :readonly="field.readonly ? true : null"
+                                @input="field.type === 'currency' ? formatCurrencyOnInput($event) : null"
+                                @blur="field.type === 'currency' ? formatCurrencyOnBlur($event) : null"
+                            >
                         </template>
                         <p x-show="field.type === 'password' && field.passwordBadgeKey" class="mt-2">
                             <span class="inline-flex rounded-full px-3 py-1 text-xs font-black" :class="passwordBadgeClass(field)" x-text="passwordBadgeLabel(field)"></span>

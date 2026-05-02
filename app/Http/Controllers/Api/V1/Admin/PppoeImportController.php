@@ -128,9 +128,11 @@ class PppoeImportController extends Controller
                     // Create new customer
                     $customer = Customer::create([
                         'customer_code' => $customerCode,
-                        'full_name' => $username,
+                        'full_name' => trim($username),
+                        'phone' => '',
+                        'address' => '',
                         'status' => 'active',
-                        'notes' => 'Diimport dari PPPoE secret Mikrotik ' . now()->toDateString(),
+                        'notes' => 'Diimport dari PPPoE Mikrotik ' . now()->toDateString(),
                     ]);
 
                     // Create service with default values

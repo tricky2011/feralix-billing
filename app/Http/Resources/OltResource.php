@@ -24,6 +24,8 @@ class OltResource extends JsonResource
             'model' => $this->model,
             'pon_ports' => $this->pon_ports,
             'location_id' => $this->network_location_id,
+            'router_id' => $this->router_id,
+            'network_location_id' => $this->network_location_id,
             'status' => $resolvedStatus,
             'description' => $this->description,
             'odps_count' => $this->when(isset($this->odps_count), (int) $this->odps_count),

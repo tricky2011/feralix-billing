@@ -2057,6 +2057,8 @@ export function adminPanel({ page }) {
                 }
             });
 
+            this.references.locations = this.references.network_locations;
+
             if (this.user?.role === 'superadmin' && this.references.routers.length > 0 && !this.routerSwitcher.enabled) {
                 this.routerSwitcher = {
                     enabled: true,
@@ -3973,7 +3975,7 @@ export function adminPanel({ page }) {
 
         provisioningFilteredOlts() {
             if (!this.provisioning.form.location_id) return [];
-            return this.references.olts.filter(olt => String(olt.location_id) === String(this.provisioning.form.location_id));
+            return (this.references.olts ?? []).filter(olt => String(olt.location_id) === String(this.provisioning.form.location_id));
         },
 
         provisioningSelectedRouter() {

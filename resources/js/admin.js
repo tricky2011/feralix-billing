@@ -2081,6 +2081,14 @@ export function adminPanel({ page }) {
             }
         },
 
+        async submitMasterLokasiForm() {
+            await this.masterLokasi.submitForm();
+        },
+
+        async submitMasterOltForm() {
+            await this.masterOlt.submitForm();
+        },
+
         async loadPage() {
             if (this.page === 'master-lokasi') {
                 await this.masterLokasi.loadData();

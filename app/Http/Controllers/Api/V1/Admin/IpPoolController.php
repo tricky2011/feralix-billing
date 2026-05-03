@@ -10,6 +10,7 @@ use App\Models\Router;
 use App\Models\Vid;
 use App\Services\Mikrotik\IpPoolService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class IpPoolController extends Controller
 {
@@ -130,29 +131,25 @@ class IpPoolController extends Controller
     public function suggest(Request $request): JsonResponse
     {
         $request->validate(['router_id' => 'required|exists:routers,id']);
-        $router = Router::findOrFail($request->router_id);
 
-        $suggestion = $this->ipPoolService->suggestAvailableVids($router, 1, 1);
+        $router = Router::findOrFail((int) $request->router_id);
 
-        if ($suggestion === []) {
-            return $this->successResponse('No available VID found.', [
-                'data' => null,
-            ]);
+        $suggestions = $this->ipPoolService->suggestAvailableVids($router, 1, 1);
+
+        if (empty($suggestions)) {
+            return $this->successResponse('No available VID found.', null);
         }
 
-        $vidData = $suggestion[0];
-        $vlanId = $vidData['vlan_id'];
-        $pools = $this->ipPoolService->getPoolsByVlan($router, $vlanId, 1);
-        $pool = $pools[0] ?? null;
+        $first = $suggestions[0];
 
         return $this->successResponse('VID suggestion retrieved successfully.', [
-            'data' => [
-                'vid' => 'V-' . $vlanId,
-                'vid_number' => $vlanId,
-                'ip_start' => $pool?->primaryRange()['start_ip'] ?? null,
-                'ip_end' => $pool?->primaryRange()['end_ip'] ?? null,
-                'available_ips' => $vidData['free_ips'],
-            ],
+            'vlan_id'      => $first['vlan_id'],
+            'internet_vid' => $first['vlan_id'],
+            'monitor_vid'  => null,
+            'pool_name'    => $first['pool_name'],
+            'free_ips'     => $first['free_ips'],
+            'total_ips'    => $first['total_ips'],
+            'used_ips'     => $first['used_ips'],
         ]);
     }
 

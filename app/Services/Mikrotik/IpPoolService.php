@@ -149,43 +149,74 @@ class IpPoolService
     }
 
     /**
+     * Suggest VIDs available for new customer assignment.
+     * Rule: used_ips MUST be 0 (completely unused), vlan_id 1001-1255, not disabled.
+     *
+     * @return array<int, array{vlan_id:int, free_ips:int, total_ips:int, used_ips:int, pool_name:string, usage_percentage:float}>
+     */
+    public function suggestAvailableVids(Router $router, int $minFreeIps = 1, int $limit = 10, ?string $providerName = null): array
+    {
+        $pools = $this->fetchFromRouter($router, $providerName);
+
+        $available = [];
+
+        foreach ($pools as $pool) {
+            // Harus punya vlan_id
+            if ($pool->vlanId === null) {
+                continue;
+            }
+
+            // Range 1001-1255 only (1000 = PPPoE server)
+            if ($pool->vlanId < 1001 || $pool->vlanId > 1255) {
+                continue;
+            }
+
+            // used_ips harus 0 — jika >= 1 berarti sudah dipakai pelanggan
+            if ($pool->usedIps > 0) {
+                continue;
+            }
+
+            // Harus punya free IPs
+            if ($pool->freeIps() < $minFreeIps) {
+                continue;
+            }
+
+            $available[] = [
+                'vlan_id'          => $pool->vlanId,
+                'free_ips'         => $pool->freeIps(),
+                'total_ips'        => $pool->totalIps,
+                'used_ips'         => $pool->usedIps,
+                'pool_name'        => $pool->name,
+                'usage_percentage' => $pool->usagePercentage(),
+            ];
+        }
+
+        // Sort ascending by vlan_id (assign dari yang terkecil dulu)
+        usort($available, static fn (array $a, array $b): int => $a['vlan_id'] <=> $b['vlan_id']);
+
+        return array_slice($available, 0, $limit);
+    }
+
+    /**
      * Check if a VID has available IP pools for new customer assignment.
+     * Rule: used_ips MUST be 0, range 1001-1255.
      */
     public function isVidPoolAvailable(Router $router, int $vlanId, int $minFreeIps = 1, ?string $providerName = null): bool
     {
-        $pools = $this->getPoolsByVlan($router, $vlanId, $providerName);
-
-        if ($pools === []) {
+        // Enforce range rule
+        if ($vlanId < 1001 || $vlanId > 1255) {
             return false;
         }
 
+        $pools = $this->getPoolsByVlan($router, $vlanId, $providerName);
+
         foreach ($pools as $pool) {
-            if ($pool->freeIps() >= $minFreeIps) {
+            if ($pool->usedIps === 0 && $pool->freeIps() >= $minFreeIps) {
                 return true;
             }
         }
 
         return false;
-    }
-
-    /**
-     * Get the best VID for new customer based on pool availability.
-     * Returns VIDs sorted by available pool capacity (most free first).
-     *
-     * @return array<int, array{vlan_id:int, free_ips:int, pool_count:int}>
-     */
-    public function suggestAvailableVids(Router $router, int $minFreeIps = 1, int $limit = 10, ?string $providerName = null): array
-    {
-        $utilization = $this->getPoolUtilizationByVid($router, $providerName);
-
-        $available = array_filter(
-            $utilization,
-            static fn (array $data): bool => $data['free_ips'] >= $minFreeIps,
-        );
-
-        usort($available, static fn (array $a, array $b): int => $b['free_ips'] <=> $a['free_ips']);
-
-        return array_slice($available, 0, $limit);
     }
 
     /**

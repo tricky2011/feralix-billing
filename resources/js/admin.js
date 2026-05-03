@@ -3990,7 +3990,10 @@ export function adminPanel({ page }) {
         onProvisioningRouterChange() {
             this.provisioningResetFields();
             if (this.provisioning.form.router_id) {
-                this.loadProvisioningPppoeServers();
+                Promise.all([
+                    this.loadProvisioningPppoeServers(),
+                    this.autoAssignProvisioningVid(),
+                ]);
             }
         },
 
@@ -4047,18 +4050,26 @@ export function adminPanel({ page }) {
 
         async autoAssignProvisioningVid() {
             if (!this.provisioning.form.router_id) return;
-
             this.provisioning.loadingAssignedVid = true;
-            this.provisioning.assignedVidData = null;
             try {
-                const res = await api.get(`/api/v1/admin/ip-pools/suggest?router_id=${this.provisioning.form.router_id}`);
-                this.provisioning.assignedVidData = res.data?.data ?? null;
-                if (this.provisioning.assignedVidData) {
-                    this.provisioning.form.internet_vid = this.provisioning.assignedVidData.vid_number;
+                const res = await api.get('/api/v1/admin/ip-pools/suggest', {
+                    router_id: this.provisioning.form.router_id,
+                });
+                const data = res.data;
+                if (data && data.vlan_id) {
+                    this.provisioning.form.internet_vid = data.internet_vid ?? data.vlan_id ?? null;
+                    this.provisioning.form.monitor_vid  = data.monitor_vid ?? null;
+                    this.provisioning.assignedVidData   = data;
+                } else {
+                    this.provisioning.form.internet_vid = null;
+                    this.provisioning.form.monitor_vid  = null;
+                    this.provisioning.assignedVidData   = null;
                 }
             } catch (e) {
                 console.error('Failed to auto-assign VID', e);
-                this.provisioning.assignedVidData = null;
+                this.provisioning.form.internet_vid = null;
+                this.provisioning.form.monitor_vid  = null;
+                this.provisioning.assignedVidData   = null;
             } finally {
                 this.provisioning.loadingAssignedVid = false;
             }

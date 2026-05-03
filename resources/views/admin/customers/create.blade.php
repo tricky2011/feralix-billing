@@ -337,5 +337,4 @@
 
     <x-modal />
     <x-toast-notification />
-</div>
 @endsection

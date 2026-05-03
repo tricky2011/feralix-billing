@@ -127,6 +127,15 @@
                         <p class="mt-1 text-xs text-slate-400">Dipakai di PPPoE username.</p>
                     </label>
                     <label class="block">
+                        <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Lokasi *</span>
+                        <select x-model="masterOlt.form.network_location_id" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" required>
+                            <option value="">Pilih Lokasi...</option>
+                            <template x-for="loc in references.network_locations" :key="loc.id">
+                                <option :value="loc.id" x-text="(loc.code ?? '') + ' - ' + (loc.name ?? '')"></option>
+                            </template>
+                        </select>
+                    </label>
+                    <label class="block">
                         <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">IP Address</span>
                         <input type="text" x-model="masterOlt.form.host" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" placeholder="192.168.1.1">
                     </label>
@@ -175,6 +184,7 @@
                     <thead>
                         <tr class="border-b border-slate-100 dark:border-white/10">
                             <th class="pb-3 text-left font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Nama</th>
+                            <th class="pb-3 text-left font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Lokasi</th>
                             <th class="pb-3 text-left font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">IP</th>
                             <th class="pb-3 text-left font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Status</th>
                             <th class="pb-3 text-right font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Aksi</th>
@@ -187,6 +197,7 @@
                                     <div class="font-bold text-slate-900 dark:text-white" x-text="item.olt_name ?? item.name ?? '-'"></div>
                                     <div class="font-mono text-xs text-slate-400" x-text="item.olt_code ?? item.code ?? '-'"></div>
                                 </td>
+                                <td class="py-3 text-xs text-slate-500" x-text="item.network_location?.name ?? item.location_name ?? '-'"></td>
                                 <td class="py-3 font-mono text-xs text-slate-500" x-text="item.mgmt_ip ?? item.host ?? '-'"></td>
                                 <td class="py-3">
                                     <span class="rounded-full px-2.5 py-1 text-xs font-black uppercase" :class="item.status === 'active' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400'" x-text="item.status === 'active' ? 'Aktif' : 'Nonaktif'"></span>
@@ -205,7 +216,7 @@
                             </tr>
                         </template>
                         <tr x-show="masterOlt.loading">
-                            <td colspan="4" class="py-8 text-center text-slate-400">Memuat...</td>
+                            <td colspan="5" class="py-8 text-center text-slate-400">Memuat...</td>
                         </tr>
                     </tbody>
                 </table>

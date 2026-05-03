@@ -780,6 +780,18 @@ const placeholderPages = {
             'Integrasi invoice adjustment jika upgrade dilakukan di tengah periode.',
         ],
     },
+    'master-lokasi': {
+        title: 'Master Lokasi',
+        section: 'Network',
+        description: 'Kelola data lokasi untuk manajemen jaringan ISP.',
+        noCreate: true,
+    },
+    'master-olt': {
+        title: 'Master OLT',
+        section: 'Network',
+        description: 'Kelola data OLT dan PON Port untuk jaringan fiber optic.',
+        noCreate: true,
+    },
     'service-plan': {
         title: 'Service Plan',
         section: 'Access',
@@ -4142,7 +4154,7 @@ export function adminPanel({ page }) {
 }
 
 // ==================== MASTER LOKASI PAGE ====================
-function masterLokasi() {
+export function masterLokasi() {
     return {
         items: [],
         loading: false,
@@ -4370,7 +4382,7 @@ function masterLokasi() {
 }
 
 // ==================== MASTER OLT PAGE ====================
-function masterOlt() {
+export function masterOlt() {
     return {
         items: [],
         loading: false,

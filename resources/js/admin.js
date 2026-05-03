@@ -780,18 +780,6 @@ const placeholderPages = {
             'Integrasi invoice adjustment jika upgrade dilakukan di tengah periode.',
         ],
     },
-    'master-lokasi': {
-        title: 'Master Lokasi',
-        section: 'Network',
-        description: 'Kelola data lokasi untuk manajemen jaringan ISP.',
-        renderContent: true,
-    },
-    'master-olt': {
-        title: 'Master OLT',
-        section: 'Network',
-        description: 'Kelola data OLT dan PON Port untuk jaringan fiber optic.',
-        renderContent: true,
-    },
     'service-plan': {
         title: 'Service Plan',
         section: 'Access',
@@ -1108,7 +1096,7 @@ function createMasterLokasiState() {
         async loadData() {
             this.loading = true;
             try {
-                const res = await api.get('/api/v1/admin/locations', { params: { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page } });
+                const res = await api.get('/api/v1/admin/network-locations', { params: { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page } });
                 this.items = res.data ?? [];
                 this.pagination = res.meta ?? {};
             } finally { this.loading = false; }
@@ -1118,8 +1106,8 @@ function createMasterLokasiState() {
             this.saving = true;
             try {
                 const payload = { name: this.form.name, code: this.form.code.toUpperCase().replace(/\s/g, ''), description: this.form.description, latitude: this.form.latitude || null, longitude: this.form.longitude || null, status: this.form.is_active ? 'active' : 'inactive' };
-                if (this.editId) { await api.patch(`/api/v1/admin/locations/${this.editId}`, payload); toast('success', 'Berhasil', 'Lokasi diperbarui'); }
-                else { await api.post('/api/v1/admin/locations', payload); toast('success', 'Berhasil', 'Lokasi ditambahkan'); }
+                if (this.editId) { await api.patch(`/api/v1/admin/network-locations/${this.editId}`, payload); toast('success', 'Berhasil', 'Lokasi diperbarui'); }
+                else { await api.post('/api/v1/admin/network-locations', payload); toast('success', 'Berhasil', 'Lokasi ditambahkan'); }
                 this.cancelEdit();
                 await this.loadData();
             } catch (e) { toast('error', 'Gagal', e?.response?.data?.message ?? e.message); } finally { this.saving = false; }
@@ -1127,7 +1115,7 @@ function createMasterLokasiState() {
 
         editItem(item) { this.editId = item.id; this.form = { name: item.location_name ?? item.name ?? '', code: item.location_code ?? item.code ?? '', latitude: item.latitude ?? '', longitude: item.longitude ?? '', description: item.description ?? '', is_active: item.is_active ?? true }; },
 
-        async deleteItem(item) { if (!confirm(`Hapus "${item.location_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/locations/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(); },
+        async deleteItem(item) { if (!confirm(`Hapus "${item.location_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/network-locations/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(); },
 
         cancelEdit() { this.editId = null; this.form = { name: '', code: '', latitude: '', longitude: '', description: '', is_active: true }; },
 

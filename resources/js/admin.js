@@ -1098,7 +1098,7 @@ function createMasterLokasiState() {
             try {
                 const res = await api.get('/api/v1/admin/network-locations', { params: { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page } });
                 this.items = res.data ?? [];
-                this.pagination = res.meta ?? {};
+                this.pagination = res.meta?.pagination ?? {};
             } finally { this.loading = false; }
         },
 
@@ -1113,7 +1113,7 @@ function createMasterLokasiState() {
             } catch (e) { toast('error', 'Gagal', e?.response?.data?.message ?? e.message); } finally { this.saving = false; }
         },
 
-        editItem(item) { this.editId = item.id; this.form = { name: item.location_name ?? item.name ?? '', code: item.location_code ?? item.code ?? '', latitude: item.latitude ?? '', longitude: item.longitude ?? '', description: item.description ?? '', is_active: item.is_active ?? true }; },
+        editItem(item) { this.editId = item.id; this.form = { name: item.location_name ?? item.name ?? '', code: item.location_code ?? item.code ?? '', latitude: item.latitude ?? '', longitude: item.longitude ?? '', description: item.description ?? '', is_active: item.status === 'active' }; },
 
         async deleteItem(item) { if (!confirm(`Hapus "${item.location_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/network-locations/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(); },
 
@@ -1139,7 +1139,7 @@ function createMasterOltState() {
             try {
                 const res = await api.get('/api/v1/admin/olts', { params: { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page } });
                 this.items = res.data ?? [];
-                this.pagination = res.meta ?? {};
+                this.pagination = res.meta?.pagination ?? {};
             } finally { this.loading = false; }
         },
 
@@ -1154,7 +1154,7 @@ function createMasterOltState() {
             } catch (e) { toast('error', 'Gagal', e?.response?.data?.message ?? e.message); } finally { this.saving = false; }
         },
 
-        editItem(item) { this.editId = item.id; this.form = { name: item.olt_name ?? item.name ?? '', code: item.olt_code ?? item.code ?? '', host: item.mgmt_ip ?? item.host ?? '', pon_ports: item.pon_ports ?? 4, max_per_pon: 100, description: item.description ?? '', is_active: item.is_active ?? true }; },
+        editItem(item) { this.editId = item.id; this.form = { name: item.olt_name ?? item.name ?? '', code: item.olt_code ?? item.code ?? '', host: item.mgmt_ip ?? item.host ?? '', pon_ports: item.pon_ports ?? 4, max_per_pon: 100, description: item.description ?? '', is_active: item.status === 'active' }; },
 
         async deleteItem(item) { if (!confirm(`Hapus "${item.olt_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/olts/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(); },
 

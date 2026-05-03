@@ -75,7 +75,7 @@
                                 <td class="py-3 font-mono text-slate-600 dark:text-slate-400" x-text="item.location_code ?? item.code ?? '-'"></td>
                                 <td class="py-3 text-slate-500" x-text="item.description ?? item.notes ?? '-'"></td>
                                 <td class="py-3">
-                                    <span class="rounded-full px-2.5 py-1 text-xs font-black uppercase" :class="item.is_active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400'" x-text="item.is_active ? 'Aktif' : 'Nonaktif'"></span>
+                                    <span class="rounded-full px-2.5 py-1 text-xs font-black uppercase" :class="item.status === 'active' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400'" x-text="item.status === 'active' ? 'Aktif' : 'Nonaktif'"></span>
                                 </td>
                                 <td class="py-3 text-right">
                                     <button @click="masterLokasi.editItem(item)" class="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 transition hover:border-blue-200 hover:text-blue-600 dark:border-white/10 dark:text-slate-400" title="Edit">
@@ -189,7 +189,7 @@
                                 </td>
                                 <td class="py-3 font-mono text-xs text-slate-500" x-text="item.mgmt_ip ?? item.host ?? '-'"></td>
                                 <td class="py-3">
-                                    <span class="rounded-full px-2.5 py-1 text-xs font-black uppercase" :class="item.is_active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400'" x-text="item.is_active ? 'Aktif' : 'Nonaktif'"></span>
+                                    <span class="rounded-full px-2.5 py-1 text-xs font-black uppercase" :class="item.status === 'active' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400'" x-text="item.status === 'active' ? 'Aktif' : 'Nonaktif'"></span>
                                 </td>
                                 <td class="py-3 text-right">
                                     <button @click="masterOlt.openPonModal(item)" class="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 transition hover:border-indigo-200 hover:text-indigo-600 dark:border-white/10 dark:text-slate-400" title="Detail PON">

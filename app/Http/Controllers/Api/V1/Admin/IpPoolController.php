@@ -9,12 +9,16 @@ use App\Http\Resources\IpPoolResource;
 use App\Models\Router;
 use App\Models\Vid;
 use App\Services\Mikrotik\IpPoolService;
+use App\Services\Mikrotik\IpPoolSyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class IpPoolController extends Controller
 {
-    public function __construct(private readonly IpPoolService $ipPoolService) {}
+    public function __construct(
+        private readonly IpPoolService $ipPoolService,
+        private readonly IpPoolSyncService $ipPoolSyncService,
+    ) {}
 
     public function index(IndexIpPoolRequest $request): JsonResponse
     {
@@ -210,5 +214,45 @@ class IpPoolController extends Controller
                 'vids' => $result,
             ],
         );
+    }
+
+    public function preview(Request $request): JsonResponse
+    {
+        $request->validate(['router_id' => 'required|exists:routers,id']);
+
+        $router  = Router::findOrFail((int) $request->router_id);
+        $preview = $this->ipPoolSyncService->previewFromMikrotik($router);
+
+        return $this->successResponse('IP pools preview retrieved successfully.', $preview);
+    }
+
+    public function saveSelection(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'router_id'   => 'required|exists:routers,id',
+            'pool_names'  => 'required|array|min:1',
+            'pool_names.*' => 'required|string|max:100',
+        ]);
+
+        $router = Router::findOrFail((int) $validated['router_id']);
+        $count  = $this->ipPoolSyncService->saveSelection($router, $validated['pool_names']);
+
+        return $this->successResponse('Pool selection saved successfully.', [
+            'router_id'     => $router->id,
+            'tracked_count' => $count,
+        ]);
+    }
+
+    public function sync(Request $request): JsonResponse
+    {
+        $request->validate(['router_id' => 'required|exists:routers,id']);
+
+        $router = Router::findOrFail((int) $request->router_id);
+        $count  = $this->ipPoolSyncService->syncFromMikrotik($router);
+
+        return $this->successResponse('IP pools synced successfully.', [
+            'router_id' => $router->id,
+            'synced_count' => $count,
+        ]);
     }
 }

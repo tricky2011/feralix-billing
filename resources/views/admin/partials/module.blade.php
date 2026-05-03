@@ -1503,6 +1503,15 @@
                     >
                         Refresh
                     </button>
+                    <button
+                        type="button"
+                        class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300"
+                        :disabled="!ipPools.router_id || ipPools.loadingPreview"
+                        @click="previewIpPools()"
+                    >
+                        <span x-show="!ipPools.loadingPreview">Pilih Pool dari Mikrotik</span>
+                        <span x-show="ipPools.loadingPreview">Memuat...</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -1617,9 +1626,9 @@
                                     </div>
                                 </td>
                                 <td class="px-4 py-3">
-                                    <span x-show="pool.is_full" class="inline-flex rounded-full bg-rose-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-rose-700 dark:bg-rose-500/20 dark:text-rose-300">Full</span>
-                                    <span x-show="!pool.is_full && pool.free_ips > 0" class="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">Available</span>
-                                    <span x-show="!pool.is_full && pool.free_ips === 0" class="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">Empty</span>
+                                    <span x-show="pool.availability_status === 'available'" class="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">Available</span>
+                                    <span x-show="pool.availability_status === 'reserved'" class="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">Reserved</span>
+                                    <span x-show="pool.availability_status === 'full'" class="inline-flex rounded-full bg-rose-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-rose-700 dark:bg-rose-500/20 dark:text-rose-300">Full</span>
                                 </td>
                             </tr>
                         </template>
@@ -1631,6 +1640,107 @@
         <div x-show="ipPools.router_id && ipPools.pools.length === 0 && !ipPools.loading" class="rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 p-8 text-center dark:border-white/10 dark:bg-white/[0.02]">
             <p class="text-lg font-black text-slate-700 dark:text-slate-200">Tidak ada IP Pool</p>
             <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Pool tidak ditemukan di router ini atau filter terlalu ketat.</p>
+        </div>
+
+        {{-- Pool Selection Panel --}}
+        <div x-show="ipPools.showSelection" x-cloak class="rounded-2xl border border-blue-200 bg-blue-50/70 p-4 dark:border-blue-500/30 dark:bg-blue-500/10">
+            <div class="mb-3 flex items-center justify-between">
+                <div>
+                    <h4 class="text-sm font-black text-blue-900 dark:text-blue-100">Pilih Pool yang Mau Di-track</h4>
+                    <p class="mt-0.5 text-xs text-blue-700 dark:text-blue-300">
+                        <span x-text="ipPools.selectedPools.length"></span> pool dipilih dari
+                        <span x-text="ipPools.preview.length"></span> pool di Mikrotik
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <button
+                        type="button"
+                        @click="ipPools.selectedPools = ipPools.preview.map(p => p.pool_name)"
+                        class="rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-xs font-bold text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-200"
+                    >Pilih Semua</button>
+                    <button
+                        type="button"
+                        @click="ipPools.selectedPools = []"
+                        class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300"
+                    >Batal Semua</button>
+                    <button
+                        type="button"
+                        @click="ipPools.showSelection = false"
+                        class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300"
+                    >Tutup</button>
+                </div>
+            </div>
+
+            <div class="mb-3 flex gap-2">
+                <button
+                    type="button"
+                    @click="ipPools.selectedPools = ipPools.preview.filter(p => p.vlan_id >= 1001 && p.vlan_id <= 1255).map(p => p.pool_name)"
+                    class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white"
+                >Pilih VLAN 1001-1255</button>
+                <button
+                    type="button"
+                    @click="ipPools.selectedPools = ipPools.preview.filter(p => p.availability_status === 'available').map(p => p.pool_name)"
+                    class="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200"
+                >Pilih Semua Available</button>
+            </div>
+
+            <div class="max-h-80 overflow-y-auto rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.04]">
+                <table class="w-full text-xs">
+                    <thead class="sticky top-0 bg-slate-50 dark:bg-slate-800">
+                        <tr>
+                            <th class="px-3 py-2 text-left font-black uppercase tracking-wide text-slate-500">Pilih</th>
+                            <th class="px-3 py-2 text-left font-black uppercase tracking-wide text-slate-500">Pool Name</th>
+                            <th class="px-3 py-2 text-left font-black uppercase tracking-wide text-slate-500">VLAN</th>
+                            <th class="px-3 py-2 text-left font-black uppercase tracking-wide text-slate-500">Interface</th>
+                            <th class="px-3 py-2 text-right font-black uppercase tracking-wide text-slate-500">Used/Total</th>
+                            <th class="px-3 py-2 text-left font-black uppercase tracking-wide text-slate-500">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-white/10">
+                        <template x-for="pool in ipPools.preview" :key="pool.pool_name">
+                            <tr
+                                class="cursor-pointer transition hover:bg-blue-50 dark:hover:bg-blue-500/10"
+                                :class="isPoolSelected(pool.pool_name) ? 'bg-blue-50/80 dark:bg-blue-500/10' : ''"
+                                @click="togglePoolSelection(pool.pool_name)"
+                            >
+                                <td class="px-3 py-2">
+                                    <input
+                                        type="checkbox"
+                                        :checked="isPoolSelected(pool.pool_name)"
+                                        @click.stop="togglePoolSelection(pool.pool_name)"
+                                        class="h-4 w-4 rounded border-slate-300 text-blue-600"
+                                    >
+                                </td>
+                                <td class="px-3 py-2 font-mono font-bold text-slate-800 dark:text-white" x-text="pool.pool_name"></td>
+                                <td class="px-3 py-2">
+                                    <span x-show="pool.vlan_id" class="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300" x-text="pool.vlan_id"></span>
+                                    <span x-show="!pool.vlan_id" class="text-slate-400">-</span>
+                                </td>
+                                <td class="px-3 py-2 text-slate-500 dark:text-slate-400" x-text="pool.interface ?? '-'"></td>
+                                <td class="px-3 py-2 text-right font-mono text-slate-600 dark:text-slate-300">
+                                    <span x-text="pool.used_ips"></span>/<span x-text="pool.total_ips"></span>
+                                </td>
+                                <td class="px-3 py-2">
+                                    <span x-show="pool.availability_status === 'available'" class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-700">Available</span>
+                                    <span x-show="pool.availability_status === 'reserved'" class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase text-amber-700">Reserved</span>
+                                    <span x-show="pool.availability_status === 'full'" class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-black uppercase text-rose-700">Full</span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-3 flex justify-end">
+                <button
+                    type="button"
+                    @click="savePoolSelection()"
+                    :disabled="ipPools.selectedPools.length === 0"
+                    class="rounded-xl bg-blue-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-blue-600/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                    Simpan Pilihan (<span x-text="ipPools.selectedPools.length"></span> pool)
+                </button>
+            </div>
         </div>
 
         {{-- VID Availability Section --}}

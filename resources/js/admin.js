@@ -1367,6 +1367,10 @@ export function adminPanel({ page }) {
             router_id: '',
             loading: false,
             pools: [],
+            preview: [],
+            loadingPreview: false,
+            selectedPools: [],
+            showSelection: false,
             summary: null,
             utilization: null,
             vidsWithAvailability: [],
@@ -1954,7 +1958,74 @@ export function adminPanel({ page }) {
         },
 
         async refreshIpPools() {
-            await this.loadIpPoolsPage();
+            if (!this.ipPools.router_id) return;
+            this.ipPools.loading = true;
+            try {
+                await api.post('/api/v1/admin/ip-pools/sync', {
+                    router_id: this.ipPools.router_id,
+                });
+                await this.loadIpPoolsPage();
+                this.toast('success', 'Sync berhasil', 'Data IP Pool diperbarui dari Mikrotik');
+            } catch (e) {
+                console.error('Failed to sync IP pools', e);
+                this.toast('error', 'Sync gagal', e?.response?.data?.message ?? e.message);
+            } finally {
+                this.ipPools.loading = false;
+            }
+        },
+
+        async previewIpPools() {
+            if (!this.ipPools.router_id) return;
+            this.ipPools.loadingPreview = true;
+            this.ipPools.showSelection = true;
+            try {
+                const res = await api.get('/api/v1/admin/ip-pools/preview', {
+                    router_id: this.ipPools.router_id,
+                });
+                this.ipPools.preview = res.data ?? [];
+                // Pre-check yang sudah is_tracked
+                this.ipPools.selectedPools = (res.data ?? [])
+                    .filter(p => p.is_tracked)
+                    .map(p => p.pool_name);
+            } catch (e) {
+                console.error('Failed to preview IP pools', e);
+                this.toast('error', 'Gagal', 'Tidak bisa fetch pool dari Mikrotik');
+            } finally {
+                this.ipPools.loadingPreview = false;
+            }
+        },
+
+        togglePoolSelection(poolName) {
+            const idx = this.ipPools.selectedPools.indexOf(poolName);
+            if (idx === -1) {
+                this.ipPools.selectedPools.push(poolName);
+            } else {
+                this.ipPools.selectedPools.splice(idx, 1);
+            }
+        },
+
+        isPoolSelected(poolName) {
+            return this.ipPools.selectedPools.includes(poolName);
+        },
+
+        async savePoolSelection() {
+            if (this.ipPools.selectedPools.length === 0) {
+                this.toast('error', 'Gagal', 'Pilih minimal 1 pool');
+                return;
+            }
+            try {
+                await api.post('/api/v1/admin/ip-pools/save-selection', {
+                    router_id:  this.ipPools.router_id,
+                    pool_names: this.ipPools.selectedPools,
+                });
+                this.ipPools.showSelection = false;
+                this.ipPools.preview = [];
+                await this.loadIpPoolsPage();
+                this.toast('success', 'Tersimpan', this.ipPools.selectedPools.length + ' pool berhasil disimpan');
+            } catch (e) {
+                console.error('Failed to save pool selection', e);
+                this.toast('error', 'Gagal', e?.response?.data?.message ?? e.message);
+            }
         },
 
         async checkPoolForVid(vlanId) {

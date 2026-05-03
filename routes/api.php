@@ -134,6 +134,9 @@ Route::prefix('v1/admin')
             Route::apiResource('vids', VidController::class);
             Route::get('ip-pools', [IpPoolController::class, 'index']);
             Route::get('ip-pools/suggest', [IpPoolController::class, 'suggest']);
+            Route::get('ip-pools/preview', [IpPoolController::class, 'preview']);
+            Route::post('ip-pools/save-selection', [IpPoolController::class, 'saveSelection']);
+            Route::post('ip-pools/sync', [IpPoolController::class, 'sync']);
             Route::get('routers/{router}/ip-pools', [IpPoolController::class, 'show']);
             Route::get('routers/{router}/ip-pools/summary', [IpPoolController::class, 'summary']);
             Route::get('routers/{router}/ip-pools/utilization', [IpPoolController::class, 'utilization']);

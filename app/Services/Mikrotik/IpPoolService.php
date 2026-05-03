@@ -5,6 +5,7 @@ namespace App\Services\Mikrotik;
 use App\Contracts\Mikrotik\MikrotikIpPoolProvider;
 use App\Data\Mikrotik\MikrotikIpPoolRecord;
 use App\Models\Router;
+use App\Models\RouterScope;
 use App\Models\Vid;
 use App\Services\Access\RoleRouterScopeService;
 use Illuminate\Support\Collection;
@@ -149,25 +150,78 @@ class IpPoolService
     }
 
     /**
+     * Get allowed VID ranges from router scopes.
+     * Excludes monitor_vid from each scope.
+     *
+     * @return array<int, array{vid_start:int, vid_end:int}>
+     */
+    private function getAllowedVidRanges(Router $router): array
+    {
+        $scopes = RouterScope::where('router_id', $router->id)->get();
+
+        if ($scopes->isEmpty()) {
+            return [];
+        }
+
+        $ranges = [];
+        foreach ($scopes as $scope) {
+            if ($scope->monitor_vid === null) {
+                $ranges[] = [
+                    'vid_start' => $scope->vid_start,
+                    'vid_end'   => $scope->vid_end,
+                ];
+            } else {
+                // Split into two ranges if monitor_vid is in the middle
+                if ($scope->monitor_vid > $scope->vid_start) {
+                    $ranges[] = [
+                        'vid_start' => $scope->vid_start,
+                        'vid_end'   => $scope->monitor_vid - 1,
+                    ];
+                }
+                if ($scope->monitor_vid < $scope->vid_end) {
+                    $ranges[] = [
+                        'vid_start' => $scope->monitor_vid + 1,
+                        'vid_end'   => $scope->vid_end,
+                    ];
+                }
+            }
+        }
+
+        return $ranges;
+    }
+
+    /**
      * Suggest VIDs available for new customer assignment.
-     * Rule: used_ips MUST be 0 (completely unused), vlan_id 1001-1255, not disabled.
+     * Rule: used_ips MUST be 0 (completely unused), within router scopes (exclude monitor_vid).
      *
      * @return array<int, array{vlan_id:int, free_ips:int, total_ips:int, used_ips:int, pool_name:string, usage_percentage:float}>
      */
     public function suggestAvailableVids(Router $router, int $minFreeIps = 1, int $limit = 10, ?string $providerName = null): array
     {
         $pools = $this->fetchFromRouter($router, $providerName);
+        $ranges = $this->getAllowedVidRanges($router);
 
         $available = [];
 
         foreach ($pools as $pool) {
-            // Harus punya vlan_id
             if ($pool->vlanId === null) {
                 continue;
             }
 
-            // Range 1001-1255 only (1000 = PPPoE server)
-            if ($pool->vlanId < 1001 || $pool->vlanId > 1255) {
+            // Filter by scope ranges
+            if (! empty($ranges)) {
+                $inRange = false;
+                foreach ($ranges as $range) {
+                    if ($pool->vlanId >= $range['vid_start'] && $pool->vlanId <= $range['vid_end']) {
+                        $inRange = true;
+                        break;
+                    }
+                }
+                if (! $inRange) {
+                    continue;
+                }
+            } else {
+                // No scopes defined, skip
                 continue;
             }
 
@@ -188,6 +242,7 @@ class IpPoolService
                 'used_ips'         => $pool->usedIps,
                 'pool_name'        => $pool->name,
                 'usage_percentage' => $pool->usagePercentage(),
+                'pool_count'       => 1,
             ];
         }
 
@@ -199,12 +254,26 @@ class IpPoolService
 
     /**
      * Check if a VID has available IP pools for new customer assignment.
-     * Rule: used_ips MUST be 0, range 1001-1255.
+     * Rule: used_ips MUST be 0, within router scopes (exclude monitor_vid).
      */
     public function isVidPoolAvailable(Router $router, int $vlanId, int $minFreeIps = 1, ?string $providerName = null): bool
     {
-        // Enforce range rule
-        if ($vlanId < 1001 || $vlanId > 1255) {
+        $ranges = $this->getAllowedVidRanges($router);
+
+        // Check if VID is in allowed ranges
+        if (! empty($ranges)) {
+            $inRange = false;
+            foreach ($ranges as $range) {
+                if ($vlanId >= $range['vid_start'] && $vlanId <= $range['vid_end']) {
+                    $inRange = true;
+                    break;
+                }
+            }
+            if (! $inRange) {
+                return false;
+            }
+        } else {
+            // No scopes defined
             return false;
         }
 

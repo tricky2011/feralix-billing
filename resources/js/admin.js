@@ -4003,11 +4003,25 @@ export function adminPanel({ page }) {
                 await Promise.all([
                     this.loadProvisioningPppoeServers(),
                     this.autoAssignProvisioningVid(),
+                    this.loadTechniciansByRouter(olt.router_id),
                 ]);
             } else {
                 this.provisioning.form.router_id = null;
                 this.provisioning.pppoeServers = [];
                 this.provisioning.assignedVidData = null;
+            }
+        },
+
+        async loadTechniciansByRouter(routerId) {
+            try {
+                const res = await api.get('/api/v1/admin/customer-references', {
+                    params: { only_active: 1, router_id: routerId },
+                });
+                if (res.data?.technicians) {
+                    this.references.technicians = res.data.technicians;
+                }
+            } catch (e) {
+                console.error('Failed to load technicians by router', e);
             }
         },
 

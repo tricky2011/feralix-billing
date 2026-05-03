@@ -8,6 +8,7 @@ use App\Http\Requests\UserManagement\ResetUserPasswordRequest;
 use App\Http\Requests\UserManagement\StoreUserRequest;
 use App\Http\Requests\UserManagement\UpdateUserRequest;
 use App\Http\Resources\UserResource;
+use App\Models\Technician;
 use App\Models\User;
 use App\Services\Audit\ActivityLogger;
 use Illuminate\Http\JsonResponse;
@@ -71,6 +72,18 @@ class UserController extends Controller
 
             $this->syncRouters($user, $routerIds);
 
+            // Auto-create technician record for technician role
+            $roleValue = $user->role instanceof \BackedEnum ? $user->role->value : (string) $user->role;
+            if ($roleValue === 'technician') {
+                $technician = Technician::create([
+                    'technician_code' => 'TIM-' . $user->name,
+                    'full_name' => $user->name,
+                    'phone' => null,
+                    'is_active' => (bool) ($payload['is_active'] ?? true),
+                ]);
+                $user->update(['technician_id' => $technician->id]);
+            }
+
             return $user;
         });
 
@@ -120,6 +133,30 @@ class UserController extends Controller
 
             if ($routerIdsProvided) {
                 $this->syncRouters($user, $routerIds);
+            }
+
+            // Sync technician record based on role
+            $roleValue = $user->role instanceof \BackedEnum ? $user->role->value : (string) $user->role;
+            if ($roleValue === 'technician') {
+                if ($user->technician_id && $user->technician) {
+                    $user->technician->update([
+                        'technician_code' => 'TIM-' . $user->name,
+                        'full_name' => $user->name,
+                        'is_active' => (bool) ($payload['is_active'] ?? $user->is_active),
+                    ]);
+                } else {
+                    $technician = Technician::create([
+                        'technician_code' => 'TIM-' . $user->name,
+                        'full_name' => $user->name,
+                        'phone' => null,
+                        'is_active' => (bool) ($payload['is_active'] ?? true),
+                    ]);
+                    $user->update(['technician_id' => $technician->id]);
+                }
+            } else {
+                if ($user->technician_id) {
+                    $user->update(['technician_id' => null]);
+                }
             }
         });
 

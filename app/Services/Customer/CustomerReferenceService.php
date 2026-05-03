@@ -89,6 +89,12 @@ class CustomerReferenceService
                 ->all(),
             'technicians' => Technician::query()
                 ->when($onlyActive, fn ($query) => $query->where('is_active', true))
+                ->when(
+                    $filters['router_id'] ?? null,
+                    fn ($query, $routerId) => $query->whereHas('user', function ($q) use ($routerId) {
+                        $q->whereHas('accessibleRouters', fn ($rq) => $rq->where('routers.id', $routerId));
+                    })
+                )
                 ->orderBy('full_name')
                 ->get(['id', 'technician_code', 'full_name', 'is_active'])
                 ->map(static fn (Technician $technician): array => [

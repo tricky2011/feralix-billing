@@ -21,6 +21,8 @@ class Customer extends Model
         'customer_code',
         'full_name',
         'phone',
+        'contact',
+        'email',
         'address',
         'location_id',
         'preferred_olt_id',
@@ -34,6 +36,7 @@ class Customer extends Model
         'billing_day',
         'pppoe_username',
         'pppoe_password',
+        'notes',
     ];
 
     protected function casts(): array

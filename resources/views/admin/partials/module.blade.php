@@ -22,6 +22,15 @@
                     Refresh
                 </button>
                 <button
+                    x-show="page === 'customers'"
+                    type="button"
+                    class="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20"
+                    onclick="window.location.href='/admin/customers/create'"
+                >
+                    Tambah
+                </button>
+                <button
+                    x-show="page !== 'customers'"
                     type="button"
                     class="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 disabled:hidden"
                     @click="openCreate"

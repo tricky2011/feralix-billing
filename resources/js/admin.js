@@ -3821,5 +3821,233 @@ export function adminPanel({ page }) {
                 this.toasts = this.toasts.filter((toast) => toast.id !== id);
             }, 4200);
         },
+
+        customerProvisioning() {
+            return {
+                ...this,
+                form: {
+                    full_name: '',
+                    phone: '',
+                    contact: '',
+                    email: '',
+                    address: '',
+                    location_id: '',
+                    olt_id: '',
+                    router_id: null,
+                    assigned_technician_id: '',
+                    install_date: new Date().toISOString().split('T')[0],
+                    latitude: '',
+                    longitude: '',
+                    maps_link: '',
+                    pppoe_username: '',
+                    pppoe_password: '',
+                    pppoe_server: '',
+                    monitor_vid: null,
+                    internet_vid: null,
+                },
+                errors: {},
+                saving: false,
+                loadingPppoeServers: false,
+                loadingAssignedVid: false,
+                pppoeServers: [],
+                assignedVidData: null,
+
+                init() {
+                    this.loadReferences();
+                },
+
+                async loadReferences() {
+                    try {
+                        const [locations, olts, technicians] = await Promise.all([
+                            api.get('/api/v1/admin/locations'),
+                            api.get('/api/v1/admin/olts'),
+                            api.get('/api/v1/admin/technicians'),
+                        ]);
+
+                        this.references.locations = locations.data?.data ?? locations.data ?? [];
+                        this.references.olts = olts.data?.data ?? olts.data ?? [];
+                        this.references.technicians = technicians.data?.data ?? technicians.data ?? [];
+                    } catch (e) {
+                        console.error('Failed to load references', e);
+                    }
+                },
+
+                filteredOlts() {
+                    if (!this.form.location_id) return [];
+                    return this.references.olts.filter(olt => String(olt.location_id) === String(this.form.location_id));
+                },
+
+                selectedRouter() {
+                    if (!this.form.olt_id) return '-';
+                    const olt = this.references.olts.find(o => String(o.id) === String(this.form.olt_id));
+                    if (!olt) return '-';
+                    return olt.router_name ?? olt.router?.router_name ?? olt.host ?? olt.mgmt_ip ?? '-';
+                },
+
+                async onLocationChange() {
+                    this.form.olt_id = '';
+                    this.form.router_id = null;
+                    this.resetServiceFields();
+                },
+
+                async onOltChange() {
+                    const olt = this.references.olts.find(o => String(o.id) === String(this.form.olt_id));
+
+                    if (olt?.router_id) {
+                        this.form.router_id = olt.router_id;
+                        await Promise.all([
+                            this.loadPppoeServers(),
+                            this.autoAssignVid(),
+                        ]);
+                    } else {
+                        this.form.router_id = null;
+                        this.pppoeServers = [];
+                        this.assignedVidData = null;
+                    }
+                },
+
+                async loadPppoeServers() {
+                    if (!this.form.router_id) return;
+
+                    this.loadingPppoeServers = true;
+                    try {
+                        const res = await api.get(`/api/v1/admin/mikrotik/pppoe-servers?router_id=${this.form.router_id}`);
+                        this.pppoeServers = res.data?.data ?? [];
+                    } catch (e) {
+                        console.error('Failed to load PPPoE servers', e);
+                        this.pppoeServers = [];
+                    } finally {
+                        this.loadingPppoeServers = false;
+                    }
+                },
+
+                async autoAssignVid() {
+                    if (!this.form.router_id) return;
+
+                    this.loadingAssignedVid = true;
+                    this.assignedVidData = null;
+                    try {
+                        const res = await api.get(`/api/v1/admin/ip-pools/suggest?router_id=${this.form.router_id}`);
+                        this.assignedVidData = res.data?.data ?? null;
+                        if (this.assignedVidData) {
+                            this.form.internet_vid = this.assignedVidData.vid_number;
+                        }
+                    } catch (e) {
+                        console.error('Failed to auto-assign VID', e);
+                        this.assignedVidData = null;
+                    } finally {
+                        this.loadingAssignedVid = false;
+                    }
+                },
+
+                async refreshAssignedVid() {
+                    await this.autoAssignVid();
+                },
+
+                assignedVid() {
+                    if (!this.assignedVidData) return '';
+                    return `${this.assignedVidData.vid} (${this.assignedVidData.ip_start} - ${this.assignedVidData.ip_end})`;
+                },
+
+                assignedIpAddress() {
+                    if (!this.assignedVidData) return '-';
+                    return this.assignedVidData.ip_start ?? '-';
+                },
+
+                resetServiceFields() {
+                    this.pppoeServers = [];
+                    this.assignedVidData = null;
+                    this.form.pppoe_server = '';
+                    this.form.monitor_vid = null;
+                    this.form.internet_vid = null;
+                },
+
+                onLatLngChange() {
+                    const lat = this.form.latitude?.trim();
+                    const lng = this.form.longitude?.trim();
+                    if (lat && lng) {
+                        this.form.maps_link = `https://maps.google.com/?q=${lat},${lng}`;
+                    } else {
+                        this.form.maps_link = '';
+                    }
+                },
+
+                canGenerateCredentials() {
+                    return this.form.full_name?.trim() &&
+                           this.form.location_id &&
+                           this.form.olt_id;
+                },
+
+                generateCredentials() {
+                    if (!this.canGenerateCredentials()) {
+                        alert('Isi Nama, Lokasi, dan OLT terlebih dahulu sebelum generate.');
+                        return;
+                    }
+
+                    const nama = this.form.full_name.trim();
+                    const namaDepan = nama.split(' ')[0].toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+                    const lokasi = this.references.locations.find(l => String(l.id) === String(this.form.location_id));
+                    const lokasiCode = (lokasi?.location_code ?? lokasi?.code ?? 'LOC').toUpperCase();
+
+                    const olt = this.references.olts.find(o => String(o.id) === String(this.form.olt_id));
+                    const oltCode = (olt?.olt_code ?? olt?.code ?? 'OLT').toUpperCase();
+
+                    const username = `${namaDepan}-${lokasiCode}-${oltCode}`;
+                    this.form.pppoe_username = username;
+
+                    let password = '';
+                    if (this.form.install_date) {
+                        const d = new Date(this.form.install_date);
+                        const dd = String(d.getDate()).padStart(2, '0');
+                        const mm = String(d.getMonth() + 1).padStart(2, '0');
+                        const yyyy = d.getFullYear();
+                        password = `${dd}${mm}${yyyy}`;
+                    }
+                    this.form.pppoe_password = password;
+                },
+
+                async submitForm() {
+                    this.errors = {};
+                    this.saving = true;
+
+                    try {
+                        const payload = {
+                            customer_code: 'CUST-' + String(Date.now()).slice(-6),
+                            full_name: this.form.full_name,
+                            phone: this.form.phone,
+                            contact: this.form.contact,
+                            email: this.form.email,
+                            address: this.form.address,
+                            location_id: this.form.location_id || null,
+                            preferred_olt_id: this.form.olt_id || null,
+                            assigned_technician_id: this.form.assigned_technician_id || null,
+                            install_date: this.form.install_date,
+                            latitude: this.form.latitude,
+                            longitude: this.form.longitude,
+                            pppoe_username: this.form.pppoe_username,
+                            pppoe_password: this.form.pppoe_password,
+                            pppoe_server: this.form.pppoe_server,
+                            monitor_vid: this.form.monitor_vid,
+                            internet_vid: this.form.internet_vid,
+                            router_id: this.form.router_id,
+                        };
+
+                        const res = await api.post('/api/v1/admin/customers/provisioning', payload);
+
+                        this.toast('success', 'Berhasil', 'Customer berhasil diprovinsi.');
+                        window.location.href = '/admin/customers';
+                    } catch (e) {
+                        const message = e?.response?.data?.message ?? e?.message ?? 'Terjadi kesalahan';
+                        if (e?.response?.data?.errors) {
+                            this.errors = e.response.data.errors;
+                        }
+                        this.toast('error', 'Gagal', message);
+                    } finally {
+                        this.saving = false;
+                    }
+                },
+            };
+        },
     };
 }

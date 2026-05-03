@@ -127,6 +127,35 @@ class IpPoolController extends Controller
         );
     }
 
+    public function suggest(Request $request): JsonResponse
+    {
+        $request->validate(['router_id' => 'required|exists:routers,id']);
+        $router = Router::findOrFail($request->router_id);
+
+        $suggestion = $this->ipPoolService->suggestAvailableVids($router, 1, 1);
+
+        if ($suggestion === []) {
+            return $this->successResponse('No available VID found.', [
+                'data' => null,
+            ]);
+        }
+
+        $vidData = $suggestion[0];
+        $vlanId = $vidData['vlan_id'];
+        $pools = $this->ipPoolService->getPoolsByVlan($router, $vlanId, 1);
+        $pool = $pools[0] ?? null;
+
+        return $this->successResponse('VID suggestion retrieved successfully.', [
+            'data' => [
+                'vid' => 'V-' . $vlanId,
+                'vid_number' => $vlanId,
+                'ip_start' => $pool?->primaryRange()['start_ip'] ?? null,
+                'ip_end' => $pool?->primaryRange()['end_ip'] ?? null,
+                'available_ips' => $vidData['free_ips'],
+            ],
+        ]);
+    }
+
     public function vidsWithAvailability(FetchIpPoolRequest $request, Router $router): JsonResponse
     {
         $request->validate([]);

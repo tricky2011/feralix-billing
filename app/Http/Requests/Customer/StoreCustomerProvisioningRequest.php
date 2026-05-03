@@ -4,13 +4,18 @@ namespace App\Http\Requests\Customer;
 
 use App\Enums\CustomerStatus;
 use App\Enums\CustomerType;
+use App\Enums\ServiceBillingStatus;
+use App\Enums\ServiceAccessMode;
+use App\Enums\ServiceIsolationMethod;
+use App\Enums\ServiceNetworkStatus;
+use App\Enums\ServiceOverallStatus;
 use App\Http\Requests\AdminPanelRequest;
 use App\Models\Olt;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
-class StoreCustomerRequest extends AdminPanelRequest
+class StoreCustomerProvisioningRequest extends AdminPanelRequest
 {
     protected function prepareForValidation(): void
     {
@@ -19,10 +24,16 @@ class StoreCustomerRequest extends AdminPanelRequest
             'full_name' => $this->filled('full_name') ? trim((string) $this->input('full_name')) : null,
             'phone' => $this->filled('phone') ? trim((string) $this->input('phone')) : null,
             'address' => $this->filled('address') ? trim((string) $this->input('address')) : null,
+            'contact' => $this->filled('contact') ? trim((string) $this->input('contact')) : null,
+            'email' => $this->filled('email') ? trim((string) $this->input('email')) : null,
             'customer_type' => $this->filled('customer_type') ? strtolower((string) $this->input('customer_type')) : CustomerType::Residential->value,
             'status' => $this->filled('status') ? strtolower((string) $this->input('status')) : CustomerStatus::Active->value,
-            'ip_count' => $this->filled('ip_count') ? max(1, min(5, (int) $this->input('ip_count'))) : 1,
-            'billing_day' => $this->filled('billing_day') ? max(1, min(28, (int) $this->input('billing_day'))) : 1,
+            'install_date' => $this->filled('install_date') ? trim((string) $this->input('install_date')) : null,
+            'latitude' => $this->filled('latitude') ? trim((string) $this->input('latitude')) : null,
+            'longitude' => $this->filled('longitude') ? trim((string) $this->input('longitude')) : null,
+            'pppoe_username' => $this->filled('pppoe_username') ? trim((string) $this->input('pppoe_username')) : null,
+            'pppoe_password' => $this->filled('pppoe_password') ? trim((string) $this->input('pppoe_password')) : null,
+            'pppoe_server' => $this->filled('pppoe_server') ? trim((string) $this->input('pppoe_server')) : null,
         ]);
     }
 
@@ -31,26 +42,24 @@ class StoreCustomerRequest extends AdminPanelRequest
         return [
             'customer_code' => ['required', 'string', 'max:30', 'unique:customers,customer_code'],
             'full_name' => ['required', 'string', 'max:150'],
-            'phone' => ['required', 'string', 'max:30'],
+            'phone' => ['nullable', 'string', 'max:30'],
+            'contact' => ['nullable', 'string', 'max:30'],
+            'email' => ['nullable', 'email', 'max:100'],
             'address' => ['nullable', 'string'],
             'location_id' => ['nullable', 'integer', 'exists:locations,id'],
             'preferred_olt_id' => ['nullable', 'integer', 'exists:olts,id'],
             'assigned_technician_id' => ['nullable', 'integer', 'exists:technicians,id'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'install_date' => ['nullable', 'date'],
             'customer_type' => ['required', Rule::enum(CustomerType::class)],
             'status' => ['required', Rule::enum(CustomerStatus::class)],
-            'ip_count' => ['nullable', 'integer', 'min:1', 'max:5'],
-            'monthly_price' => ['nullable', 'numeric', 'min:0'],
-            'billing_day' => ['nullable', 'integer', 'min:1', 'max:28'],
             'pppoe_username' => ['nullable', 'string', 'max:100'],
             'pppoe_password' => ['nullable', 'string', 'max:50'],
-            'monitor_vid' => ['nullable', 'integer'],
-            'internet_vid' => ['nullable', 'integer'],
             'pppoe_server' => ['nullable', 'string', 'max:100'],
-            'install_date' => ['nullable', 'date'],
-            'contact' => ['nullable', 'string', 'max:100'],
-            'email' => ['nullable', 'email', 'max:100'],
+            'monitor_vid' => ['nullable', 'integer', 'between:1,4094'],
+            'internet_vid' => ['nullable', 'integer', 'between:1,4094'],
+            'router_id' => ['nullable', 'integer', 'exists:routers,id'],
         ];
     }
 
@@ -69,5 +78,14 @@ class StoreCustomerRequest extends AdminPanelRequest
                 $validator->errors()->add('preferred_olt_id', 'The selected OLT does not belong to the selected location.');
             }
         });
+    }
+
+    public function messages(): array
+    {
+        return [
+            'full_name.required' => 'Nama pelanggan harus diisi.',
+            'pppoe_username.required' => 'Username PPPoE harus diisi.',
+            'pppoe_password.required' => 'Password PPPoE harus diisi.',
+        ];
     }
 }

@@ -2,6 +2,11 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\Enums\ServiceAccessMode;
+use App\Enums\ServiceBillingStatus;
+use App\Enums\ServiceIsolationMethod;
+use App\Enums\ServiceNetworkStatus;
+use App\Enums\ServiceOverallStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Customer\BulkDeleteCustomerRequest;
 use App\Http\Requests\Customer\BulkDisableCustomerRequest;
@@ -10,6 +15,7 @@ use App\Http\Requests\Customer\IndexCustomerRequest;
 use App\Http\Requests\Customer\PreviewCustomerProvisioningRequest;
 use App\Http\Requests\Customer\StoreCustomerRequest;
 use App\Http\Requests\Customer\StoreCustomerOnboardingRequest;
+use App\Http\Requests\Customer\StoreCustomerProvisioningRequest;
 use App\Http\Requests\Customer\UpdateCustomerRequest;
 use App\Http\Resources\CustomerResource;
 use App\Http\Resources\InvoiceResource;
@@ -21,6 +27,7 @@ use App\Services\Customer\CustomerOnboardingService;
 use App\Services\Customer\CustomerProvisioningPreviewService;
 use App\Services\MasterData\CustomerService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
 
 class CustomerController extends Controller
 {
@@ -118,5 +125,52 @@ class CustomerController extends Controller
             'Provisioning preview generated successfully.',
             $this->customerProvisioningPreviewService->preview($request->validated()),
         );
+    }
+
+    public function provisioning(StoreCustomerProvisioningRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+
+        $customer = $this->customerService->create([
+            'customer_code' => $data['customer_code'],
+            'full_name' => $data['full_name'],
+            'phone' => $data['phone'] ?? null,
+            'contact' => $data['contact'] ?? null,
+            'email' => $data['email'] ?? null,
+            'address' => $data['address'] ?? null,
+            'location_id' => $data['location_id'] ?? null,
+            'preferred_olt_id' => $data['preferred_olt_id'] ?? null,
+            'assigned_technician_id' => $data['assigned_technician_id'] ?? null,
+            'latitude' => $data['latitude'] ?? null,
+            'longitude' => $data['longitude'] ?? null,
+            'customer_type' => $data['customer_type'] ?? 'residential',
+            'status' => $data['status'] ?? 'active',
+            'notes' => 'Created via provisioning form. Install date: ' . ($data['install_date'] ?? 'N/A'),
+        ]);
+
+        $serviceData = [
+            'customer_id' => $customer->id,
+            'olt_id' => $data['preferred_olt_id'] ?? null,
+            'router_id' => $data['router_id'] ?? null,
+            'service_code' => 'SVC-' . strtoupper(Str::random(8)),
+            'access_mode' => ServiceAccessMode::Pppoe->value,
+            'pppoe_username' => $data['pppoe_username'] ?? null,
+            'pppoe_password' => $data['pppoe_password'] ?? null,
+            'pppoe_isolation_profile' => $data['pppoe_server'] ?? null,
+            'monitor_vid' => $data['monitor_vid'] ?? null,
+            'internet_vid' => $data['internet_vid'] ?? null,
+            'isolation_method' => ServiceIsolationMethod::AddressList->value,
+            'billing_status' => ServiceBillingStatus::Pending->value,
+            'network_status' => ServiceNetworkStatus::Provisioning->value,
+            'overall_status' => ServiceOverallStatus::Provisioning->value,
+            'activation_date' => $data['install_date'] ?? null,
+        ];
+
+        $service = $customer->services()->create($serviceData);
+
+        return $this->createdResponse('Customer provisioned successfully.', [
+            'customer' => new CustomerResource($customer),
+            'service' => new ServiceResource($service),
+        ]);
     }
 }

@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\Admin\IpPoolController;
 use App\Http\Controllers\Api\V1\Admin\LocationController;
 use App\Http\Controllers\Api\V1\Admin\RouterStatsController;
 use App\Http\Controllers\Api\V1\Admin\ManualIsolirController;
+use App\Http\Controllers\Api\V1\Admin\MikrotikInfoController;
 use App\Http\Controllers\Api\V1\Admin\MonitoringController;
 use App\Http\Controllers\Api\V1\Admin\NetworkLocationController;
 use App\Http\Controllers\Api\V1\Admin\OdcController;
@@ -84,6 +85,7 @@ Route::prefix('v1/admin')
 
             Route::get('customer-references', [CustomerReferenceController::class, 'index']);
             Route::post('customers/onboard', [CustomerController::class, 'onboard']);
+            Route::post('customers/provisioning', [CustomerController::class, 'provisioning']);
             Route::post('customers/bulk-delete', [CustomerController::class, 'bulkDelete']);
             Route::post('customers/bulk-disable', [CustomerController::class, 'bulkDisable']);
             Route::post('customers/bulk-generate-invoice', [CustomerController::class, 'bulkGenerateInvoice']);
@@ -109,6 +111,7 @@ Route::prefix('v1/admin')
             Route::post('router-sync/static', [RouterSyncController::class, 'syncStatic'])->middleware('role:superadmin,admin');
             Route::post('router-sync/address-list', [RouterSyncController::class, 'syncAddressList'])->middleware('role:superadmin,admin');
             Route::post('router-sync/all', [RouterSyncController::class, 'syncAll'])->middleware('role:superadmin,admin');
+            Route::get('mikrotik/pppoe-servers', [MikrotikInfoController::class, 'pppoeServers']);
             Route::get('pppoe-import/candidates', [PppoeImportController::class, 'candidates'])->middleware('role:superadmin,admin');
             Route::post('pppoe-import/import', [PppoeImportController::class, 'import'])->middleware('role:superadmin,admin');
             Route::apiResource('routers', RouterController::class)->middleware('role:superadmin,admin');
@@ -127,6 +130,7 @@ Route::prefix('v1/admin')
             Route::get('monitoring/pppoe', [MonitoringController::class, 'pppoe']);
             Route::apiResource('vids', VidController::class);
             Route::get('ip-pools', [IpPoolController::class, 'index']);
+            Route::get('ip-pools/suggest', [IpPoolController::class, 'suggest']);
             Route::get('routers/{router}/ip-pools', [IpPoolController::class, 'show']);
             Route::get('routers/{router}/ip-pools/summary', [IpPoolController::class, 'summary']);
             Route::get('routers/{router}/ip-pools/utilization', [IpPoolController::class, 'utilization']);

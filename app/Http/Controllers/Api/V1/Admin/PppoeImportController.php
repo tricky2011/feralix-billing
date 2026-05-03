@@ -132,6 +132,9 @@ class PppoeImportController extends Controller
                     $lastNumber++;
                     $customerCode = 'CUST-' . str_pad($lastNumber, 4, '0', STR_PAD_LEFT);
 
+                    // Generate unique service_code from username
+                    $serviceCode = 'SVC-' . strtoupper(preg_replace('/[^A-Z0-9]/i', '', $username));
+
                     // Create new customer
                     $customer = Customer::create([
                         'customer_code' => $customerCode,
@@ -142,12 +145,12 @@ class PppoeImportController extends Controller
                         'notes' => 'Diimport dari PPPoE Mikrotik ' . now()->toDateString(),
                     ]);
 
-                    // Create service with default values (fill all NOT NULL fields)
+                    // Create service with all NOT NULL fields filled
                     Service::create([
                         'customer_id' => $customer->id,
                         'package_id' => $defaultPackage->id,
                         'router_id' => $router->id,
-                        'service_code' => '',
+                        'service_code' => $serviceCode,
                         'monitor_vid' => 0,
                         'monitor_pppoe_username' => $username,
                         'monitor_pppoe_password' => '',
@@ -155,12 +158,16 @@ class PppoeImportController extends Controller
                         'subnet_cidr' => '',
                         'dhcp_pool_start' => '',
                         'dhcp_pool_end' => '',
+                        'ip_pool_count' => 5,
+                        'rate_limit_mbps' => 10,
+                        'ip_count' => 1,
+                        'access_mode' => 'pppoe',
                         'pppoe_username' => $username,
                         'pppoe_password' => $secret['password'] ?? '',
-                        'ip_count' => 1,
-                        'monthly_price' => 0,
-                        'billing_day' => 1,
-                        'status' => 'active',
+                        'isolation_method' => 'address_list',
+                        'billing_status' => 'pending',
+                        'network_status' => 'provisioning',
+                        'overall_status' => 'provisioning',
                     ]);
 
                     $imported++;

@@ -9,6 +9,7 @@ use App\Http\Requests\Olt\UpdateOltRequest;
 use App\Http\Resources\OltResource;
 use App\Models\NetworkLocation;
 use App\Models\Olt;
+use App\Models\PonPort;
 use App\Services\Audit\ActivityLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -70,6 +71,20 @@ class OltController extends Controller
     {
         $olt = Olt::query()->create($this->toPersistencePayload($request->validated()));
 
+        // Auto-generate PON ports
+        $totalPon = $request->validated('pon_ports') ?? 4;
+        $maxPerPon = $request->validated('max_per_pon') ?? 100;
+        for ($i = 1; $i <= $totalPon; $i++) {
+            PonPort::create([
+                'olt_id' => $olt->id,
+                'port_number' => $i,
+                'name' => 'PON-' . $i,
+                'max_capacity' => $maxPerPon,
+                'current_count' => 0,
+                'is_active' => true,
+            ]);
+        }
+
         $this->activityLogger->record(
             $request->user(),
             'olt.created',
@@ -80,7 +95,7 @@ class OltController extends Controller
 
         return $this->createdResponse(
             'OLT created successfully.',
-            new OltResource($olt->load(['location', 'networkLocation'])->loadCount(['onts', 'odps'])),
+            new OltResource($olt->load(['location', 'networkLocation', 'ponPorts'])->loadCount(['onts', 'odps'])),
         );
     }
 
@@ -108,6 +123,35 @@ class OltController extends Controller
             'OLT updated successfully.',
             new OltResource($olt->refresh()->load(['onts', 'location', 'networkLocation'])->loadCount(['onts', 'odps'])),
         );
+    }
+
+    public function ponStatus(Olt $olt): JsonResponse
+    {
+        $ports = $olt->ponPorts()->where('is_active', true)->get()->map(fn($p) => [
+            'id' => $p->id,
+            'name' => $p->name,
+            'port_number' => $p->port_number,
+            'max_capacity' => $p->max_capacity,
+            'current_count' => $p->current_count,
+            'sisa' => max(0, $p->max_capacity - $p->current_count),
+            'is_full' => $p->current_count >= $p->max_capacity,
+            'is_almost_full' => ($p->max_capacity - $p->current_count) <= (int) ceil($p->max_capacity * 0.2),
+            'status' => $p->current_count >= $p->max_capacity ? 'full'
+                : (($p->max_capacity - $p->current_count) <= (int) ceil($p->max_capacity * 0.2) ? 'almost_full' : 'normal'),
+        ]);
+
+        $activeCount = $olt->ponPorts()->where('is_active', true)->count();
+        $fullPorts = $ports->filter(fn($p) => $p['is_full'])->count();
+
+        return response()->json([
+            'olt' => ['id' => $olt->id, 'name' => $olt->name ?? $olt->olt_name],
+            'pon_ports' => $ports,
+            'active_ports' => $activeCount,
+            'full_ports' => $fullPorts,
+            'has_full' => $ports->contains('is_full', true),
+            'all_full' => $activeCount > 0 && $fullPorts === $activeCount,
+            'pon_info' => sprintf('%d/%d PON aktif', $activeCount, $olt->pon_ports ?? 4),
+        ]);
     }
 
     public function destroy(Request $request, Olt $olt): JsonResponse

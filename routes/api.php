@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\V1\Admin\OltController;
 use App\Http\Controllers\Api\V1\Admin\OntController;
 use App\Http\Controllers\Api\V1\Admin\PackageController;
 use App\Http\Controllers\Api\V1\Admin\PaymentController;
+use App\Http\Controllers\Api\V1\Admin\PonPortController;
 use App\Http\Controllers\Api\V1\Admin\PppoeImportController;
 use App\Http\Controllers\Api\V1\Admin\ResellerController;
 use App\Http\Controllers\Api\V1\Admin\RouterController;
@@ -121,6 +122,8 @@ Route::prefix('v1/admin')
                 ->parameters(['network-locations' => 'networkLocation'])
                 ->middleware('role:superadmin,admin');
             Route::apiResource('olts', OltController::class)->middleware('role:superadmin,admin');
+            Route::get('olts/{olt}/pon-status', [OltController::class, 'ponStatus'])->middleware('role:superadmin,admin');
+            Route::apiResource('olts.pon-ports', PonPortController::class)->shallow()->middleware('role:superadmin,admin');
             Route::apiResource('odcs', OdcController::class)->middleware('role:superadmin,admin');
             Route::apiResource('odps', OdpController::class)->middleware('role:superadmin,admin');
             Route::get('fiber-map', [FiberMapController::class, 'index'])->middleware('role:superadmin,admin');

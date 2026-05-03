@@ -865,8 +865,8 @@ const sidebarGroups = [
         items: [
             { page: 'fiber-network-map', label: 'Fiber Network Map', icon: 'FM', adminOnly: true },
             { page: 'odp-odc', label: 'Manajemen ODP/ODC', icon: 'OD', adminOnly: true },
-            { page: 'network', tab: 'locations', label: 'Master Lokasi', icon: 'LO', adminOnly: true },
-            { page: 'network', tab: 'olts', label: 'Master OLT', icon: 'OL', adminOnly: true },
+            { page: 'master-lokasi', label: 'Master Lokasi', icon: 'LO', adminOnly: true },
+            { page: 'master-olt', label: 'Master OLT', icon: 'OL', adminOnly: true },
         ],
     },
     {
@@ -4024,6 +4024,690 @@ export function adminPanel({ page }) {
             } finally {
                 this.provisioning.saving = false;
             }
+        },
+
+        // ==================== MASTER LOKASI ====================
+        async loadMasterLokasiData() {
+            this.loading = true;
+            try {
+                const params = {
+                    search: this.filters.search || undefined,
+                    page: this.filters.page,
+                    per_page: this.filters.per_page,
+                };
+                const response = await api.get('/api/v1/admin/locations', { params });
+                this.items = response.data ?? [];
+                this.pagination = response.meta ?? {};
+            } catch (error) {
+                this.toast('error', 'Gagal', 'Tidak dapat memuat data lokasi');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        formatCoordinates(lat, lng) {
+            if (!lat && !lng) return '-';
+            return `${lat ?? '-'}, ${lng ?? '-'}`;
+        },
+
+        cancelEdit() {
+            this.editId = null;
+            this.form = this.getDefaultForm();
+        },
+
+        async bulkAction(action) {
+            if (this.selected.length === 0) return;
+            const confirmed = confirm(`Yakin ingin ${action} ${this.selected.length} item?`);
+            if (!confirmed) return;
+
+            try {
+                if (action === 'delete') {
+                    await Promise.all(this.selected.map(id => api.delete(`/api/v1/admin/${this.currentConfig().endpoint}/${id}`)));
+                } else {
+                    const status = action === 'activate' ? 'active' : 'inactive';
+                    await Promise.all(this.selected.map(id => api.patch(`/api/v1/admin/${this.currentConfig().endpoint}/${id}`, { status })));
+                }
+                this.toast('success', 'Berhasil', `Action ${action} berhasil`);
+                this.selected = [];
+                await this.loadPage();
+            } catch (error) {
+                this.toast('error', 'Gagal', error.message);
+            }
+        },
+
+        toggleSelectAll(event) {
+            if (event.target.checked) {
+                this.selected = this.items.map(item => item.id);
+            } else {
+                this.selected = [];
+            }
+        },
+
+        get isAllSelected() {
+            return this.items.length > 0 && this.selected.length === this.items.length;
+        },
+
+        get visiblePages() {
+            const current = this.pagination.current_page ?? 1;
+            const last = this.pagination.last_page ?? 1;
+            const delta = 2;
+            const range = [];
+            for (let i = Math.max(1, current - delta); i <= Math.min(last, current + delta); i++) {
+                range.push(i);
+            }
+            return range;
+        },
+
+        prevPage() {
+            if (this.pagination.current_page > 1) {
+                this.filters.page = this.pagination.current_page - 1;
+                this.loadPage();
+            }
+        },
+
+        nextPage() {
+            if (this.pagination.current_page < this.pagination.last_page) {
+                this.filters.page = this.pagination.current_page + 1;
+                this.loadPage();
+            }
+        },
+
+        goToPage(page) {
+            this.filters.page = page;
+            this.loadPage();
+        },
+
+        changePerPage() {
+            this.filters.page = 1;
+            this.loadPage();
+        },
+
+        debounceSearch: (function() {
+            let timeout;
+            return function() {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => {
+                    this.filters.page = 1;
+                    this.loadPage();
+                }, 300);
+            };
+        })(),
+
+        resetFilters() {
+            this.filters = { search: '', page: 1, per_page: this.filters.per_page ?? 15 };
+            this.selected = [];
+            this.loadPage();
+        },
+    };
+}
+
+// ==================== MASTER LOKASI PAGE ====================
+function masterLokasi() {
+    return {
+        items: [],
+        loading: false,
+        saving: false,
+        editId: null,
+        selected: [],
+        pagination: {},
+        filters: {
+            search: '',
+            page: 1,
+            per_page: 15,
+        },
+        form: {
+            name: '',
+            code: '',
+            latitude: '',
+            longitude: '',
+            maps_link: '',
+            description: '',
+            is_active: true,
+        },
+        toasts: [],
+
+        init() {
+            this.loadData();
+            this.loadReferences();
+        },
+
+        async loadReferences() {
+            try {
+                const res = await api.get('/api/v1/admin/customers/references');
+                window.masterLokasiRefs = res.data ?? {};
+                this.$refs._refs = res.data ?? {};
+            } catch (e) {
+                console.error('Failed to load references', e);
+            }
+        },
+
+        async loadData() {
+            this.loading = true;
+            try {
+                const params = {
+                    search: this.filters.search || undefined,
+                    page: this.filters.page,
+                    per_page: this.filters.per_page,
+                };
+                const res = await api.get('/api/v1/admin/locations', { params });
+                this.items = res.data ?? [];
+                this.pagination = res.meta ?? {};
+            } catch (error) {
+                this.toast('error', 'Gagal', 'Tidak dapat memuat data');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async submitForm() {
+            this.saving = true;
+            try {
+                const payload = {
+                    name: this.form.name,
+                    code: this.form.code.toUpperCase().replace(/\s/g, ''),
+                    latitude: this.form.latitude || null,
+                    longitude: this.form.longitude || null,
+                    description: this.form.description || null,
+                    status: this.form.is_active ? 'active' : 'inactive',
+                };
+
+                if (this.editId) {
+                    await api.patch(`/api/v1/admin/locations/${this.editId}`, payload);
+                    this.toast('success', 'Berhasil', 'Lokasi berhasil diperbarui');
+                } else {
+                    await api.post('/api/v1/admin/locations', payload);
+                    this.toast('success', 'Berhasil', 'Lokasi berhasil ditambahkan');
+                }
+                this.cancelEdit();
+                await this.loadData();
+            } catch (error) {
+                const msg = error?.response?.data?.message ?? error.message ?? 'Terjadi kesalahan';
+                this.toast('error', 'Gagal', msg);
+            } finally {
+                this.saving = false;
+            }
+        },
+
+        editItem(item) {
+            this.editId = item.id;
+            this.form = {
+                name: item.location_name ?? item.name ?? '',
+                code: item.location_code ?? item.code ?? '',
+                latitude: item.latitude ?? '',
+                longitude: item.longitude ?? '',
+                maps_link: item.maps_link ?? '',
+                description: item.description ?? item.notes ?? '',
+                is_active: item.is_active ?? true,
+            };
+            this.updateMapsLink();
+        },
+
+        async deleteItem(item) {
+            if (!confirm(`Hapus lokasi "${item.location_name ?? item.name}"?`)) return;
+            try {
+                await api.delete(`/api/v1/admin/locations/${item.id}`);
+                this.toast('success', 'Berhasil', 'Lokasi berhasil dihapus');
+                await this.loadData();
+            } catch (error) {
+                this.toast('error', 'Gagal', error.message);
+            }
+        },
+
+        cancelEdit() {
+            this.editId = null;
+            this.form = {
+                name: '',
+                code: '',
+                latitude: '',
+                longitude: '',
+                maps_link: '',
+                description: '',
+                is_active: true,
+            };
+        },
+
+        updateMapsLink() {
+            const lat = parseFloat(this.form.latitude);
+            const lng = parseFloat(this.form.longitude);
+            if (!isNaN(lat) && !isNaN(lng)) {
+                this.form.maps_link = `https://www.google.com/maps?q=${lat},${lng}`;
+            } else {
+                this.form.maps_link = '';
+            }
+        },
+
+        async bulkAction(action) {
+            if (this.selected.length === 0) return;
+            if (!confirm(`Yakin ingin ${action === 'activate' ? 'mengaktifkan' : action === 'deactivate' ? 'menonaktifkan' : 'menghapus'} ${this.selected.length} lokasi?`)) return;
+
+            try {
+                if (action === 'delete') {
+                    await Promise.all(this.selected.map(id => api.delete(`/api/v1/admin/locations/${id}`)));
+                } else {
+                    const status = action === 'activate' ? 'active' : 'inactive';
+                    await Promise.all(this.selected.map(id => api.patch(`/api/v1/admin/locations/${id}`, { status })));
+                }
+                this.toast('success', 'Berhasil', `Berhasil ${action === 'activate' ? 'mengaktifkan' : action === 'deactivate' ? 'menonaktifkan' : 'menghapus'} lokasi`);
+                this.selected = [];
+                await this.loadData();
+            } catch (error) {
+                this.toast('error', 'Gagal', error.message);
+            }
+        },
+
+        toggleSelectAll(event) {
+            if (event.target.checked) {
+                this.selected = this.items.map(item => item.id);
+            } else {
+                this.selected = [];
+            }
+        },
+
+        get isAllSelected() {
+            return this.items.length > 0 && this.selected.length === this.items.length;
+        },
+
+        get visiblePages() {
+            const current = this.pagination.current_page ?? 1;
+            const last = this.pagination.last_page ?? 1;
+            const delta = 2;
+            const range = [];
+            for (let i = Math.max(1, current - delta); i <= Math.min(last, current + delta); i++) {
+                range.push(i);
+            }
+            return range;
+        },
+
+        prevPage() {
+            if (this.pagination.current_page > 1) {
+                this.filters.page = this.pagination.current_page - 1;
+                this.loadData();
+            }
+        },
+
+        nextPage() {
+            if (this.pagination.current_page < this.pagination.last_page) {
+                this.filters.page = this.pagination.current_page + 1;
+                this.loadData();
+            }
+        },
+
+        goToPage(page) {
+            this.filters.page = page;
+            this.loadData();
+        },
+
+        changePerPage() {
+            this.filters.page = 1;
+            this.loadData();
+        },
+
+        debounceSearch: (function() {
+            let timeout;
+            return function() {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => {
+                    this.filters.page = 1;
+                    this.loadData();
+                }, 300);
+            };
+        })(),
+
+        resetFilters() {
+            this.filters = { search: '', page: 1, per_page: this.filters.per_page ?? 15 };
+            this.selected = [];
+            this.loadData();
+        },
+
+        toast(type, title, message) {
+            const id = Date.now();
+            this.toasts.push({ id, type, title, message });
+            setTimeout(() => {
+                this.toasts = this.toasts.filter(t => t.id !== id);
+            }, 3000);
+        },
+    };
+}
+
+// ==================== MASTER OLT PAGE ====================
+function masterOlt() {
+    return {
+        items: [],
+        loading: false,
+        saving: false,
+        editId: null,
+        selected: [],
+        pagination: {},
+        filters: {
+            search: '',
+            page: 1,
+            per_page: 15,
+        },
+        form: {
+            name: '',
+            code: '',
+            location_id: '',
+            host: '',
+            pon_ports: 4,
+            max_per_pon: 100,
+            latitude: '',
+            longitude: '',
+            maps_link: '',
+            description: '',
+            is_active: true,
+        },
+        references: {
+            locations: [],
+        },
+        toasts: [],
+
+        // PON Port Modal
+        ponModal: {
+            show: false,
+            showAddForm: false,
+            saving: false,
+            olt: null,
+            ponPorts: [],
+            loading: false,
+            editingPonId: null,
+        },
+        ponForm: {
+            port_number: '',
+            name: '',
+            max_capacity: 100,
+            is_active: true,
+        },
+
+        init() {
+            this.loadData();
+            this.loadReferences();
+        },
+
+        async loadReferences() {
+            try {
+                const res = await api.get('/api/v1/admin/customers/references');
+                this.references.locations = res.data?.locations ?? [];
+            } catch (e) {
+                console.error('Failed to load references', e);
+            }
+        },
+
+        async loadData() {
+            this.loading = true;
+            try {
+                const params = {
+                    search: this.filters.search || undefined,
+                    page: this.filters.page,
+                    per_page: this.filters.per_page,
+                };
+                const res = await api.get('/api/v1/admin/olts', { params });
+                this.items = res.data ?? [];
+                this.pagination = res.meta ?? {};
+            } catch (error) {
+                this.toast('error', 'Gagal', 'Tidak dapat memuat data');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async submitForm() {
+            this.saving = true;
+            try {
+                const payload = {
+                    name: this.form.name,
+                    code: this.form.code.toUpperCase(),
+                    host: this.form.host || null,
+                    location_id: this.form.location_id || null,
+                    pon_ports: parseInt(this.form.pon_ports) || 4,
+                    max_per_pon: parseInt(this.form.max_per_pon) || 100,
+                    description: this.form.description || null,
+                    status: this.form.is_active ? 'active' : 'inactive',
+                };
+
+                if (this.editId) {
+                    await api.patch(`/api/v1/admin/olts/${this.editId}`, payload);
+                    this.toast('success', 'Berhasil', 'OLT berhasil diperbarui');
+                } else {
+                    await api.post('/api/v1/admin/olts', payload);
+                    this.toast('success', 'Berhasil', 'OLT berhasil ditambahkan');
+                }
+                this.cancelEdit();
+                await this.loadData();
+            } catch (error) {
+                const msg = error?.response?.data?.message ?? error.message ?? 'Terjadi kesalahan';
+                this.toast('error', 'Gagal', msg);
+            } finally {
+                this.saving = false;
+            }
+        },
+
+        editItem(item) {
+            this.editId = item.id;
+            this.form = {
+                name: item.olt_name ?? item.name ?? '',
+                code: item.olt_code ?? item.code ?? '',
+                location_id: item.network_location_id ?? item.location_id ?? '',
+                host: item.mgmt_ip ?? item.host ?? '',
+                pon_ports: item.pon_ports ?? 4,
+                max_per_pon: 100,
+                latitude: item.latitude ?? '',
+                longitude: item.longitude ?? '',
+                maps_link: item.maps_link ?? '',
+                description: item.description ?? '',
+                is_active: item.is_active ?? true,
+            };
+            this.updateMapsLink();
+        },
+
+        async deleteItem(item) {
+            if (!confirm(`Hapus OLT "${item.olt_name ?? item.name}"?`)) return;
+            try {
+                await api.delete(`/api/v1/admin/olts/${item.id}`);
+                this.toast('success', 'Berhasil', 'OLT berhasil dihapus');
+                await this.loadData();
+            } catch (error) {
+                this.toast('error', 'Gagal', error.message);
+            }
+        },
+
+        cancelEdit() {
+            this.editId = null;
+            this.form = {
+                name: '',
+                code: '',
+                location_id: '',
+                host: '',
+                pon_ports: 4,
+                max_per_pon: 100,
+                latitude: '',
+                longitude: '',
+                maps_link: '',
+                description: '',
+                is_active: true,
+            };
+        },
+
+        updateMapsLink() {
+            const lat = parseFloat(this.form.latitude);
+            const lng = parseFloat(this.form.longitude);
+            if (!isNaN(lat) && !isNaN(lng)) {
+                this.form.maps_link = `https://www.google.com/maps?q=${lat},${lng}`;
+            } else {
+                this.form.maps_link = '';
+            }
+        },
+
+        // PON Port Modal Functions
+        async openPonModal(olt) {
+            this.ponModal.show = true;
+            this.ponModal.olt = olt;
+            this.ponModal.showAddForm = false;
+            await this.loadPonPorts(olt.id);
+        },
+
+        async loadPonPorts(oltId) {
+            this.ponModal.loading = true;
+            try {
+                const res = await api.get(`/api/v1/admin/olts/${oltId}/pon-ports`);
+                this.ponModal.ponPorts = res.data ?? [];
+            } catch (error) {
+                this.toast('error', 'Gagal', 'Tidak dapat memuat data PON Port');
+            } finally {
+                this.ponModal.loading = false;
+            }
+        },
+
+        openAddPonForm() {
+            this.ponModal.showAddForm = true;
+            this.ponModal.editingPonId = null;
+            this.ponForm = {
+                port_number: '',
+                name: '',
+                max_capacity: 100,
+                is_active: true,
+            };
+        },
+
+        editPonPort(pon) {
+            this.ponModal.showAddForm = true;
+            this.ponModal.editingPonId = pon.id;
+            this.ponForm = {
+                port_number: pon.port_number,
+                name: pon.name ?? '',
+                max_capacity: pon.max_capacity,
+                is_active: pon.is_active,
+            };
+        },
+
+        async submitPonPort() {
+            if (!this.ponModal.olt) return;
+            this.ponModal.saving = true;
+            try {
+                const payload = {
+                    name: this.ponForm.name || `PON-${this.ponForm.port_number}`,
+                    max_capacity: parseInt(this.ponForm.max_capacity) || 100,
+                    is_active: this.ponForm.is_active,
+                };
+
+                if (this.ponModal.editingPonId) {
+                    await api.patch(`/api/v1/admin/pon-ports/${this.ponModal.editingPonId}`, payload);
+                    this.toast('success', 'Berhasil', 'PON Port berhasil diperbarui');
+                } else {
+                    await api.post(`/api/v1/admin/olts/${this.ponModal.olt.id}/pon-ports`, {
+                        port_number: parseInt(this.ponForm.port_number),
+                        ...payload,
+                    });
+                    this.toast('success', 'Berhasil', 'PON Port berhasil ditambahkan');
+                }
+                this.ponModal.showAddForm = false;
+                await this.loadPonPorts(this.ponModal.olt.id);
+            } catch (error) {
+                const msg = error?.response?.data?.message ?? error.message ?? 'Terjadi kesalahan';
+                this.toast('error', 'Gagal', msg);
+            } finally {
+                this.ponModal.saving = false;
+            }
+        },
+
+        async activatePonPort(pon) {
+            try {
+                await api.patch(`/api/v1/admin/pon-ports/${pon.id}`, { is_active: true });
+                this.toast('success', 'Berhasil', 'PON Port berhasil diaktifkan');
+                await this.loadPonPorts(this.ponModal.olt.id);
+            } catch (error) {
+                this.toast('error', 'Gagal', error.message);
+            }
+        },
+
+        async bulkAction(action) {
+            if (this.selected.length === 0) return;
+            if (!confirm(`Yakin ingin ${action === 'activate' ? 'mengaktifkan' : action === 'deactivate' ? 'menonaktifkan' : 'menghapus'} ${this.selected.length} OLT?`)) return;
+
+            try {
+                if (action === 'delete') {
+                    await Promise.all(this.selected.map(id => api.delete(`/api/v1/admin/olts/${id}`)));
+                } else {
+                    const status = action === 'activate' ? 'active' : 'inactive';
+                    await Promise.all(this.selected.map(id => api.patch(`/api/v1/admin/olts/${id}`, { status })));
+                }
+                this.toast('success', 'Berhasil', `Berhasil ${action === 'activate' ? 'mengaktifkan' : action === 'deactivate' ? 'menonaktifkan' : 'menghapus'} OLT`);
+                this.selected = [];
+                await this.loadData();
+            } catch (error) {
+                this.toast('error', 'Gagal', error.message);
+            }
+        },
+
+        toggleSelectAll(event) {
+            if (event.target.checked) {
+                this.selected = this.items.map(item => item.id);
+            } else {
+                this.selected = [];
+            }
+        },
+
+        get isAllSelected() {
+            return this.items.length > 0 && this.selected.length === this.items.length;
+        },
+
+        get visiblePages() {
+            const current = this.pagination.current_page ?? 1;
+            const last = this.pagination.last_page ?? 1;
+            const delta = 2;
+            const range = [];
+            for (let i = Math.max(1, current - delta); i <= Math.min(last, current + delta); i++) {
+                range.push(i);
+            }
+            return range;
+        },
+
+        prevPage() {
+            if (this.pagination.current_page > 1) {
+                this.filters.page = this.pagination.current_page - 1;
+                this.loadData();
+            }
+        },
+
+        nextPage() {
+            if (this.pagination.current_page < this.pagination.last_page) {
+                this.filters.page = this.pagination.current_page + 1;
+                this.loadData();
+            }
+        },
+
+        goToPage(page) {
+            this.filters.page = page;
+            this.loadData();
+        },
+
+        changePerPage() {
+            this.filters.page = 1;
+            this.loadData();
+        },
+
+        debounceSearch: (function() {
+            let timeout;
+            return function() {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => {
+                    this.filters.page = 1;
+                    this.loadData();
+                }, 300);
+            };
+        })(),
+
+        resetFilters() {
+            this.filters = { search: '', page: 1, per_page: this.filters.per_page ?? 15 };
+            this.selected = [];
+            this.loadData();
+        },
+
+        toast(type, title, message) {
+            const id = Date.now();
+            this.toasts.push({ id, type, title, message });
+            setTimeout(() => {
+                this.toasts = this.toasts.filter(t => t.id !== id);
+            }, 3000);
         },
     };
 }

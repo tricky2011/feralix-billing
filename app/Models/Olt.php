@@ -73,6 +73,11 @@ class Olt extends Model
         return $this->hasMany(Odp::class);
     }
 
+    public function ponPorts(): HasMany
+    {
+        return $this->hasMany(PonPort::class)->orderBy('port_number');
+    }
+
     public function scopeSearch(Builder $query, ?string $search): Builder
     {
         if ($search === null || $search === '') {

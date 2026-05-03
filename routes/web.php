@@ -14,6 +14,14 @@ Route::get('/admin/customers/create', function () {
     return view('admin.index', ['page' => 'customers-create']);
 })->name('admin.customers.create');
 
+Route::get('/admin/master-lokasi', function () {
+    return view('admin.master-lokasi');
+})->name('admin.master-lokasi');
+
+Route::get('/admin/master-olt', function () {
+    return view('admin.master-olt');
+})->name('admin.master-olt');
+
 Route::get('/admin/{page}', function (string $page) {
     abort_unless(in_array($page, [
         'dashboard',

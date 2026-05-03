@@ -2029,7 +2029,6 @@ export function adminPanel({ page }) {
                 api.get('/api/v1/admin/tickets', { per_page: 10 }),
                 api.get('/api/v1/admin/work-orders', { per_page: 10 }),
                 api.get('/api/v1/admin/telegram-bots', { per_page: 100 }),
-                api.get('/api/v1/admin/olts', { per_page: 200 }),
                 api.get('/api/v1/admin/network-locations', { per_page: 200 }),
                 api.get('/api/v1/admin/odcs', { per_page: 200 }),
             ]);
@@ -2047,7 +2046,6 @@ export function adminPanel({ page }) {
                 'tickets',
                 'work_orders',
                 'telegram_bots',
-                'olts',
                 'network_locations',
                 'network_odcs',
             ];
@@ -3975,7 +3973,7 @@ export function adminPanel({ page }) {
 
         provisioningFilteredOlts() {
             if (!this.provisioning.form.location_id) return [];
-            return (this.references.olts ?? []).filter(olt => String(olt.location_id) === String(this.provisioning.form.location_id));
+            return (this.references.olts ?? []).filter(olt => String(olt.network_location_id ?? olt.location_id) === String(this.provisioning.form.location_id));
         },
 
         provisioningSelectedRouter() {
@@ -3987,6 +3985,13 @@ export function adminPanel({ page }) {
                 return router?.router_name ?? olt.router_name ?? olt.host ?? olt.mgmt_ip ?? '-';
             }
             return olt.router_name ?? olt.router?.router_name ?? olt.host ?? olt.mgmt_ip ?? '-';
+        },
+
+        onProvisioningRouterChange() {
+            this.provisioningResetFields();
+            if (this.provisioning.form.router_id) {
+                this.loadProvisioningPppoeServers();
+            }
         },
 
         onProvisioningLocationChange() {

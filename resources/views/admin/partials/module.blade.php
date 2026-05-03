@@ -320,13 +320,16 @@
 
                         <label class="block">
                             <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Router</span>
-                            <input
-                                type="text"
-                                :value="provisioningSelectedRouter()"
-                                readonly
-                                class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm outline-none dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300"
-                                placeholder="AUTO"
+                            <select
+                                x-model="provisioning.form.router_id"
+                                @change="onProvisioningRouterChange()"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
                             >
+                                <option value="">Pilih Router...</option>
+                                <template x-for="router in references.routers" :key="router.id">
+                                    <option :value="router.id" x-text="(router.router_code ?? '') + ' - ' + (router.router_name ?? '')"></option>
+                                </template>
+                            </select>
                         </label>
 
                         <label class="block">

@@ -46,7 +46,7 @@ class CustomerReferenceService
                         'id' => $olt->id,
                         'olt_code' => $olt->olt_code,
                         'olt_name' => $olt->olt_name,
-                        'location_id' => $olt->location_id,
+                        'location_id' => $olt->network_location_id ?? $olt->location_id,
                         'network_location_id' => $olt->network_location_id,
                         'location_name' => $olt->location_name,
                         'router_id' => $olt->router_id,

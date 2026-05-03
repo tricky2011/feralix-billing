@@ -4036,7 +4036,7 @@ export function adminPanel({ page }) {
             this.provisioning.loadingPppoeServers = true;
             try {
                 const res = await api.get(`/api/v1/admin/mikrotik/pppoe-servers?router_id=${this.provisioning.form.router_id}`);
-                this.provisioning.pppoeServers = res.data?.data ?? [];
+                this.provisioning.pppoeServers = res.data ?? [];
             } catch (e) {
                 console.error('Failed to load PPPoE servers', e);
                 this.provisioning.pppoeServers = [];

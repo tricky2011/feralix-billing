@@ -45,6 +45,6 @@ class MikrotikInfoController extends Controller
             ];
         }, array_values($active));
 
-        return response()->json(['data' => $result]);
+        return $this->successResponse('PPPoE servers retrieved successfully.', $result);
     }
 }

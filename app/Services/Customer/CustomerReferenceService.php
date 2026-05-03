@@ -40,14 +40,16 @@ class CustomerReferenceService
                 ->when($onlyActive, fn ($query) => $query->where('is_active', true))
                 ->when($filters['location_id'] ?? null, fn ($query, $locationId) => $query->where('location_id', $locationId))
                 ->orderBy('olt_name')
-                ->get(['id', 'olt_code', 'olt_name', 'location_id', 'location_name', 'is_active'])
+                ->get(['id', 'olt_code', 'olt_name', 'location_id', 'location_name', 'is_active', 'router_id', 'network_location_id'])
                 ->map(static function (Olt $olt): array {
                     return [
                         'id' => $olt->id,
                         'olt_code' => $olt->olt_code,
                         'olt_name' => $olt->olt_name,
                         'location_id' => $olt->location_id,
+                        'network_location_id' => $olt->network_location_id,
                         'location_name' => $olt->location_name,
+                        'router_id' => $olt->router_id,
                         'is_active' => (bool) $olt->is_active,
                         'location' => $olt->location === null ? null : [
                             'id' => $olt->location->id,

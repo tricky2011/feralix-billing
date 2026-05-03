@@ -1132,7 +1132,7 @@ function createMasterLokasiState() {
 function createMasterOltState() {
     return {
         items: [], loading: false, saving: false, editId: null, pagination: {}, filters: { search: '', page: 1, per_page: 15 },
-        form: { name: '', code: '', host: '', pon_ports: 4, max_per_pon: 100, description: '', is_active: true, network_location_id: '' },
+        form: { name: '', code: '', host: '', pon_ports: 4, max_per_pon: 100, description: '', is_active: true, network_location_id: '', router_id: '' },
 
         async loadData() {
             this.loading = true;
@@ -1146,7 +1146,7 @@ function createMasterOltState() {
         async submitForm() {
             this.saving = true;
             try {
-                const payload = { name: this.form.name, code: this.form.code.toUpperCase(), host: this.form.host, pon_ports: parseInt(this.form.pon_ports) || 4, max_per_pon: parseInt(this.form.max_per_pon) || 100, description: this.form.description, status: this.form.is_active ? 'active' : 'inactive', location_id: this.form.network_location_id || null };
+                const payload = { name: this.form.name, code: this.form.code.toUpperCase(), host: this.form.host, pon_ports: parseInt(this.form.pon_ports) || 4, max_per_pon: parseInt(this.form.max_per_pon) || 100, description: this.form.description, status: this.form.is_active ? 'active' : 'inactive', location_id: this.form.network_location_id || null, router_id: this.form.router_id || null };
                 if (this.editId) { await api.patch(`/api/v1/admin/olts/${this.editId}`, payload); toast('success', 'Berhasil', 'OLT diperbarui'); }
                 else { await api.post('/api/v1/admin/olts', payload); toast('success', 'Berhasil', 'OLT ditambahkan'); }
                 this.cancelEdit();
@@ -1154,11 +1154,11 @@ function createMasterOltState() {
             } catch (e) { toast('error', 'Gagal', e?.response?.data?.message ?? e.message); } finally { this.saving = false; }
         },
 
-        editItem(item) { this.editId = item.id; this.form = { name: item.olt_name ?? item.name ?? '', code: item.olt_code ?? item.code ?? '', host: item.mgmt_ip ?? item.host ?? '', pon_ports: item.pon_ports ?? 4, max_per_pon: 100, description: item.description ?? '', is_active: item.status === 'active', network_location_id: item.location_id ?? item.network_location_id ?? '' }; },
+        editItem(item) { this.editId = item.id; this.form = { name: item.olt_name ?? item.name ?? '', code: item.olt_code ?? item.code ?? '', host: item.mgmt_ip ?? item.host ?? '', pon_ports: item.pon_ports ?? 4, max_per_pon: 100, description: item.description ?? '', is_active: item.status === 'active', network_location_id: item.location_id ?? item.network_location_id ?? '', router_id: item.router_id ?? '' }; },
 
         async deleteItem(item) { if (!confirm(`Hapus "${item.olt_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/olts/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(); },
 
-        cancelEdit() { this.editId = null; this.form = { name: '', code: '', host: '', pon_ports: 4, max_per_pon: 100, description: '', is_active: true, network_location_id: '' }; },
+        cancelEdit() { this.editId = null; this.form = { name: '', code: '', host: '', pon_ports: 4, max_per_pon: 100, description: '', is_active: true, network_location_id: '', router_id: '' }; },
 
         prevPage() { if (this.pagination.current_page > 1) { this.filters.page = this.pagination.current_page - 1; this.loadData(); } },
         nextPage() { if (this.pagination.current_page < this.pagination.last_page) { this.filters.page = this.pagination.current_page + 1; this.loadData(); } },
@@ -3982,6 +3982,10 @@ export function adminPanel({ page }) {
             if (!this.provisioning.form.olt_id) return '-';
             const olt = this.references.olts.find(o => String(o.id) === String(this.provisioning.form.olt_id));
             if (!olt) return '-';
+            if (olt.router_id) {
+                const router = (this.references.routers ?? []).find(r => String(r.id) === String(olt.router_id));
+                return router?.router_name ?? olt.router_name ?? olt.host ?? olt.mgmt_ip ?? '-';
+            }
             return olt.router_name ?? olt.router?.router_name ?? olt.host ?? olt.mgmt_ip ?? '-';
         },
 

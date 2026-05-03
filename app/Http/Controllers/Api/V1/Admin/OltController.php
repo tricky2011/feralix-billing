@@ -213,6 +213,7 @@ class OltController extends Controller
             'vendor_name' => $brand,
             'location_name' => $networkLocationName,
             'is_active' => $status === 'active',
+            'router_id' => $validated['router_id'] ?? $existing?->router_id,
         ];
     }
 

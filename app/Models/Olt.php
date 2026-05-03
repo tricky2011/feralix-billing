@@ -31,6 +31,7 @@ class Olt extends Model
         'vendor_name',
         'location_name',
         'is_active',
+        'router_id',
     ];
 
     protected function casts(): array
@@ -40,6 +41,7 @@ class Olt extends Model
             'location_id' => 'integer',
             'pon_ports' => 'integer',
             'is_active' => 'boolean',
+            'router_id' => 'integer',
         ];
     }
 
@@ -51,6 +53,11 @@ class Olt extends Model
     public function networkLocation(): BelongsTo
     {
         return $this->belongsTo(NetworkLocation::class, 'network_location_id');
+    }
+
+    public function router(): BelongsTo
+    {
+        return $this->belongsTo(Router::class);
     }
 
     public function onts(): HasMany

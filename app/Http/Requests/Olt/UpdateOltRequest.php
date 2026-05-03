@@ -40,6 +40,7 @@ class UpdateOltRequest extends FormRequest
             'description' => $this->filled('description') ? trim((string) $this->input('description')) : null,
             'status' => $status !== null ? strtolower(trim((string) $status)) : null,
             'location_id' => $this->filled('location_id') ? (int) $this->input('location_id') : null,
+            'router_id' => $this->filled('router_id') ? (int) $this->input('router_id') : null,
         ]);
     }
 
@@ -56,6 +57,7 @@ class UpdateOltRequest extends FormRequest
             'model' => ['nullable', 'string', 'max:255'],
             'pon_ports' => ['nullable', 'integer', 'min:0'],
             'location_id' => ['nullable', 'integer', 'exists:network_locations,id'],
+            'router_id' => ['nullable', 'integer', 'exists:routers,id'],
             'status' => ['required', 'in:active,inactive'],
             'description' => ['nullable', 'string'],
         ];

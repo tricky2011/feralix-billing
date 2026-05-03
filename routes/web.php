@@ -11,13 +11,14 @@ Route::view('/login', 'auth.login')->name('admin.login');
 Route::redirect('/admin', '/admin/dashboard')->name('admin.home');
 
 Route::get('/admin/customers/create', function () {
-    return view('admin.customers.create');
+    return view('admin.index', ['page' => 'customers-create']);
 })->name('admin.customers.create');
 
 Route::get('/admin/{page}', function (string $page) {
     abort_unless(in_array($page, [
         'dashboard',
         'customers',
+        'services',
         'services',
         'services',
         'billing',

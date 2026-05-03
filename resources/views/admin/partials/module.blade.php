@@ -1,4 +1,230 @@
 <div class="space-y-5">
+    {{-- Master Lokasi Page (Split Layout: Form Kiri | Daftar Kanan) --}}
+    <section x-show="page === 'master-lokasi'" x-cloak class="grid gap-6 lg:grid-cols-[2fr_3fr]">
+        {{-- Form Kiri --}}
+        <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+            <h2 class="mb-5 text-lg font-black tracking-tight text-slate-950 dark:text-white">
+                <span x-text="editId ? 'Edit Lokasi' : 'Tambah Lokasi Baru'"></span>
+            </h2>
+            <form @submit.prevent="submitMasterLokasiForm">
+                <div class="space-y-4">
+                    <label class="block">
+                        <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Nama Lokasi *</span>
+                        <input type="text" x-model="masterLokasi.form.name" @input="masterLokasi.form.name = $event.target.value.toUpperCase()" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" placeholder="KALISARI" required>
+                    </label>
+                    <label class="block">
+                        <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Kode Lokasi *</span>
+                        <input type="text" x-model="masterLokasi.form.code" @input="masterLokasi.form.code = $event.target.value.toUpperCase().replace(/\s/g, '')" maxlength="10" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm uppercase outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" placeholder="KLS01" required>
+                        <p class="mt-1 text-xs text-slate-400">Dipakai sebagai komponen PPPoE username. Maks 10 karakter, tanpa spasi.</p>
+                    </label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Latitude</span>
+                            <input type="text" x-model="masterLokasi.form.latitude" @input="masterLokasi.updateMapsLink()" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" placeholder="-6.9123">
+                        </label>
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Longitude</span>
+                            <input type="text" x-model="masterLokasi.form.longitude" @input="masterLokasi.updateMapsLink()" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" placeholder="107.6098">
+                        </label>
+                    </div>
+                    <label class="block">
+                        <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Deskripsi</span>
+                        <textarea x-model="masterLokasi.form.description" rows="2" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" placeholder="Deskripsi opsional..."></textarea>
+                    </label>
+                    <label class="flex items-center gap-3">
+                        <input type="checkbox" x-model="masterLokasi.form.is_active" class="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                        <span class="text-sm font-bold text-slate-700 dark:text-slate-300">Aktif</span>
+                    </label>
+                </div>
+                <div class="mt-6 flex items-center gap-3">
+                    <button type="submit" :disabled="masterLokasi.saving" class="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 disabled:cursor-not-allowed disabled:opacity-50">
+                        <span x-show="!masterLokasi.saving">Simpan Lokasi</span>
+                        <span x-show="masterLokasi.saving">Menyimpan...</span>
+                    </button>
+                    <button type="button" x-show="masterLokasi.editId" @click="masterLokasi.cancelEdit()" class="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Batal</button>
+                </div>
+            </form>
+        </div>
+        {{-- Daftar Kanan --}}
+        <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+            <div class="mb-5 flex items-center justify-between">
+                <h2 class="text-lg font-black tracking-tight text-slate-950 dark:text-white">Daftar Lokasi <span class="ml-2 text-sm font-normal text-slate-400">| Total: <span x-text="masterLokasi.pagination.total ?? 0"></span> data</span></h2>
+            </div>
+            <div class="mb-4 flex items-center gap-3">
+                <div class="relative flex-1">
+                    <input type="text" x-model="masterLokasi.filters.search" @input="masterLokasi.debounceSearch()" placeholder="Cari lokasi..." class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 pl-10 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10">
+                    <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                </div>
+                <button @click="masterLokasi.resetFilters()" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Reset</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-100 dark:border-white/10">
+                            <th class="pb-3 text-left font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Nama</th>
+                            <th class="pb-3 text-left font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Kode</th>
+                            <th class="pb-3 text-left font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Deskripsi</th>
+                            <th class="pb-3 text-left font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Status</th>
+                            <th class="pb-3 text-right font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="item in masterLokasi.items" :key="item.id">
+                            <tr class="border-b border-slate-50 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/[0.02]">
+                                <td class="py-3 font-bold text-slate-900 dark:text-white" x-text="item.location_name ?? item.name ?? '-'"></td>
+                                <td class="py-3 font-mono text-slate-600 dark:text-slate-400" x-text="item.location_code ?? item.code ?? '-'"></td>
+                                <td class="py-3 text-slate-500" x-text="item.description ?? item.notes ?? '-'"></td>
+                                <td class="py-3">
+                                    <span class="rounded-full px-2.5 py-1 text-xs font-black uppercase" :class="item.is_active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400'" x-text="item.is_active ? 'Aktif' : 'Nonaktif'"></span>
+                                </td>
+                                <td class="py-3 text-right">
+                                    <button @click="masterLokasi.editItem(item)" class="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 transition hover:border-blue-200 hover:text-blue-600 dark:border-white/10 dark:text-slate-400" title="Edit">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                    </button>
+                                    <button @click="masterLokasi.deleteItem(item)" class="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 transition hover:border-red-200 hover:text-red-600 dark:border-white/10 dark:text-slate-400" title="Hapus">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="masterLokasi.loading">
+                            <td colspan="5" class="py-8 text-center text-slate-400">Memuat...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-4 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-500">Tampilkan</span>
+                    <select x-model="masterLokasi.filters.per_page" @change="masterLokasi.changePerPage()" class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-white/[0.04]">
+                        <option value="20">20</option><option value="50">50</option><option value="100">100</option><option value="500">500</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button @click="masterLokasi.prevPage()" :disabled="masterLokasi.pagination.current_page <= 1" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Prev</button>
+                    <button @click="masterLokasi.nextPage()" :disabled="masterLokasi.pagination.current_page >= masterLokasi.pagination.last_page" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Next</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{-- Master OLT Page (Split Layout: Form Kiri | Daftar Kanan) --}}
+    <section x-show="page === 'master-olt'" x-cloak class="grid gap-6 lg:grid-cols-[2fr_3fr]">
+        {{-- Form Kiri --}}
+        <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+            <h2 class="mb-5 text-lg font-black tracking-tight text-slate-950 dark:text-white">
+                <span x-text="masterOlt.editId ? 'Edit OLT' : 'Tambah OLT Baru'"></span>
+            </h2>
+            <form @submit.prevent="masterOlt.submitForm()">
+                <div class="space-y-4">
+                    <label class="block">
+                        <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Nama OLT *</span>
+                        <input type="text" x-model="masterOlt.form.name" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" placeholder="OLT1" required>
+                    </label>
+                    <label class="block">
+                        <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Kode OLT *</span>
+                        <input type="text" x-model="masterOlt.form.code" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm uppercase outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" placeholder="OLT01" required>
+                        <p class="mt-1 text-xs text-slate-400">Dipakai di PPPoE username.</p>
+                    </label>
+                    <label class="block">
+                        <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">IP Address</span>
+                        <input type="text" x-model="masterOlt.form.host" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" placeholder="192.168.1.1">
+                    </label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Total PON Port</span>
+                            <input type="number" x-model="masterOlt.form.pon_ports" min="1" max="32" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" placeholder="4">
+                        </label>
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Max Client/PON</span>
+                            <input type="number" x-model="masterOlt.form.max_per_pon" min="1" max="1000" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" placeholder="100">
+                        </label>
+                    </div>
+                    <label class="block">
+                        <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Deskripsi</span>
+                        <textarea x-model="masterOlt.form.description" rows="2" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" placeholder="Deskripsi opsional..."></textarea>
+                    </label>
+                    <label class="flex items-center gap-3">
+                        <input type="checkbox" x-model="masterOlt.form.is_active" class="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                        <span class="text-sm font-bold text-slate-700 dark:text-slate-300">Aktif</span>
+                    </label>
+                </div>
+                <div class="mt-6 flex items-center gap-3">
+                    <button type="submit" :disabled="masterOlt.saving" class="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 disabled:cursor-not-allowed disabled:opacity-50">
+                        <span x-show="!masterOlt.saving">Simpan OLT</span>
+                        <span x-show="masterOlt.saving">Menyimpan...</span>
+                    </button>
+                    <button type="button" x-show="masterOlt.editId" @click="masterOlt.cancelEdit()" class="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Batal</button>
+                </div>
+            </form>
+        </div>
+        {{-- Daftar Kanan --}}
+        <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+            <div class="mb-5 flex items-center justify-between">
+                <h2 class="text-lg font-black tracking-tight text-slate-950 dark:text-white">Daftar OLT <span class="ml-2 text-sm font-normal text-slate-400">| Total: <span x-text="masterOlt.pagination.total ?? 0"></span> data</span></h2>
+            </div>
+            <div class="mb-4 flex items-center gap-3">
+                <div class="relative flex-1">
+                    <input type="text" x-model="masterOlt.filters.search" @input="masterOlt.debounceSearch()" placeholder="Cari OLT..." class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 pl-10 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10">
+                    <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                </div>
+                <button @click="masterOlt.resetFilters()" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Reset</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-100 dark:border-white/10">
+                            <th class="pb-3 text-left font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Nama</th>
+                            <th class="pb-3 text-left font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">IP</th>
+                            <th class="pb-3 text-left font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Status</th>
+                            <th class="pb-3 text-right font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="item in masterOlt.items" :key="item.id">
+                            <tr class="border-b border-slate-50 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/[0.02]">
+                                <td class="py-3">
+                                    <div class="font-bold text-slate-900 dark:text-white" x-text="item.olt_name ?? item.name ?? '-'"></div>
+                                    <div class="font-mono text-xs text-slate-400" x-text="item.olt_code ?? item.code ?? '-'"></div>
+                                </td>
+                                <td class="py-3 font-mono text-xs text-slate-500" x-text="item.mgmt_ip ?? item.host ?? '-'"></td>
+                                <td class="py-3">
+                                    <span class="rounded-full px-2.5 py-1 text-xs font-black uppercase" :class="item.is_active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400'" x-text="item.is_active ? 'Aktif' : 'Nonaktif'"></span>
+                                </td>
+                                <td class="py-3 text-right">
+                                    <button @click="masterOlt.openPonModal(item)" class="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 transition hover:border-indigo-200 hover:text-indigo-600 dark:border-white/10 dark:text-slate-400" title="Detail PON">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                                    </button>
+                                    <button @click="masterOlt.editItem(item)" class="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 transition hover:border-blue-200 hover:text-blue-600 dark:border-white/10 dark:text-slate-400" title="Edit">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                    </button>
+                                    <button @click="masterOlt.deleteItem(item)" class="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 transition hover:border-red-200 hover:text-red-600 dark:border-white/10 dark:text-slate-400" title="Hapus">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="masterOlt.loading">
+                            <td colspan="4" class="py-8 text-center text-slate-400">Memuat...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-4 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-500">Tampilkan</span>
+                    <select x-model="masterOlt.filters.per_page" @change="masterOlt.changePerPage()" class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-white/[0.04]">
+                        <option value="20">20</option><option value="50">50</option><option value="100">100</option><option value="500">500</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button @click="masterOlt.prevPage()" :disabled="masterOlt.pagination.current_page <= 1" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Prev</button>
+                    <button @click="masterOlt.nextPage()" :disabled="masterOlt.pagination.current_page >= masterOlt.pagination.last_page" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Next</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
     {{-- Customer Create Form --}}
     <section x-show="page === 'customers-create'" x-cloak class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
         <div class="mb-5 flex items-center justify-between">

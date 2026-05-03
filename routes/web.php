@@ -11,15 +11,15 @@ Route::view('/login', 'auth.login')->name('admin.login');
 Route::redirect('/admin', '/admin/dashboard')->name('admin.home');
 
 Route::get('/admin/customers/create', function () {
-    return view('admin.customers.create');
+    return view('admin.index', ['page' => 'customers-create']);
 })->name('admin.customers.create');
 
 Route::get('/admin/master-lokasi', function () {
-    return view('admin.master-lokasi');
+    return view('admin.index', ['page' => 'master-lokasi']);
 })->name('admin.master-lokasi');
 
 Route::get('/admin/master-olt', function () {
-    return view('admin.master-olt');
+    return view('admin.index', ['page' => 'master-olt']);
 })->name('admin.master-olt');
 
 Route::get('/admin/{page}', function (string $page) {

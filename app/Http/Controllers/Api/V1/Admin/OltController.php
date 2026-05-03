@@ -22,7 +22,7 @@ class OltController extends Controller
     public function index(IndexOltRequest $request): JsonResponse
     {
         $filters = $request->validated();
-        $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 100));
+        $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 500));
 
         $olts = Olt::query()
             ->with([

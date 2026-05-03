@@ -40,7 +40,7 @@ class IndexOltRequest extends FormRequest
             'location_id' => ['nullable', 'integer', 'exists:network_locations,id'],
             'status' => ['nullable', 'in:active,inactive'],
             'is_active' => ['nullable', 'boolean'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:500'],
         ];
     }
 }

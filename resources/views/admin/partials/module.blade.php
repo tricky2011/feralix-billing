@@ -4,7 +4,7 @@
         {{-- Form Kiri --}}
         <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
             <h2 class="mb-5 text-lg font-black tracking-tight text-slate-950 dark:text-white">
-                <span x-text="editId ? 'Edit Lokasi' : 'Tambah Lokasi Baru'"></span>
+                <span x-text="masterLokasi.editId ? 'Edit Lokasi' : 'Tambah Lokasi Baru'"></span>
             </h2>
             <form @submit.prevent="submitMasterLokasiForm">
                 <div class="space-y-4">

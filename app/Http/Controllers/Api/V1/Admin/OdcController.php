@@ -19,7 +19,7 @@ class OdcController extends Controller
     public function index(IndexOdcRequest $request): JsonResponse
     {
         $filters = $request->validated();
-        $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 100));
+        $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 500));
 
         $odcs = Odc::query()
             ->with('location:id,name,code,status')

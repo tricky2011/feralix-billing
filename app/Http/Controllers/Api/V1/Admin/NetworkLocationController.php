@@ -19,7 +19,7 @@ class NetworkLocationController extends Controller
     public function index(IndexNetworkLocationRequest $request): JsonResponse
     {
         $filters = $request->validated();
-        $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 100));
+        $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 500));
 
         $locations = NetworkLocation::query()
             ->withCount(['olts', 'odcs', 'odps'])

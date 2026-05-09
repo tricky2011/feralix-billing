@@ -28,6 +28,7 @@ use App\Services\Customer\CustomerBulkActionService;
 use App\Services\Customer\CustomerOnboardingService;
 use App\Services\Customer\CustomerProvisioningPreviewService;
 use App\Services\Mikrotik\IpPoolSyncService;
+use App\Services\Mikrotik\MikrotikPppoeSecretService;
 use App\Services\MasterData\CustomerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -42,6 +43,7 @@ class CustomerController extends Controller
         private readonly CustomerProvisioningPreviewService $customerProvisioningPreviewService,
         private readonly MikrotikApiClientFactory $mikrotikClientFactory,
         private readonly IpPoolSyncService $ipPoolSyncService,
+        private readonly MikrotikPppoeSecretService $pppoeSecretService,
     ) {}
 
     public function index(IndexCustomerRequest $request)
@@ -176,24 +178,24 @@ class CustomerController extends Controller
 
         // 3B: Create PPPoE secret on Mikrotik
         if (! empty($data['router_id']) && ! empty($data['pppoe_username']) && ! empty($data['pppoe_password'])) {
-            try {
-                $router = Router::find($data['router_id']);
-                if ($router) {
-                    $client = $this->mikrotikClientFactory->forRouter($router);
-                    $client->add('/ppp/secret', [
-                        'name' => $data['pppoe_username'],
-                        'password' => $data['pppoe_password'],
-                        'service' => 'pppoe',
-                        'profile' => $data['pppoe_server'] ?? 'default',
-                        'comment' => 'Feralix: ' . ($data['full_name'] ?? ''),
+            $router = Router::find($data['router_id']);
+            if ($router) {
+                $result = $this->pppoeSecretService->createSecret(
+                    router: $router,
+                    username: $data['pppoe_username'],
+                    password: $data['pppoe_password'],
+                    profile: 'default',
+                    comment: 'Feralix: ' . ($data['full_name'] ?? '') . ' | VID: ' . ($data['internet_vid'] ?? '-'),
+                    disabled: false,
+                );
+
+                if (! $result['success']) {
+                    Log::warning('Failed to create PPPoE secret on Mikrotik', [
+                        'customer' => $data['pppoe_username'] ?? null,
+                        'router_id' => $data['router_id'] ?? null,
+                        'error' => $result['message'],
                     ]);
                 }
-            } catch (\Throwable $e) {
-                Log::warning('Failed to create PPPoE secret on Mikrotik', [
-                    'customer' => $data['pppoe_username'] ?? null,
-                    'router_id' => $data['router_id'] ?? null,
-                    'error' => $e->getMessage(),
-                ]);
             }
         }
 

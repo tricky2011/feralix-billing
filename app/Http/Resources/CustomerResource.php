@@ -24,6 +24,7 @@ class CustomerResource extends JsonResource
             'status' => $this->status?->value,
             'services_count' => $this->when(isset($this->services_count), (int) $this->services_count),
             'active_services_count' => $this->when(isset($this->active_services_count), (int) $this->active_services_count),
+            'install_date' => $this->install_date?->toDateString(),
             'location' => $this->whenLoaded('location', function (): ?array {
                 if ($this->location === null) {
                     return null;
@@ -72,6 +73,8 @@ class CustomerResource extends JsonResource
                     'olt_id' => $this->latestActiveService->olt_id,
                     'vid_id' => $this->latestActiveService->vid_id,
                     'internet_vid' => $this->latestActiveService->internet_vid,
+                    'pppoe_username' => $this->latestActiveService->pppoe_username,
+                    'pppoe_server' => $this->latestActiveService->pppoe_isolation_profile,
                     'subnet_cidr' => $this->latestActiveService->subnet_cidr,
                     'gateway_ip' => $this->latestActiveService->gateway_ip,
                     'dhcp_pool_start' => $this->latestActiveService->dhcp_pool_start,

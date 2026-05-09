@@ -53,6 +53,7 @@ class MikrotikPppoeSecretService
             $attributes = [
                 'name' => $username,
                 'password' => $password,
+                'service' => 'pppoe',
                 'profile' => $profile,
                 'comment' => $comment ?? '',
                 'disabled' => $disabled ? 'yes' : 'no',

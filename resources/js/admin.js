@@ -2871,6 +2871,13 @@ export function adminPanel({ page }) {
         rowActions(row) {
             if (this.isTechnician()) return [];
 
+            if (this.page === 'customers') {
+                return [
+                    { key: 'terminate', label: 'Terminate', class: 'bg-rose-50 text-rose-700', handler: () => this.terminateCustomer(row) },
+                    { key: 'delete', label: 'Delete', class: 'bg-red-50 text-red-700', handler: () => this.confirmDelete(row) },
+                ];
+            }
+
             if (this.page === 'network' && this.activeTab === 'routers') {
                 const config = this.currentConfig();
                 return [
@@ -4303,6 +4310,19 @@ export function adminPanel({ page }) {
                 await this.loadPage();
             } catch (error) {
                 this.toast('error', 'Gagal', error.message);
+            }
+        },
+
+        async terminateCustomer(customer) {
+            const nama = customer.full_name ?? customer.customer_code;
+            if (!confirm(`Terminate pelanggan "${nama}"?\n\nIni akan:\n- Hapus PPPoE dari Mikrotik\n- Bebaskan VID\n- Lunasin semua invoice\n- Hapus data pelanggan\n\nTidak bisa dibatalkan!`)) return;
+
+            try {
+                await api.delete(`/api/v1/admin/customers/${customer.id}/terminate`);
+                toast('success', 'Berhasil', `Pelanggan ${nama} berhasil di-terminate`);
+                await this.loadPage();
+            } catch (e) {
+                toast('error', 'Gagal', e?.response?.data?.message ?? e.message);
             }
         },
 

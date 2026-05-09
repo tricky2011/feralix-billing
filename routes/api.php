@@ -93,6 +93,7 @@ Route::prefix('v1/admin')
             Route::post('customers/provisioning-preview', [CustomerController::class, 'provisioningPreview']);
             Route::apiResource('locations', LocationController::class);
             Route::apiResource('customers', CustomerController::class);
+            Route::delete('/customers/{customer}/terminate', [CustomerController::class, 'terminate']);
             Route::apiResource('packages', PackageController::class);
             Route::apiResource('hotspot-profiles', HotspotProfileController::class)
                 ->parameters(['hotspot-profiles' => 'hotspotProfile'])

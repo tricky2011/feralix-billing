@@ -27,6 +27,7 @@ use App\Models\Router;
 use App\Services\Customer\CustomerBulkActionService;
 use App\Services\Customer\CustomerOnboardingService;
 use App\Services\Customer\CustomerProvisioningPreviewService;
+use App\Services\Customer\CustomerTerminationService;
 use App\Services\Mikrotik\IpPoolSyncService;
 use App\Services\Mikrotik\MikrotikPppoeSecretService;
 use App\Services\MasterData\CustomerService;
@@ -41,6 +42,7 @@ class CustomerController extends Controller
         private readonly CustomerOnboardingService $customerOnboardingService,
         private readonly CustomerBulkActionService $customerBulkActionService,
         private readonly CustomerProvisioningPreviewService $customerProvisioningPreviewService,
+        private readonly CustomerTerminationService $terminationService,
         private readonly MikrotikApiClientFactory $mikrotikClientFactory,
         private readonly IpPoolSyncService $ipPoolSyncService,
         private readonly MikrotikPppoeSecretService $pppoeSecretService,
@@ -97,6 +99,24 @@ class CustomerController extends Controller
         $this->customerService->delete($customer);
 
         return $this->successResponse('Customer deleted successfully.');
+    }
+
+    public function terminate(Customer $customer, Request $request): JsonResponse
+    {
+        try {
+            $log = $this->terminationService->terminate($customer);
+
+            return $this->successResponse('Customer terminated successfully.', [
+                'log' => $log,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to terminate customer', [
+                'customer_id' => $customer->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->errorResponse('Failed to terminate customer: ' . $e->getMessage(), status: 500);
+        }
     }
 
     public function bulkDelete(BulkDeleteCustomerRequest $request): JsonResponse

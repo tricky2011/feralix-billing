@@ -4152,12 +4152,15 @@ export function adminPanel({ page }) {
 
         provisioningAssignedVid() {
             if (!this.provisioning.assignedVidData) return '';
-            return `${this.provisioning.assignedVidData.vid} (${this.provisioning.assignedVidData.ip_start} - ${this.provisioning.assignedVidData.ip_end})`;
+            const d = this.provisioning.assignedVidData;
+            const range = d.primary_range ?? d.pool_name ?? '-';
+            return `V-${d.vlan_id ?? d.internet_vid ?? '?'} (${range})`;
         },
 
         provisioningAssignedIpAddress() {
             if (!this.provisioning.assignedVidData) return '-';
-            return this.provisioning.assignedVidData.ip_start ?? '-';
+            const d = this.provisioning.assignedVidData;
+            return d.ip_start ?? d.primary_range?.split('-')[0]?.trim() ?? '-';
         },
 
         provisioningResetFields() {

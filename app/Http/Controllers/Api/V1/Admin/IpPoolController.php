@@ -146,14 +146,29 @@ class IpPoolController extends Controller
 
         $first = $suggestions[0];
 
+        // Parse ip_start and ip_end from primary_range (format: "x.x.x.x-x.x.x.x")
+        $primaryRange = $first['pool_name'] ?? null;
+        $ipStart = null;
+        $ipEnd   = null;
+        if (!empty($primaryRange) && str_contains($primaryRange, '-')) {
+            $parts   = explode('-', $primaryRange, 2);
+            $ipStart = trim($parts[0]);
+            $ipEnd   = trim($parts[1]);
+        }
+
         return $this->successResponse('VID suggestion retrieved successfully.', [
-            'vlan_id'      => $first['vlan_id'],
-            'internet_vid' => $first['vlan_id'],
-            'monitor_vid'  => null,
-            'pool_name'    => $first['pool_name'],
-            'free_ips'     => $first['free_ips'],
-            'total_ips'    => $first['total_ips'],
-            'used_ips'     => $first['used_ips'],
+            'vlan_id'       => $first['vlan_id'],
+            'vid'           => $first['vlan_id'],
+            'vid_number'    => $first['vlan_id'],
+            'internet_vid'  => $first['vlan_id'],
+            'monitor_vid'   => null,
+            'pool_name'     => $first['pool_name'],
+            'primary_range' => $first['primary_range'] ?? $first['pool_name'] ?? null,
+            'ip_start'      => $ipStart,
+            'ip_end'        => $ipEnd,
+            'free_ips'      => $first['free_ips'],
+            'total_ips'     => $first['total_ips'],
+            'used_ips'      => $first['used_ips'],
         ]);
     }
 

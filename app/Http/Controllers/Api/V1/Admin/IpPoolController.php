@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\Data\Mikrotik\MikrotikIpPoolRecord;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\IpPool\FetchIpPoolRequest;
 use App\Http\Requests\IpPool\IndexIpPoolRequest;
 use App\Http\Resources\IpPoolResource;
+use App\Models\IpPoolSnapshot;
 use App\Models\Router;
 use App\Models\Vid;
 use App\Services\Mikrotik\IpPoolService;
@@ -27,13 +29,88 @@ class IpPoolController extends Controller
 
         $router = Router::query()->findOrFail($routerId);
 
-        $pools = $this->ipPoolService->fetchFromRouter($router);
+        $hasTracked = IpPoolSnapshot::where('router_id', $router->id)
+            ->where('is_tracked', true)
+            ->exists();
+
+        // If no tracked pools, fetch directly from Mikrotik
+        if (!$hasTracked) {
+            $pools = $this->ipPoolService->fetchFromRouter($router);
+
+            // Apply filters
+            if (!empty($validated['vlan_id'])) {
+                $vlanId = (int) $validated['vlan_id'];
+                $pools  = array_values(array_filter($pools, static fn ($p) => $p->vlanId === $vlanId));
+            }
+
+            if (!empty($validated['available_only'])) {
+                $minFree = max(1, (int) ($validated['min_free_ips'] ?? 1));
+                $pools   = array_values(array_filter($pools, static fn ($p) => $p->freeIps() >= $minFree));
+            }
+
+            return $this->collectionResponse(
+                $pools,
+                IpPoolResource::class,
+                'IP pools retrieved from Mikrotik (no tracked pools yet).',
+                [
+                    'router_id'  => $router->id,
+                    'source'     => 'mikrotik',
+                    'synced_at'  => null,
+                    'has_tracked'=> false,
+                ],
+            );
+        }
+
+        // Read from DB cache
+        $query = IpPoolSnapshot::where('router_id', $router->id)
+            ->where('is_tracked', true);
+
+        if (!empty($validated['vlan_id'])) {
+            $query->where('vlan_id', (int) $validated['vlan_id']);
+        }
+
+        if (!empty($validated['available_only'])) {
+            $minFree = max(1, (int) ($validated['min_free_ips'] ?? 1));
+            $query->where('free_ips', '>=', $minFree)
+                  ->where('is_full', false);
+        }
+
+        $snapshots = $query->orderBy('vlan_id')->orderBy('pool_name')->get();
+        $syncedAt  = IpPoolSnapshot::where('router_id', $router->id)->min('synced_at');
+
+        // Convert snapshot to MikrotikIpPoolRecord for IpPoolResource
+        $pools = $snapshots->map(function (IpPoolSnapshot $s): MikrotikIpPoolRecord {
+            $ranges = [];
+            if (!empty($s->primary_range)) {
+                $parts = explode('-', $s->primary_range, 2);
+                $ranges[] = [
+                    'start_ip' => $parts[0] ?? '',
+                    'end_ip'   => $parts[1] ?? '',
+                ];
+            }
+            return new MikrotikIpPoolRecord([
+                'name'            => $s->pool_name,
+                'ranges'          => $ranges,
+                'total_ips'       => $s->total_ips,
+                'used_ips'        => $s->used_ips,
+                'vlan_id'         => $s->vlan_id,
+                'vlan_name'       => $s->vlan_name,
+                'interface'       => $s->interface,
+                'dhcp_server_name'=> $s->dhcp_server_name,
+            ]);
+        })->all();
 
         return $this->collectionResponse(
             $pools,
             IpPoolResource::class,
             'IP pools retrieved successfully.',
-            ['router_id' => $router->id],
+            [
+                'router_id'   => $router->id,
+                'source'      => 'cache',
+                'synced_at'   => $syncedAt,
+                'has_tracked' => true,
+                'total_pools' => count($pools),
+            ],
         );
     }
 

@@ -1927,9 +1927,15 @@ export function adminPanel({ page }) {
                     delete params.available_only;
                 }
 
-                // Load pools
-                const poolsResponse = await api.get(`/api/v1/admin/routers/${routerId}/ip-pools`, params);
+                // Load pools from cache (or mikrotik if no tracked pools)
+                const poolsResponse = await api.get('/api/v1/admin/ip-pools', {
+                    router_id: routerId,
+                    ...this.ipPools.filters,
+                });
                 this.ipPools.pools = Array.isArray(poolsResponse.data) ? poolsResponse.data : [];
+                // Store cache metadata
+                this.ipPools.source = poolsResponse.meta?.source ?? 'unknown';
+                this.ipPools.synced_at = poolsResponse.meta?.synced_at ?? null;
 
                 // Load summary
                 const summaryResponse = await api.get(`/api/v1/admin/routers/${routerId}/ip-pools/summary`);

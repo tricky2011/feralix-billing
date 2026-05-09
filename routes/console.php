@@ -51,3 +51,9 @@ Schedule::command('notifications:process-telegram --queue')
     ->timezone($scheduleTimezone)
     ->name('notifications.process-telegram')
     ->withoutOverlapping(5);
+
+Schedule::command('ip-pools:sync')
+    ->everyFiveMinutes()
+    ->timezone($scheduleTimezone)
+    ->name('ip-pools.sync')
+    ->withoutOverlapping(5);

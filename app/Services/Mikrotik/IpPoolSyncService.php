@@ -2,7 +2,7 @@
 
 namespace App\Services\Mikrotik;
 
-use App\Models\IpPool;
+use App\Models\IpPoolSnapshot;
 use App\Models\Router;
 use App\Models\RouterScope;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +24,7 @@ class IpPoolSyncService
         $pools = $this->ipPoolService->fetchFromRouter($router);
 
         // Get currently tracked pool names
-        $trackedNames = IpPool::where('router_id', $router->id)
+        $trackedNames = IpPoolSnapshot::where('router_id', $router->id)
             ->where('is_tracked', true)
             ->pluck('pool_name')
             ->flip()
@@ -92,7 +92,7 @@ class IpPoolSyncService
                     default      => 'unknown',
                 };
 
-                IpPool::updateOrCreate(
+                IpPoolSnapshot::updateOrCreate(
                     ['router_id' => $router->id, 'pool_name' => $pool->name],
                     [
                         'vlan_id'             => $pool->vlanId,
@@ -127,7 +127,7 @@ class IpPoolSyncService
      */
     public function syncFromMikrotik(Router $router): int
     {
-        $trackedNames = IpPool::where('router_id', $router->id)
+        $trackedNames = IpPoolSnapshot::where('router_id', $router->id)
             ->where('is_tracked', true)
             ->pluck('pool_name')
             ->all();
@@ -163,7 +163,7 @@ class IpPoolSyncService
                     default      => 'unknown',
                 };
 
-                IpPool::updateOrCreate(
+                IpPoolSnapshot::updateOrCreate(
                     ['router_id' => $router->id, 'pool_name' => $pool->name],
                     [
                         'vlan_id'             => $pool->vlanId,
@@ -195,7 +195,7 @@ class IpPoolSyncService
      */
     public function getFromCache(Router $router): array
     {
-        return IpPool::where('router_id', $router->id)
+        return IpPoolSnapshot::where('router_id', $router->id)
             ->where('is_tracked', true)
             ->orderBy('vlan_id')
             ->orderBy('pool_name')
@@ -274,7 +274,7 @@ class IpPoolSyncService
             return [];
         }
 
-        $query = IpPool::where('router_id', $router->id)
+        $query = IpPoolSnapshot::where('router_id', $router->id)
             ->where('is_tracked', true)
             ->where('used_ips', 0)
             ->where('free_ips', '>=', $minFreeIps);
@@ -294,7 +294,7 @@ class IpPoolSyncService
             ->orderBy('vlan_id')
             ->limit($limit)
             ->get()
-            ->map(static fn (IpPool $s): array => [
+            ->map(static fn (IpPoolSnapshot $s): array => [
                 'vlan_id'          => $s->vlan_id,
                 'free_ips'         => $s->free_ips,
                 'total_ips'        => $s->total_ips,

@@ -95,6 +95,10 @@ class UpdateRouterRequest extends AdminPanelRequest
             $payload['description'] = $this->filled('description') ? trim((string) $this->input('description')) : null;
         }
 
+        if ($this->has('ros_version')) {
+            $payload['ros_version'] = $this->filled('ros_version') ? trim((string) $this->input('ros_version')) : null;
+        }
+
         $this->merge($payload);
     }
 
@@ -117,6 +121,7 @@ class UpdateRouterRequest extends AdminPanelRequest
             'router_code' => ['sometimes', 'nullable', 'string', 'max:30'],
             'router_role' => ['sometimes', 'nullable', 'string', 'max:50'],
             'location_name' => ['sometimes', 'nullable', 'string', 'max:150'],
+            'ros_version' => ['sometimes', 'nullable', 'in:6,7'],
         ];
     }
 }

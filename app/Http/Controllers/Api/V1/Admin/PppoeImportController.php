@@ -21,7 +21,8 @@ class PppoeImportController extends Controller
 
     public function candidates(Request $request): JsonResponse
     {
-        $router = Router::where('router_code', 'RTR-CCR-WARNET')->firstOrFail();
+        $request->validate(['router_id' => 'required|exists:routers,id']);
+        $router = Router::findOrFail((int) $request->router_id);
 
         $client = $this->factory->forRouter($router);
         $secrets = $client->print('/ppp/secret', [
@@ -84,7 +85,8 @@ class PppoeImportController extends Controller
             'usernames.*' => ['required', 'string', 'max:100'],
         ]);
 
-        $router = Router::where('router_code', 'RTR-CCR-WARNET')->firstOrFail();
+        $request->validate(['router_id' => 'required|exists:routers,id']);
+        $router = Router::findOrFail((int) $request->router_id);
 
         // Re-fetch secrets from Mikrotik for validation
         $client = $this->factory->forRouter($router);

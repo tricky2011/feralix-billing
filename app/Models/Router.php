@@ -32,6 +32,7 @@ class Router extends Model
         'api_port',
         'api_username',
         'api_password',
+        'ros_version',
         'acs_inform_url',
         'acs_nbi_url',
         'acs_username',

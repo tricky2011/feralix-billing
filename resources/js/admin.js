@@ -161,7 +161,7 @@ const modules = {
     'pppoe-import': {
         title: 'Import PPPoE',
         section: 'Operations',
-        description: 'Import customer dari PPPoE secret Mikrotik CCR-Warnet.',
+        description: 'Import customer dari PPPoE secret Mikrotik router yang dipilih.',
         endpoint: '/api/v1/admin/pppoe-import',
         noCreate: true,
         noEdit: true,
@@ -2428,7 +2428,8 @@ export function adminPanel({ page }) {
             this.pppoeImport.selected = new Set();
 
             try {
-                const response = await api.get('/api/v1/admin/pppoe-import/candidates');
+                const routerId = this.routerSwitcher.active_router_id || (this.references.routers[0]?.id ?? null);
+                const response = await api.get('/api/v1/admin/pppoe-import/candidates', { router_id: routerId });
                 this.pppoeImport.candidates = Array.isArray(response.data) ? response.data : [];
                 this.pppoeImport.router = response.router ?? null;
 
@@ -2505,8 +2506,10 @@ export function adminPanel({ page }) {
             this.pppoeImport.importing = true;
 
             try {
+                const routerId = this.routerSwitcher.active_router_id || (this.references.routers[0]?.id ?? null);
                 const response = await api.post('/api/v1/admin/pppoe-import/import', {
                     usernames,
+                    router_id: routerId,
                 });
 
                 const { imported = 0, skipped = 0, errors = [] } = response;

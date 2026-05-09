@@ -221,6 +221,7 @@ class RouterController extends Controller
             'mgmt_ip' => $host,
             'location_name' => array_key_exists('location_name', $payload) ? $payload['location_name'] : $router?->location_name,
             'is_active' => $status === 'active',
+            'ros_version' => array_key_exists('ros_version', $payload) ? $payload['ros_version'] : $router?->ros_version,
         ];
 
         if (array_key_exists('api_password', $payload)) {

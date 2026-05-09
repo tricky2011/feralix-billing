@@ -77,7 +77,7 @@ class RouterOsApiMikrotikIpPoolProvider implements MikrotikIpPoolProvider
     ): array {
         $vlanIndex = $this->buildVlanIndex($vlanInterfaces);
         $dhcpServerIndex = $this->buildDhcpServerIndex($dhcpServers);
-        $usedAddresses = $this->buildUsedAddressesIndex($dhcpLeases);
+        $usedAddresses = $this->buildUsedAddressesIndex($dhcpLeases, $dhcpServerIndex);
 
         $records = [];
 
@@ -179,10 +179,21 @@ class RouterOsApiMikrotikIpPoolProvider implements MikrotikIpPoolProvider
 
     /**
      * @param  list<array<string, string>>  $dhcpLeases
-     * @return array<string, list<string>>
+     * @param  array<string, array{name:string|null, interface:string|null}>  $dhcpServerIndex  pool_name → server info
+     * @return array<string, list<string>>  pool_name → used addresses
      */
-    private function buildUsedAddressesIndex(array $dhcpLeases): array
+    private function buildUsedAddressesIndex(array $dhcpLeases, array $dhcpServerIndex = []): array
     {
+        // Build reverse index: dhcp_server_name → pool_name
+        // dhcpServerIndex key = pool_name, value = {name: server_name, ...}
+        $serverNameToPoolName = [];
+        foreach ($dhcpServerIndex as $poolName => $serverInfo) {
+            $serverName = $serverInfo['name'] ?? null;
+            if ($serverName !== null) {
+                $serverNameToPoolName[$serverName] = $poolName;
+            }
+        }
+
         $index = [];
 
         foreach ($dhcpLeases as $lease) {
@@ -197,21 +208,30 @@ class RouterOsApiMikrotikIpPoolProvider implements MikrotikIpPoolProvider
                 continue;
             }
 
-            $serverName = $this->normalizeNullableString($lease['server'] ?? $lease['active-server'] ?? null);
+            $leaseServerName = $this->normalizeNullableString(
+                $lease['server'] ?? $lease['active-server'] ?? null
+            );
 
-            if ($serverName === null) {
+            if ($leaseServerName === null) {
                 continue;
             }
 
             $isUsed = in_array($status, ['bound', 'busy'], true);
 
-            if (! isset($index[$serverName])) {
-                $index[$serverName] = [];
+            if (! $isUsed) {
+                continue;
             }
 
-            if ($isUsed) {
-                $index[$serverName][] = $address;
+            // Resolve: server name → pool name
+            // Prioritas 1: lookup via reverse index (ROS v7)
+            // Prioritas 2: assume server name = pool name (ROS v6)
+            $poolName = $serverNameToPoolName[$leaseServerName] ?? $leaseServerName;
+
+            if (! isset($index[$poolName])) {
+                $index[$poolName] = [];
             }
+
+            $index[$poolName][] = $address;
         }
 
         return $index;

@@ -56,6 +56,7 @@ class StoreRouterRequest extends AdminPanelRequest
             'router_code' => $this->filled('router_code') ? trim((string) $this->input('router_code')) : null,
             'router_role' => $this->filled('router_role') ? trim((string) $this->input('router_role')) : null,
             'location_name' => $this->filled('location_name') ? trim((string) $this->input('location_name')) : null,
+            'ros_version' => $this->filled('ros_version') ? trim((string) $this->input('ros_version')) : null,
         ]);
     }
 
@@ -78,6 +79,7 @@ class StoreRouterRequest extends AdminPanelRequest
             'router_code' => ['nullable', 'string', 'max:30'],
             'router_role' => ['nullable', 'string', 'max:50'],
             'location_name' => ['nullable', 'string', 'max:150'],
+            'ros_version' => ['nullable', 'in:6,7'],
         ];
     }
 }

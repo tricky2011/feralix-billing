@@ -88,7 +88,7 @@ class IpPoolController extends Controller
                     'end_ip'   => $parts[1] ?? '',
                 ];
             }
-            return new MikrotikIpPoolRecord([
+            return MikrotikIpPoolRecord::fromArray([
                 'name'            => $s->pool_name,
                 'ranges'          => $ranges,
                 'total_ips'       => $s->total_ips,

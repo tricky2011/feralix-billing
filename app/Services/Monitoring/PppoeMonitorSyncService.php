@@ -38,8 +38,21 @@ class PppoeMonitorSyncService
 
         Service::query()
             ->where('router_id', $router->id)
-            ->whereNotNull('monitor_pppoe_username')
-            ->where('monitor_pppoe_username', '!=', '')
+            ->where(function ($q): void {
+                $q->where(function ($inner): void {
+                    $inner->whereNotNull('pppoe_username')
+                          ->where('pppoe_username', '!=', '');
+                })->orWhere(function ($inner): void {
+                    $inner->whereNotNull('monitor_pppoe_username')
+                          ->where('monitor_pppoe_username', '!=', '');
+                });
+            })
+            ->whereIn('overall_status', [
+                ServiceOverallStatus::Active->value,
+                ServiceOverallStatus::Provisioning->value,
+                ServiceOverallStatus::Isolated->value,
+                ServiceOverallStatus::Suspended->value,
+            ])
             ->select('id')
             ->orderBy('id')
             ->chunkById($chunkSize, function ($services) use (&$summary, $router, $sessionsByUsername, $syncedAt): void {
@@ -134,7 +147,8 @@ class PppoeMonitorSyncService
                 ];
             }
 
-            $username = $this->normalizeUsername($service->monitor_pppoe_username);
+            $username = $this->normalizeUsername($service->monitor_pppoe_username)
+                ?: $this->normalizeUsername($service->pppoe_username);
 
             if ($username === null) {
                 return [

@@ -2533,6 +2533,11 @@ export function adminPanel({ page }) {
         buildCurrentParams(config) {
             const params = { ...this.filters };
 
+            // Add router_id from routerSwitcher to all API calls if enabled
+            if (this.routerSwitcher.enabled && this.routerSwitcher.active_router_id) {
+                params.router_id = this.routerSwitcher.active_router_id;
+            }
+
             if (this.isCashflowPage()) {
                 params.type = this.cashflow.filters.type;
                 params.category_id = this.cashflow.filters.category_id;
@@ -2682,10 +2687,55 @@ export function adminPanel({ page }) {
 
                 const response = await api.patch('/api/v1/admin/dashboard/router-switch', { router_id: routerId });
                 this.dashboard = response.data;
-                this.toast('success', 'Router dashboard diganti', 'Scope dashboard sudah diperbarui.');
+
+                // Sync router_id to all router-scoped modules
+                this.applyRouterScopeToModules(routerId);
+
+                // Reload the current page with new router scope
+                await this.loadPage();
+
+                this.toast('success', 'Router diganti', 'Semua data diperbarui ke router yang dipilih.');
             } catch (error) {
                 this.toast('error', 'Router switch gagal', error.message);
             }
+        },
+
+        /**
+         * Apply router scope to all router-scoped modules.
+         * Called after switchRouter to ensure all module filters use the selected router.
+         */
+        applyRouterScopeToModules(routerId) {
+            const routerIdStr = routerId ? String(routerId) : '';
+
+            // IP Pools
+            if (routerId) {
+                this.ipPools.router_id = routerIdStr;
+            }
+
+            // Router Sync
+            if (routerId) {
+                this.routerSync.router_id = routerIdStr;
+            }
+
+            // Manual Isolir
+            if (routerId) {
+                this.manualIsolir.router_id = routerIdStr;
+            }
+
+            // Provisioning form
+            if (routerId) {
+                this.provisioning.form.router_id = routerId;
+            }
+
+            // ACS Config
+            if (routerId) {
+                this.acsConfig.router_id = routerIdStr;
+            }
+
+            // Reset pagination for all modules
+            this.filters.page = 1;
+            this.pagination = {};
+            this.items = [];
         },
 
         changePage(page) {

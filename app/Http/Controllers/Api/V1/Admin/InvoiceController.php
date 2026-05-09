@@ -2,7 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
-use App\Enums\InvoicePaymentStatus;
+use App\Enums\ServiceOverallStatus;
+use App\Enums\ServiceNetworkStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Invoice\AutoSuspendInvoiceRequest;
 use App\Http\Requests\Invoice\BulkInvoiceActionRequest;
@@ -23,6 +24,7 @@ use App\Services\Billing\InvoiceOverdueService;
 use App\Services\Billing\InvoiceService;
 use App\Services\Billing\InvoiceWhatsappService;
 use App\Services\Billing\PaymentService;
+use App\Services\Mikrotik\MikrotikPppoeSecretService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
@@ -37,6 +39,7 @@ class InvoiceController extends Controller
         private readonly InvoiceBulkActionService $invoiceBulkActionService,
         private readonly InvoiceWhatsappService $invoiceWhatsappService,
         private readonly InvoiceAutoSuspendService $invoiceAutoSuspendService,
+        private readonly MikrotikPppoeSecretService $pppoeSecretService,
     ) {}
 
     public function index(IndexInvoiceRequest $request)
@@ -162,6 +165,30 @@ class InvoiceController extends Controller
     public function markPaid(MarkInvoicePaidRequest $request, Invoice $invoice): JsonResponse
     {
         $payment = $this->paymentService->settleInvoice($invoice, $request->validated());
+
+        // Prepaid flow: enable PPPoE when first invoice is paid
+        $invoice->loadMissing(['service.router']);
+        $service = $invoice->service;
+
+        if ($service && $service->overall_status?->value === ServiceOverallStatus::Provisioning->value && $service->pppoe_username) {
+            $router = $service->router;
+            if ($router) {
+                try {
+                    $this->pppoeSecretService->setSecretEnabled($router, $service->pppoe_username, true);
+
+                    $service->update([
+                        'overall_status' => ServiceOverallStatus::Active->value,
+                        'network_status' => ServiceNetworkStatus::Active->value,
+                    ]);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Failed to enable PPPoE after payment', [
+                        'service_id'     => $service->id,
+                        'pppoe_username' => $service->pppoe_username,
+                        'error'          => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
 
         return $this->successResponse('Invoice marked as paid successfully.', [
             'invoice' => new InvoiceDetailResource($this->invoiceService->find($invoice)),

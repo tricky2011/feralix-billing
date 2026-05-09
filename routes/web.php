@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\IsolirPageController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -7,6 +8,8 @@ Route::get('/', function () {
 });
 
 Route::view('/login', 'auth.login')->name('admin.login');
+
+Route::get('/isolir', IsolirPageController::class)->name('isolir');
 
 Route::redirect('/admin', '/admin/dashboard')->name('admin.home');
 

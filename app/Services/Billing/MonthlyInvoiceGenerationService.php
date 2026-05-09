@@ -86,6 +86,29 @@ class MonthlyInvoiceGenerationService
     }
 
     /**
+     * Generate invoice untuk satu service (prepaid flow).
+     */
+    public function generateForService(Service $service, string $billingPeriod, string $invoiceDate, string $dueDate): array
+    {
+        $invoice = $this->manualInvoiceService->create([
+            'customer_id' => $service->customer_id,
+            'service_id' => $service->id,
+            'billing_period' => $billingPeriod,
+            'invoice_date' => $invoiceDate,
+            'due_date' => $dueDate,
+            'subtotal' => $this->resolveMonthlyPrice($service),
+            'penalty_amount' => 0,
+            'issue_now' => true,
+        ]);
+
+        return [
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'total_amount' => $invoice->total_amount,
+        ];
+    }
+
+    /**
      * Resolve monthly price per service.
      * Prioritas 1: monthly_price langsung di service
      * Prioritas 2: dari package

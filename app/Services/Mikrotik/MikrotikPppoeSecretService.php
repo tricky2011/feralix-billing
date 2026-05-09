@@ -333,6 +333,54 @@ class MikrotikPppoeSecretService
         }
     }
 
+    /**
+     * Enable or disable PPPoE secret (used for prepaid activation flow).
+     *
+     * @return array{success: bool, message: string}
+     */
+    public function setSecretEnabled(Router $router, string $username, bool $enabled): array
+    {
+        try {
+            $client = $this->clientFactory->forRouter($router);
+
+            $existing = $client->print('/ppp/secret', ['.id', 'name', 'disabled'], ['name' => $username]);
+
+            if (empty($existing)) {
+                $client->disconnect();
+
+                return ['success' => false, 'message' => 'Secret not found.'];
+            }
+
+            $client->set('/ppp/secret', $existing[0]['.id'], [
+                'disabled' => $enabled ? 'no' : 'yes',
+            ]);
+
+            $this->logger()->info('PPPoE secret ' . ($enabled ? 'enabled' : 'disabled') . '.', [
+                'router_id' => $router->id,
+                'router_name' => $router->name,
+                'username' => $username,
+            ]);
+
+            $client->disconnect();
+
+            return ['success' => true, 'message' => $enabled ? 'Secret enabled.' : 'Secret disabled.'];
+
+        } catch (\Throwable $throwable) {
+            $this->logger()->error('Failed to ' . ($enabled ? 'enable' : 'disable') . ' PPPoE secret.', [
+                'router_id' => $router->id,
+                'router_name' => $router->name,
+                'username' => $username,
+                'message' => $throwable->getMessage(),
+            ]);
+
+            if (isset($client)) {
+                $client->disconnect();
+            }
+
+            return ['success' => false, 'message' => $throwable->getMessage()];
+        }
+    }
+
     private function logger()
     {
         $channel = (string) (config('mikrotik.logging.channel') ?: config('logging.default', 'stack'));

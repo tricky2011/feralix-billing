@@ -252,9 +252,19 @@
                 <p class="text-xs font-black uppercase tracking-[0.24em] text-blue-700 dark:text-blue-300">CRM</p>
                 <h2 class="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Tambah Pelanggan Baru</h2>
             </div>
-            <span class="rounded-full bg-emerald-100 px-4 py-2 text-xs font-black uppercase tracking-wide text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
-                PROVISIONING AUTO
+            <span class="rounded-full bg-amber-100 px-4 py-2 text-xs font-black uppercase tracking-wide text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+                PREPAID - BAYAR DULU AKTIF
             </span>
+        </div>
+
+        {{-- Prepaid Info Banner --}}
+        <div class="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+            <p class="text-sm font-bold text-amber-800 dark:text-amber-200">Alur Prepaid:</p>
+            <ol class="mt-1.5 ml-4 list-inside list-decimal text-xs text-amber-700 dark:text-amber-300 space-y-0.5">
+                <li>Customer baru dibuat → PPPoE <strong>disabled</strong> di Mikrotik</li>
+                <li>Invoice pertama langsung di-generate saat customer dibuat</li>
+                <li>Admin konfirmasi pembayaran → PPPoE <strong>enabled</strong> → service <strong>active</strong></li>
+            </ol>
         </div>
 
         <form @submit.prevent="submitProvisioningForm">

@@ -25,6 +25,7 @@ class Customer extends Model
         'email',
         'address',
         'location_id',
+        'network_location_id',
         'preferred_olt_id',
         'assigned_technician_id',
         'latitude',

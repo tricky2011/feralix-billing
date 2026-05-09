@@ -176,12 +176,11 @@ class CustomerService
 
     private function customerPayload(array $payload): array
     {
-        return Arr::only($payload, [
+        $data = Arr::only($payload, [
             'customer_code',
             'full_name',
             'phone',
             'address',
-            'location_id',
             'preferred_olt_id',
             'assigned_technician_id',
             'latitude',
@@ -194,6 +193,16 @@ class CustomerService
             'pppoe_username',
             'pppoe_password',
         ]);
+
+        // location_id dari form adalah network_location_id (bukan legacy locations table)
+        // Simpan ke network_location_id, biarkan location_id null agar tidak FK violation
+        if (!empty($payload['location_id'])) {
+            $data['network_location_id'] = (int) $payload['location_id'];
+        } elseif (!empty($payload['network_location_id'])) {
+            $data['network_location_id'] = (int) $payload['network_location_id'];
+        }
+
+        return $data;
     }
 
     private function indexRelations(): array

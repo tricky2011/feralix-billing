@@ -220,17 +220,23 @@ class CustomerController extends Controller
             }
         }
 
-        // 3C: Sync IP pools to mark used IPs as reserved
-        if (! empty($data['router_id'])) {
+        // 3C: Mark VID as reserved langsung di DB (tidak tunggu Mikrotik)
+        if (! empty($data['internet_vid']) && ! empty($data['router_id'])) {
             try {
-                $router = Router::find($data['router_id']);
-                if ($router) {
-                    $this->ipPoolSyncService->syncFromMikrotik($router);
-                }
+                \App\Models\IpPoolSnapshot::where('router_id', $data['router_id'])
+                    ->where('vlan_id', (int) $data['internet_vid'])
+                    ->update([
+                        'used_ips'            => \Illuminate\Support\Facades\DB::raw('GREATEST(used_ips + 1, 1)'),
+                        'free_ips'            => \Illuminate\Support\Facades\DB::raw('GREATEST(free_ips - 1, 0)'),
+                        'is_available'        => false,
+                        'is_reserved'         => true,
+                        'availability_status' => 'reserved',
+                    ]);
             } catch (\Throwable $e) {
-                Log::warning('Failed to sync IP pools after provisioning', [
-                    'router_id' => $data['router_id'] ?? null,
-                    'error' => $e->getMessage(),
+                Log::warning('Failed to mark VID as reserved', [
+                    'internet_vid' => $data['internet_vid'] ?? null,
+                    'router_id'    => $data['router_id'] ?? null,
+                    'error'        => $e->getMessage(),
                 ]);
             }
         }

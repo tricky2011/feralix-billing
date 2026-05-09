@@ -1627,7 +1627,7 @@
                                 </td>
                                 <td class="px-4 py-3">
                                     <span x-show="pool.availability_status === 'available'" class="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">Available</span>
-                                    <span x-show="pool.availability_status === 'reserved'" class="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">Reserved</span>
+                                    <span x-show="pool.availability_status === 'reserved'" class="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">Sudah dipakai</span>
                                     <span x-show="pool.availability_status === 'full'" class="inline-flex rounded-full bg-rose-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-rose-700 dark:bg-rose-500/20 dark:text-rose-300">Full</span>
                                 </td>
                             </tr>
@@ -1722,7 +1722,7 @@
                                 </td>
                                 <td class="px-3 py-2">
                                     <span x-show="pool.availability_status === 'available'" class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-700">Available</span>
-                                    <span x-show="pool.availability_status === 'reserved'" class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase text-amber-700">Reserved</span>
+                                    <span x-show="pool.availability_status === 'reserved'" class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase text-amber-700">Sudah dipakai</span>
                                     <span x-show="pool.availability_status === 'full'" class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-black uppercase text-rose-700">Full</span>
                                 </td>
                             </tr>

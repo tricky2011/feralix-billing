@@ -42,6 +42,7 @@ class PppoeImportController extends Controller
         // Get usernames already in DB
         $existingUsernames = Service::whereNotNull('pppoe_username')
             ->where('pppoe_username', '!=', '')
+            ->where('router_id', $router->id)
             ->pluck('pppoe_username')
             ->map(fn ($u) => strtolower(trim($u)))
             ->toArray();
@@ -117,7 +118,7 @@ class PppoeImportController extends Controller
                 $username = trim($username);
 
                 // Skip if already in DB
-                $alreadyExists = Service::where('pppoe_username', $username)->exists();
+                $alreadyExists = Service::where('pppoe_username', $username)->where('router_id', $router->id)->exists();
                 if ($alreadyExists) {
                     $skipped++;
                     continue;

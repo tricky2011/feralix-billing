@@ -31,12 +31,35 @@ class PppoeImportController extends Controller
             'profile',
             'comment',
             'service',
+            'disabled',
         ]);
 
-        // Filter only PPPoE services
+        $client->disconnect();
+
+        // Filter: hanya PPPoE secrets yang aktif
+        // ROS v6: service='pppoe'
+        // ROS v7: service='any' (default) atau 'pppoe'
+        // Exclude: l2tp, pptp, sstp, ovpn, disabled=yes
         $secrets = array_filter(
             $secrets,
-            fn (array $s): bool => ($s['service'] ?? '') === 'pppoe',
+            static function (array $s): bool {
+                // Skip disabled secrets
+                if (in_array(strtolower($s['disabled'] ?? 'false'), ['true', 'yes', '1'], true)) {
+                    return false;
+                }
+
+                $service = strtolower(trim($s['service'] ?? 'any'));
+
+                // Exclude non-PPPoE services
+                if (in_array($service, ['l2tp', 'pptp', 'sstp', 'ovpn'], true)) {
+                    return false;
+                }
+
+                // Accept: pppoe, any, '' (ROS v6 dan v7)
+
+                // Accept: pppoe, any, '' (empty = any)
+                return true;
+            },
         );
 
         // Get usernames already in DB
@@ -44,36 +67,36 @@ class PppoeImportController extends Controller
             ->where('pppoe_username', '!=', '')
             ->where('router_id', $router->id)
             ->pluck('pppoe_username')
-            ->map(fn ($u) => strtolower(trim($u)))
-            ->toArray();
+            ->map(static fn (string $u): string => strtolower(trim($u)))
+            ->flip()
+            ->all();
 
         // Filter: only candidates not yet imported
         $candidates = array_values(array_filter(
             $secrets,
-            fn (array $s): bool => !in_array(
-                strtolower(trim($s['name'] ?? '')),
-                $existingUsernames,
-                true,
-            ),
+            static fn (array $s): bool => !isset($existingUsernames[strtolower(trim($s['name'] ?? ''))]),
         ));
 
         // Format response
         $result = array_map(
-            fn (array $s): array => [
-                'username' => $s['name'] ?? '',
+            static fn (array $s): array => [
+                'username' => trim($s['name'] ?? ''),
                 'password' => $s['password'] ?? '',
-                'profile' => $s['profile'] ?? '',
-                'comment' => $s['comment'] ?? '',
+                'profile'  => $s['profile'] ?? 'default',
+                'comment'  => $s['comment'] ?? '',
+                'service'  => $s['service'] ?? 'any',
             ],
             $candidates,
         );
 
         return response()->json([
             'data' => $result,
-            'total' => count($result),
-            'router' => [
-                'id' => $router->id,
-                'name' => $router->name,
+            'message' => 'Candidates retrieved successfully.',
+            'total'     => count($result),
+            'total_all' => count($secrets),
+            'router'    => [
+                'id'   => $router->id,
+                'name' => $router->router_name ?? $router->name,
                 'code' => $router->router_code,
             ],
         ]);

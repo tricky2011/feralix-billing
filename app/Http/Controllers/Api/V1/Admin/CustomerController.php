@@ -18,6 +18,7 @@ use App\Http\Requests\Customer\StoreCustomerRequest;
 use App\Http\Requests\Customer\StoreCustomerOnboardingRequest;
 use App\Http\Requests\Customer\StoreCustomerProvisioningRequest;
 use App\Http\Requests\Customer\UpdateCustomerRequest;
+use Illuminate\Http\Request;
 use App\Http\Resources\CustomerResource;
 use App\Http\Resources\InvoiceResource;
 use App\Http\Resources\ServiceResource;
@@ -115,7 +116,7 @@ class CustomerController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            return $this->errorResponse('Failed to terminate customer: ' . $e->getMessage(), status: 500);
+            return $this->successResponse('Failed to terminate customer: ' . $e->getMessage(), null, [], 500);
         }
     }
 

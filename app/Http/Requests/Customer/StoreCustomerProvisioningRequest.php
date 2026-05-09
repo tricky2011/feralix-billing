@@ -46,7 +46,7 @@ class StoreCustomerProvisioningRequest extends AdminPanelRequest
             'contact' => ['nullable', 'string', 'max:30'],
             'email' => ['nullable', 'email', 'max:100'],
             'address' => ['nullable', 'string'],
-            'location_id' => ['nullable', 'integer', 'exists:locations,id'],
+            'location_id' => ['nullable', 'integer', 'exists:network_locations,id'],
             'preferred_olt_id' => ['nullable', 'integer', 'exists:olts,id'],
             'assigned_technician_id' => ['nullable', 'integer', 'exists:technicians,id'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
@@ -71,11 +71,14 @@ class StoreCustomerProvisioningRequest extends AdminPanelRequest
             }
 
             $olt = Olt::query()
-                ->select(['id', 'location_id'])
+                ->select(['id', 'location_id', 'network_location_id'])
                 ->find($this->integer('preferred_olt_id'));
 
-            if ($olt !== null && $olt->location_id !== null && (int) $olt->location_id !== $this->integer('location_id')) {
-                $validator->errors()->add('preferred_olt_id', 'The selected OLT does not belong to the selected location.');
+            if ($olt !== null) {
+                $oltLocationId = $olt->network_location_id ?? $olt->location_id;
+                if ($oltLocationId !== null && (int) $oltLocationId !== $this->integer('location_id')) {
+                    $validator->errors()->add('preferred_olt_id', 'The selected OLT does not belong to the selected location.');
+                }
             }
         });
     }

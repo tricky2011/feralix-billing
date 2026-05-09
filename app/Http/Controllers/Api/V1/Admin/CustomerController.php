@@ -7,6 +7,7 @@ use App\Enums\ServiceBillingStatus;
 use App\Enums\ServiceIsolationMethod;
 use App\Enums\ServiceNetworkStatus;
 use App\Enums\ServiceOverallStatus;
+use App\Contracts\Mikrotik\MikrotikApiClientFactory;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Customer\BulkDeleteCustomerRequest;
 use App\Http\Requests\Customer\BulkDisableCustomerRequest;
@@ -22,11 +23,14 @@ use App\Http\Resources\InvoiceResource;
 use App\Http\Resources\ServiceResource;
 use App\Http\Resources\WorkOrderResource;
 use App\Models\Customer;
+use App\Models\Router;
 use App\Services\Customer\CustomerBulkActionService;
 use App\Services\Customer\CustomerOnboardingService;
 use App\Services\Customer\CustomerProvisioningPreviewService;
+use App\Services\Mikrotik\IpPoolSyncService;
 use App\Services\MasterData\CustomerService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class CustomerController extends Controller
@@ -36,6 +40,8 @@ class CustomerController extends Controller
         private readonly CustomerOnboardingService $customerOnboardingService,
         private readonly CustomerBulkActionService $customerBulkActionService,
         private readonly CustomerProvisioningPreviewService $customerProvisioningPreviewService,
+        private readonly MikrotikApiClientFactory $mikrotikClientFactory,
+        private readonly IpPoolSyncService $ipPoolSyncService,
     ) {}
 
     public function index(IndexCustomerRequest $request)
@@ -167,6 +173,44 @@ class CustomerController extends Controller
         ];
 
         $service = $customer->services()->create($serviceData);
+
+        // 3B: Create PPPoE secret on Mikrotik
+        if (! empty($data['router_id']) && ! empty($data['pppoe_username']) && ! empty($data['pppoe_password'])) {
+            try {
+                $router = Router::find($data['router_id']);
+                if ($router) {
+                    $client = $this->mikrotikClientFactory->forRouter($router);
+                    $client->add('/ppp/secret', [
+                        'name' => $data['pppoe_username'],
+                        'password' => $data['pppoe_password'],
+                        'service' => 'pppoe',
+                        'profile' => $data['pppoe_server'] ?? 'default',
+                        'comment' => 'Feralix: ' . ($data['full_name'] ?? ''),
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Failed to create PPPoE secret on Mikrotik', [
+                    'customer' => $data['pppoe_username'] ?? null,
+                    'router_id' => $data['router_id'] ?? null,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // 3C: Sync IP pools to mark used IPs as reserved
+        if (! empty($data['router_id'])) {
+            try {
+                $router = Router::find($data['router_id']);
+                if ($router) {
+                    $this->ipPoolSyncService->syncFromMikrotik($router);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Failed to sync IP pools after provisioning', [
+                    'router_id' => $data['router_id'] ?? null,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         return $this->createdResponse('Customer provisioned successfully.', [
             'customer' => new CustomerResource($customer),

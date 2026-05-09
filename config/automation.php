@@ -46,7 +46,7 @@ return [
     ],
 
     'schedule' => [
-        'timezone' => env('AUTOMATION_SCHEDULE_TIMEZONE', env('APP_TIMEZONE', 'UTC')),
+        'timezone' => env('AUTOMATION_SCHEDULE_TIMEZONE', env('APP_TIMEZONE', 'Asia/Jakarta')),
         'generate_monthly_invoices_at' => env('AUTOMATION_SCHEDULE_GENERATE_INVOICES_AT', '00:05'),
         'check_overdue_at' => env('AUTOMATION_SCHEDULE_CHECK_OVERDUE_AT', '00:20'),
         'create_overdue_isolations_at' => env('AUTOMATION_SCHEDULE_CREATE_OVERDUE_ISOLATIONS_AT', '00:30'),

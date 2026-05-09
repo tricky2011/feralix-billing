@@ -174,6 +174,7 @@ class CustomerController extends Controller
             'longitude' => $data['longitude'] ?? null,
             'customer_type' => $data['customer_type'] ?? 'residential',
             'status' => $data['status'] ?? 'active',
+            'install_date' => $data['install_date'] ?? null,
             'notes' => 'Created via provisioning form. Install date: ' . ($data['install_date'] ?? 'N/A'),
         ]);
 
@@ -193,6 +194,7 @@ class CustomerController extends Controller
             'network_status' => ServiceNetworkStatus::Provisioning->value,
             'overall_status' => ServiceOverallStatus::Provisioning->value,
             'activation_date' => $data['install_date'] ?? null,
+            'monthly_price' => $data['monthly_price'] ?? null,
         ];
 
         $service = $customer->services()->create($serviceData);

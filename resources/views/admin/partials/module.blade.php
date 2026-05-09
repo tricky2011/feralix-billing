@@ -521,6 +521,19 @@
                         </label>
 
                         <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Harga Bulanan (Rp)</span>
+                            <input
+                                type="number"
+                                x-model="provisioning.form.monthly_price"
+                                min="0"
+                                step="1000"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                                placeholder="150000"
+                            >
+                            <p class="mt-1 text-xs text-slate-400">Harga layanan internet per bulan</p>
+                        </label>
+
+                        <label class="block">
                             <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Status</span>
                             <input
                                 type="text"

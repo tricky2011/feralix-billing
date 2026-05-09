@@ -32,6 +32,7 @@ class Customer extends Model
         'longitude',
         'customer_type',
         'status',
+        'install_date',
         'ip_count',
         'monthly_price',
         'billing_day',
@@ -50,6 +51,7 @@ class Customer extends Model
             'longitude' => 'decimal:7',
             'customer_type' => CustomerType::class,
             'status' => CustomerStatus::class,
+            'install_date' => 'date',
         ];
     }
 

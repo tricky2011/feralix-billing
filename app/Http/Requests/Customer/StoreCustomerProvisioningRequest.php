@@ -60,6 +60,7 @@ class StoreCustomerProvisioningRequest extends AdminPanelRequest
             'monitor_vid' => ['nullable', 'integer', 'between:1,4094'],
             'internet_vid' => ['nullable', 'integer', 'between:1,4094'],
             'router_id' => ['nullable', 'integer', 'exists:routers,id'],
+            'monthly_price' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 

@@ -12,8 +12,8 @@ use Illuminate\Support\Carbon;
 class MonthlyInvoiceGenerationService
 {
     private const RELATIONS = [
-        'customer:id,customer_code,full_name',
-        'service:id,customer_id,package_id,router_id,service_code,billing_status,overall_status,activation_date',
+        'customer:id,customer_code,full_name,install_date',
+        'service:id,customer_id,package_id,router_id,service_code,billing_status,overall_status,activation_date,monthly_price',
         'service.package:id,package_name,monthly_price',
     ];
 
@@ -28,9 +28,12 @@ class MonthlyInvoiceGenerationService
         $invoiceDate = isset($payload['invoice_date'])
             ? Carbon::parse($payload['invoice_date'])->startOfDay()
             : now()->startOfDay();
-        $dueDate = isset($payload['due_date'])
+
+        // Due date global (jika di-override manual dari payload)
+        $globalDueDate = isset($payload['due_date'])
             ? Carbon::parse($payload['due_date'])->startOfDay()
-            : $invoiceDate->copy()->addDays((int) ($payload['due_in_days'] ?? 10));
+            : null;
+        $globalDueInDays = (int) ($payload['due_in_days'] ?? 10);
 
         $generated = [];
         $skipped = [];
@@ -59,8 +62,8 @@ class MonthlyInvoiceGenerationService
                 'service_id' => $service->id,
                 'billing_period' => $period->format('Y-m'),
                 'invoice_date' => $invoiceDate->toDateString(),
-                'due_date' => $dueDate->toDateString(),
-                'subtotal' => $service->package->monthly_price,
+                'due_date' => $this->resolveDueDate($service, $period, $invoiceDate, $globalDueDate, $globalDueInDays)->toDateString(),
+                'subtotal' => $this->resolveMonthlyPrice($service),
                 'penalty_amount' => $payload['penalty_amount'] ?? 0,
                 'issue_now' => true,
             ]);
@@ -74,12 +77,73 @@ class MonthlyInvoiceGenerationService
         return [
             'billing_period' => $period->format('Y-m'),
             'invoice_date' => $invoiceDate->toDateString(),
-            'due_date' => $dueDate->toDateString(),
+            'due_date' => $invoiceDate->copy()->addDays($globalDueInDays)->toDateString(),
             'generated_count' => count($generated),
             'skipped_count' => count($skipped),
             'generated' => $generated,
             'skipped' => $skipped,
         ];
+    }
+
+    /**
+     * Resolve monthly price per service.
+     * Prioritas 1: monthly_price langsung di service
+     * Prioritas 2: dari package
+     * Fallback: 0.0
+     */
+    private function resolveMonthlyPrice(Service $service): float
+    {
+        // Prioritas 1: monthly_price langsung di service
+        if ($service->monthly_price !== null && (float) $service->monthly_price > 0) {
+            return (float) $service->monthly_price;
+        }
+
+        // Prioritas 2: dari package
+        if ($service->package !== null && $service->package->monthly_price !== null) {
+            return (float) $service->package->monthly_price;
+        }
+
+        // Fallback: 0 (admin harus isi manual)
+        return 0.0;
+    }
+
+    /**
+     * Resolve due date per customer berdasarkan install_date.
+     * Contoh: pasang tanggal 15 → due date tanggal 15 bulan berjalan.
+     */
+    private function resolveDueDate(
+        Service $service,
+        Carbon $period,
+        Carbon $invoiceDate,
+        ?Carbon $globalDueDate,
+        int $globalDueInDays,
+    ): Carbon {
+        // Jika ada override global dari payload, gunakan itu
+        if ($globalDueDate !== null) {
+            return $globalDueDate;
+        }
+
+        // Ambil install_date dari service atau customer
+        $installDate = $service->activation_date
+            ?? $service->customer?->install_date
+            ?? null;
+
+        if ($installDate !== null) {
+            $dayOfMonth = (int) $installDate->format('d');
+
+            // Buat due date: bulan invoice + hari dari install_date
+            $dueDate = $invoiceDate->copy()->startOfMonth()->addDays($dayOfMonth - 1);
+
+            // Jika due date sudah lewat invoice_date, tambah 1 bulan
+            if ($dueDate->lt($invoiceDate)) {
+                $dueDate->addMonth();
+            }
+
+            return $dueDate->startOfDay();
+        }
+
+        // Fallback: due_in_days dari invoice_date
+        return $invoiceDate->copy()->addDays($globalDueInDays)->startOfDay();
     }
 
     private function billableServicesQuery(Carbon $period, array $filters): Builder
@@ -92,7 +156,7 @@ class MonthlyInvoiceGenerationService
 
         $query = Service::query()
             ->with([
-                'customer:id,customer_code,full_name',
+                'customer:id,customer_code,full_name,install_date',
                 'package:id,package_name,monthly_price',
             ])
             ->whereIn('overall_status', [

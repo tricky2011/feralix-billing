@@ -62,6 +62,7 @@ class Service extends Model
         'overall_status',
         'activation_date',
         'notes',
+        'monthly_price',
     ];
 
     protected function casts(): array
@@ -83,6 +84,7 @@ class Service extends Model
             'network_status' => ServiceNetworkStatus::class,
             'overall_status' => ServiceOverallStatus::class,
             'activation_date' => 'date',
+            'monthly_price' => 'decimal:2',
             'legacy_secret_migrated_at' => 'datetime',
             'deleted_at' => 'datetime',
         ];

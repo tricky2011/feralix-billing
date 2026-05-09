@@ -1353,6 +1353,7 @@ export function adminPanel({ page }) {
                 pppoe_server: '',
                 monitor_vid: null,
                 internet_vid: null,
+                monthly_price: null,
             },
             errors: {},
             saving: false,
@@ -4182,6 +4183,7 @@ export function adminPanel({ page }) {
             this.provisioning.form.pppoe_server = '';
             this.provisioning.form.monitor_vid = null;
             this.provisioning.form.internet_vid = null;
+            this.provisioning.form.monthly_price = null;
         },
 
         onProvisioningLatLngChange() {
@@ -4253,6 +4255,7 @@ export function adminPanel({ page }) {
                     monitor_vid: this.provisioning.form.monitor_vid,
                     internet_vid: this.provisioning.form.internet_vid,
                     router_id: this.provisioning.form.router_id,
+                    monthly_price: this.provisioning.form.monthly_price ? parseFloat(this.provisioning.form.monthly_price) : null,
                 };
 
                 const res = await api.post('/api/v1/admin/customers/provisioning', payload);

@@ -167,6 +167,7 @@ Route::prefix('v1/admin')
             Route::patch('invoices/{invoice}/mark-overdue', [InvoiceController::class, 'markOverdue']);
             Route::patch('invoices/{invoice}/mark-paid', [InvoiceController::class, 'markPaid']);
             Route::post('invoices/{invoice}/send-whatsapp', [InvoiceController::class, 'sendWhatsapp']);
+            Route::get('invoices/{invoice}/pdf', [InvoiceController::class, 'downloadPdf']);
             Route::apiResource('invoices', InvoiceController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
             Route::apiResource('payments', PaymentController::class)->only(['index', 'store', 'show']);
             Route::get('cashflows/summary', [CashflowController::class, 'summary'])->middleware('role:superadmin,admin');

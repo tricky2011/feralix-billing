@@ -25,6 +25,8 @@ use App\Http\Resources\ServiceResource;
 use App\Http\Resources\WorkOrderResource;
 use App\Models\Customer;
 use App\Models\Router;
+use App\Services\Billing\InvoiceService;
+use App\Services\Billing\MonthlyInvoiceGenerationService;
 use App\Services\Customer\CustomerBulkActionService;
 use App\Services\Customer\CustomerOnboardingService;
 use App\Services\Customer\CustomerProvisioningPreviewService;
@@ -47,6 +49,8 @@ class CustomerController extends Controller
         private readonly MikrotikApiClientFactory $mikrotikClientFactory,
         private readonly IpPoolSyncService $ipPoolSyncService,
         private readonly MikrotikPppoeSecretService $pppoeSecretService,
+        private readonly InvoiceService $invoiceService,
+        private readonly MonthlyInvoiceGenerationService $monthlyInvoiceGenerationService,
     ) {}
 
     public function index(IndexCustomerRequest $request)
@@ -209,7 +213,7 @@ class CustomerController extends Controller
                     password: $data['pppoe_password'],
                     profile: 'default',
                     comment: 'Feralix: ' . ($data['full_name'] ?? '') . ' | VID: ' . ($data['internet_vid'] ?? '-'),
-                    disabled: false,
+                    disabled: true,
                 );
 
                 if (! $result['success']) {
@@ -238,6 +242,31 @@ class CustomerController extends Controller
                     'error'        => $e->getMessage(),
                 ]);
             }
+        }
+
+        // 3D: Generate invoice pertama (prepaid) - langsung lunas untuk aktivasi
+        try {
+            $billingPeriod = now()->timezone('Asia/Jakarta')->format('Y-m');
+            $invoiceDate   = now()->timezone('Asia/Jakarta')->toDateString();
+            $installDate   = $data['install_date'] ?? null;
+            $dueDate       = $installDate
+                ? \Illuminate\Support\Carbon::parse($installDate)->timezone('Asia/Jakarta')->toDateString()
+                : now()->timezone('Asia/Jakarta')->addDays(7)->toDateString();
+
+            $result = $this->monthlyInvoiceGenerationService->generateForService($service, $billingPeriod, $invoiceDate, $dueDate);
+
+            Log::info('First invoice generated for new customer', [
+                'customer_id'  => $customer->id,
+                'service_id'   => $service->id,
+                'invoice_id'   => $result['invoice_id'] ?? null,
+                'billing_period' => $billingPeriod,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to generate first invoice for new customer', [
+                'customer_id' => $customer->id,
+                'service_id'  => $service->id,
+                'error'       => $e->getMessage(),
+            ]);
         }
 
         return $this->createdResponse('Customer provisioned successfully.', [

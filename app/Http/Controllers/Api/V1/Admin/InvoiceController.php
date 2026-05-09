@@ -23,7 +23,9 @@ use App\Services\Billing\InvoiceOverdueService;
 use App\Services\Billing\InvoiceService;
 use App\Services\Billing\InvoiceWhatsappService;
 use App\Services\Billing\PaymentService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
 
 class InvoiceController extends Controller
@@ -218,5 +220,30 @@ class InvoiceController extends Controller
             $message,
             ['filters' => $filters],
         );
+    }
+
+    public function downloadPdf(Invoice $invoice): Response
+    {
+        $invoice->load(['customer', 'service', 'payments']);
+
+        $company = [
+            'name'    => config('app.company_name', config('app.name')),
+            'address' => config('app.company_address'),
+            'phone'   => config('app.company_phone'),
+            'email'   => config('app.company_email'),
+        ];
+
+        $pdf = Pdf::loadView('pdf.invoice', [
+            'invoice' => $invoice,
+            'company' => $company,
+        ])->setPaper('a4', 'portrait');
+
+        $filename = sprintf(
+            'invoice-%s-%s.pdf',
+            $invoice->invoice_number,
+            now()->format('Ymd'),
+        );
+
+        return $pdf->download($filename);
     }
 }

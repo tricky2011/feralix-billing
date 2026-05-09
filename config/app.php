@@ -17,6 +17,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Company Information
+    |--------------------------------------------------------------------------
+    |
+    | These values are used for invoice PDF generation and other official
+    | documents.
+    |
+    */
+
+    'company_name'    => env('COMPANY_NAME', 'Feralix ISP Cloud'),
+    'company_address' => env('COMPANY_ADDRESS', null),
+    'company_phone'   => env('COMPANY_PHONE', null),
+    'company_email'   => env('COMPANY_EMAIL', null),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |

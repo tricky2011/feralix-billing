@@ -2911,8 +2911,8 @@ export function adminPanel({ page }) {
             }
 
             if (this.page === 'billing') {
-                const paid = row.payment_status === 'paid';
                 return [
+                    { key: 'download-pdf', label: 'PDF', class: 'bg-blue-50 text-blue-700', href: `/api/v1/admin/invoices/${row.id}/pdf`, target: '_blank' },
                     ...(!paid ? [{ key: 'pay-invoice', label: 'Bayar', class: 'bg-emerald-50 text-emerald-800', handler: () => this.openPayment(row) }] : []),
                     ...(!paid ? [{ key: 'mark-overdue', label: 'Overdue', class: 'bg-amber-50 text-amber-800', handler: () => this.markInvoiceOverdue(row) }] : []),
                 ];

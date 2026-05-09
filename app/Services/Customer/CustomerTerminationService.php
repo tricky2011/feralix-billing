@@ -76,17 +76,19 @@ class CustomerTerminationService
             foreach ($customer->services as $service) {
                 $service->update([
                     'overall_status' => 'terminated',
-                    'billing_status' => 'terminated',
+                    'billing_status' => 'closed',
                     'network_status' => 'inactive',
                 ]);
             }
             $log[] = $customer->services->count() . ' service(s) terminated';
 
-            // STEP 5: Hard delete customer (cascade)
-            // Hapus relasi dulu karena ada FK constraint
+            // STEP 5: Hard delete — urutan penting karena FK constraint
+            // 1. Hapus invoice dulu (FK ke services dan customers)
             Invoice::where('customer_id', $customer->id)->forceDelete();
-            $customer->services()->delete();
-            $customer->delete();
+            // 2. Hapus services (FK ke customers)
+            $customer->services()->forceDelete();
+            // 3. Baru hapus customer
+            $customer->forceDelete();
             $log[] = 'Customer deleted: ' . $customer->customer_code;
         });
 

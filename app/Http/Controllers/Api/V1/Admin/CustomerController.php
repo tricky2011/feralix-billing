@@ -220,22 +220,19 @@ class CustomerController extends Controller
             }
         }
 
-        // 3C: Mark VID as reserved langsung di DB (tidak tunggu Mikrotik)
+        // 3C: Confirm VID untuk customer yang baru dibuat
         if (! empty($data['internet_vid']) && ! empty($data['router_id'])) {
             try {
-                \App\Models\IpPoolSnapshot::where('router_id', $data['router_id'])
-                    ->where('vlan_id', (int) $data['internet_vid'])
-                    ->update([
-                        'used_ips'            => \Illuminate\Support\Facades\DB::raw('GREATEST(used_ips + 1, 1)'),
-                        'free_ips'            => \Illuminate\Support\Facades\DB::raw('GREATEST(free_ips - 1, 0)'),
-                        'is_available'        => false,
-                        'is_reserved'         => true,
-                        'availability_status' => 'reserved',
-                    ]);
+                $this->ipPoolSyncService->confirmVidForCustomer(
+                    routerId:   (int) $data['router_id'],
+                    vlanId:     (int) $data['internet_vid'],
+                    customerId: $customer->id,
+                );
             } catch (\Throwable $e) {
-                Log::warning('Failed to mark VID as reserved', [
+                Log::warning('Failed to confirm VID for customer', [
                     'internet_vid' => $data['internet_vid'] ?? null,
                     'router_id'    => $data['router_id'] ?? null,
+                    'customer_id'  => $customer->id,
                     'error'        => $e->getMessage(),
                 ]);
             }

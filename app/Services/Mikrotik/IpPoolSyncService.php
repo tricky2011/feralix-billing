@@ -79,11 +79,27 @@ class IpPoolSyncService
             foreach ($pools as $pool) {
                 $isTracked = isset($selectedSet[$pool->name]);
 
+                // Check if this VID has a confirmed reservation
+                $existing = IpPoolSnapshot::where('router_id', $router->id)
+                    ->where('pool_name', $pool->name)
+                    ->first();
+
+                $isConfirmedReservation = $existing && $existing->reserved_by_customer_id !== null;
+
                 $usedIps  = $pool->usedIps;
                 $freeIps  = $pool->freeIps();
                 $isFull   = $freeIps === 0;
                 $isAvailable = $usedIps === 0 && $freeIps > 0;
                 $isReserved  = $usedIps >= 1 && $freeIps > 0;
+
+                // Respect confirmed reservations — don't reset to Mikrotik state
+                if ($isConfirmedReservation) {
+                    $usedIps  = max($pool->usedIps, 1);
+                    $freeIps  = min($pool->freeIps(), $pool->totalIps - 1);
+                    $isFull   = $freeIps === 0;
+                    $isAvailable = false;
+                    $isReserved  = true;
+                }
 
                 $status = match(true) {
                     $isFull      => 'full',
@@ -150,11 +166,27 @@ class IpPoolSyncService
 
         DB::transaction(function () use ($router, $pools, $syncedAt, &$count): void {
             foreach ($pools as $pool) {
+                // Check if this VID has a confirmed reservation
+                $existing = IpPoolSnapshot::where('router_id', $router->id)
+                    ->where('pool_name', $pool->name)
+                    ->first();
+
+                $isConfirmedReservation = $existing && $existing->reserved_by_customer_id !== null;
+
                 $usedIps  = $pool->usedIps;
                 $freeIps  = $pool->freeIps();
                 $isFull   = $freeIps === 0;
                 $isAvailable = $usedIps === 0 && $freeIps > 0;
                 $isReserved  = $usedIps >= 1 && $freeIps > 0;
+
+                // Respect confirmed reservations — don't reset to Mikrotik state
+                if ($isConfirmedReservation) {
+                    $usedIps  = max($pool->usedIps, 1);
+                    $freeIps  = min($pool->freeIps(), $pool->totalIps - 1);
+                    $isFull   = $freeIps === 0;
+                    $isAvailable = false;
+                    $isReserved  = true;
+                }
 
                 $status = match(true) {
                     $isFull      => 'full',
@@ -201,6 +233,133 @@ class IpPoolSyncService
             ->orderBy('pool_name')
             ->get()
             ->all();
+    }
+
+    /**
+     * Suggest VID available dan langsung lock dengan SELECT FOR UPDATE + temporary reservation.
+     * Permanent reservation — tidak ada expiry.
+     * VID lepas hanya saat customer di-terminate.
+     *
+     * @return array{vlan_id:int, pool_name:string, primary_range:string|null, free_ips:int, total_ips:int}|null
+     */
+    public function suggestAndLockVid(Router $router, int $minFreeIps = 1): ?array
+    {
+        $this->ensureCache($router);
+
+        $scopes = RouterScope::where('router_id', $router->id)
+            ->where('is_special', false)
+            ->orderBy('vid_start')
+            ->get();
+
+        return DB::transaction(function () use ($router, $minFreeIps, $scopes): ?array {
+            $query = IpPoolSnapshot::where('router_id', $router->id)
+                ->where('is_tracked', true)
+                ->where('used_ips', 0)
+                ->where('free_ips', '>=', $minFreeIps)
+                ->whereNotNull('vlan_id')
+                ->whereNull('reserved_by_customer_id')
+                ->where('availability_status', 'available');
+
+            if ($scopes->isNotEmpty()) {
+                $query->where(function ($q) use ($scopes): void {
+                    foreach ($scopes as $scope) {
+                        $q->orWhere(function ($sub) use ($scope): void {
+                            $sub->where('vlan_id', '>=', $scope->vid_start)
+                                ->where('vlan_id', '<=', $scope->vid_end);
+                            if ($scope->monitor_vid !== null) {
+                                $sub->where('vlan_id', '!=', $scope->monitor_vid);
+                            }
+                        });
+                    }
+                });
+            }
+
+            // SELECT FOR UPDATE — prevent concurrent reservation
+            $snapshot = $query->orderBy('vlan_id')->lockForUpdate()->first();
+
+            if ($snapshot === null) {
+                return null;
+            }
+
+            // Mark as temporarily reserved (used_ips = 1, is_reserved = true)
+            // This prevents other transactions from picking the same VID
+            $snapshot->update([
+                'used_ips'            => 1,
+                'free_ips'            => $snapshot->total_ips - 1,
+                'is_available'        => false,
+                'is_reserved'         => true,
+                'availability_status' => 'reserved',
+            ]);
+
+            $matchingScope = $scopes->first(
+                static fn ($s) => $snapshot->vlan_id >= $s->vid_start && $snapshot->vlan_id <= $s->vid_end
+            );
+
+            return [
+                'vlan_id'       => $snapshot->vlan_id,
+                'vid'           => $snapshot->vlan_id,
+                'vid_number'    => $snapshot->vlan_id,
+                'internet_vid'  => $snapshot->vlan_id,
+                'monitor_vid'   => null,
+                'pool_name'     => $snapshot->pool_name,
+                'primary_range' => $snapshot->primary_range,
+                'ip_start'      => $snapshot->primary_range ? explode('-', $snapshot->primary_range)[0] : null,
+                'ip_end'        => $snapshot->primary_range ? explode('-', $snapshot->primary_range)[1] : null,
+                'free_ips'      => $snapshot->total_ips - 1,
+                'total_ips'     => $snapshot->total_ips,
+                'used_ips'      => 1,
+                'scope_name'    => $matchingScope?->scope_name,
+            ];
+        });
+    }
+
+    /**
+     * Ensure router has cached pools in DB.
+     */
+    private function ensureCache(Router $router): void
+    {
+        $hasTracked = IpPoolSnapshot::where('router_id', $router->id)
+            ->where('is_tracked', true)
+            ->exists();
+
+        if (!$hasTracked) {
+            $this->syncFromMikrotik($router);
+        }
+    }
+
+    /**
+     * Confirm reservation — link VID ke customer.
+     * Dipanggil setelah customer berhasil dibuat.
+     */
+    public function confirmVidForCustomer(int $routerId, int $vlanId, int $customerId): void
+    {
+        IpPoolSnapshot::where('router_id', $routerId)
+            ->where('vlan_id', $vlanId)
+            ->update([
+                'reserved_by_customer_id' => $customerId,
+                'is_available'            => false,
+                'is_reserved'             => true,
+                'availability_status'     => 'reserved',
+                'used_ips'                => DB::raw('GREATEST(used_ips + 1, 1)'),
+                'free_ips'                => DB::raw('GREATEST(free_ips - 1, 0)'),
+            ]);
+    }
+
+    /**
+     * Release VID saat customer di-terminate.
+     * Dipanggil dari CustomerTerminationService.
+     */
+    public function releaseVidForCustomer(int $customerId): void
+    {
+        IpPoolSnapshot::where('reserved_by_customer_id', $customerId)
+            ->update([
+                'reserved_by_customer_id' => null,
+                'is_available'            => true,
+                'is_reserved'             => false,
+                'availability_status'     => 'available',
+                'used_ips'                => DB::raw('GREATEST(used_ips - 1, 0)'),
+                'free_ips'                => DB::raw('free_ips + 1'),
+            ]);
     }
 
     /**

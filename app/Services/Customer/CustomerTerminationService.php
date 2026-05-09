@@ -44,20 +44,19 @@ class CustomerTerminationService
             }
         }
 
-        // STEP 2: Sync IP pools (VID back to Available)
-        $routerIds = $customer->services->pluck('router_id')->filter()->unique();
-        foreach ($routerIds as $routerId) {
-            $router = Router::find($routerId);
-            if ($router) {
+        // STEP 2: Release VID — kembali Available
+        foreach ($customer->services as $service) {
+            if ($service->internet_vid && $service->router_id) {
                 try {
-                    $this->ipPoolSyncService->syncFromMikrotik($router);
-                    $log[] = 'IP Pool synced for router ' . $router->router_code;
+                    $this->ipPoolSyncService->releaseVidForCustomer($customer->id);
+                    $log[] = 'VID released for customer ID: ' . $customer->id;
                 } catch (\Throwable $e) {
-                    Log::warning('Failed to sync IP pool on termination', [
-                        'router_id' => $routerId,
-                        'error' => $e->getMessage(),
+                    Log::warning('Failed to release VID on termination', [
+                        'customer_id' => $customer->id,
+                        'error'       => $e->getMessage(),
                     ]);
                 }
+                break; // Only need to release once per customer
             }
         }
 

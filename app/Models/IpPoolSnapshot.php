@@ -12,21 +12,23 @@ class IpPoolSnapshot extends Model
         'dhcp_server_name', 'primary_range', 'total_ips', 'used_ips',
         'free_ips', 'usage_percentage', 'is_full', 'is_available',
         'is_reserved', 'availability_status', 'is_tracked', 'synced_at',
+        'reserved_by_customer_id',
     ];
 
     protected function casts(): array
     {
         return [
-            'vlan_id'           => 'integer',
-            'total_ips'         => 'integer',
-            'used_ips'          => 'integer',
-            'free_ips'          => 'integer',
-            'usage_percentage'  => 'float',
-            'is_full'           => 'boolean',
-            'is_available'      => 'boolean',
-            'is_reserved'       => 'boolean',
-            'is_tracked'        => 'boolean',
-            'synced_at'         => 'datetime',
+            'vlan_id'                 => 'integer',
+            'total_ips'               => 'integer',
+            'used_ips'                => 'integer',
+            'free_ips'                => 'integer',
+            'usage_percentage'       => 'float',
+            'is_full'                 => 'boolean',
+            'is_available'            => 'boolean',
+            'is_reserved'             => 'boolean',
+            'is_tracked'              => 'boolean',
+            'synced_at'               => 'datetime',
+            'reserved_by_customer_id' => 'integer',
         ];
     }
 

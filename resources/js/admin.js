@@ -2228,7 +2228,46 @@ export function adminPanel({ page }) {
                 return;
             }
 
-            // master-lokasi, master-olt, and all generic pages use config+buildCurrentParams
+            // master-lokasi and master-olt use buildCurrentParams + router_id from filters (same as network tab)
+            if (this.page === 'master-lokasi' || this.page === 'master-olt') {
+                this.loading = true;
+                this.items = [];
+                try {
+                    const config = this.currentConfig();
+                    const params = this.buildCurrentParams(config);
+                    const response = await api.get(config.endpoint, params);
+                    const rows = Array.isArray(response.data) ? response.data : [];
+
+                    this.items = rows.map((row) => ({
+                        id: row.id ?? row[config.idKey ?? 'id'],
+                        ...row,
+                    }));
+                    this.pagination = response.meta?.pagination ?? {
+                        current_page: 1,
+                        last_page: 1,
+                        per_page: this.items.length,
+                        total: this.items.length,
+                        from: this.items.length > 0 ? 1 : 0,
+                        to: this.items.length,
+                    };
+                    // Sync to master state objects used by Blade (form + list)
+                    if (this.page === 'master-lokasi') {
+                        this.masterLokasi.items = this.items;
+                        this.masterLokasi.pagination = this.pagination;
+                    } else {
+                        this.masterOlt.items = this.items;
+                        this.masterOlt.pagination = this.pagination;
+                    }
+                } catch (error) {
+                    this.items = [];
+                    this.toast('error', 'Gagal memuat data', error.message);
+                } finally {
+                    this.loading = false;
+                }
+                return;
+            }
+
+            // All other pages use generic config+buildCurrentParams
             const config = this.currentConfig();
 
             if (config.placeholder) {
@@ -2567,8 +2606,12 @@ export function adminPanel({ page }) {
         },
 
         buildCurrentParams(config) {
-            // Use router_id from filters which is synced from routerSwitcher
             const params = { ...this.filters };
+
+            // Ensure router_id is sent as integer (not string) for validation
+            if (params.router_id !== null && params.router_id !== undefined) {
+                params.router_id = Number(params.router_id);
+            }
 
             // Clean up undefined/null values
             if (!params.search) delete params.search;

@@ -47,9 +47,9 @@ class OntController extends Controller
             )
             ->orderByDesc('last_inform_at')
             ->orderByDesc('last_seen_at')
-            ->orderBy('ont_sn')
-            ->paginate($perPage)
-            ->withQueryString();
+            ->orderBy('ont_sn');
+
+        $onts = $onts->paginate($perPage)->withQueryString();
 
         return $this->paginatedResponse(
             $onts,
@@ -118,9 +118,9 @@ class OntController extends Controller
             ->whereNotNull('last_seen_at')
             ->where('last_seen_at', '>=', $threshold)
             ->orderByDesc('last_seen_at')
-            ->orderBy('ont_sn')
-            ->paginate($perPage)
-            ->withQueryString();
+            ->orderBy('ont_sn');
+
+        $onts = $onts->paginate($perPage)->withQueryString();
 
         return $this->paginatedResponse(
             $onts,
@@ -161,9 +161,9 @@ class OntController extends Controller
                     ->orWhere('last_seen_at', '<', $threshold);
             })
             ->orderByDesc('last_seen_at')
-            ->orderBy('ont_sn')
-            ->paginate($perPage)
-            ->withQueryString();
+            ->orderBy('ont_sn');
+
+        $onts = $onts->paginate($perPage)->withQueryString();
 
         return $this->paginatedResponse(
             $onts,

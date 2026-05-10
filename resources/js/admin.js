@@ -1115,6 +1115,7 @@ function createMasterLokasiState() {
                 const params = { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page };
                 const rawRouterId = routerId ?? this.$root?.routerSwitcher?.active_router_id ?? null;
                 const activeRouterId = rawRouterId && rawRouterId !== '' ? String(rawRouterId) : null;
+                console.log('[masterLokasi.loadData] routerId param:', routerId, 'rawRouterId:', rawRouterId, 'activeRouterId:', activeRouterId);
                 if (activeRouterId) params.router_id = activeRouterId;
                 const res = await api.get('/api/v1/admin/network-locations', { params });
                 this.items = res.data ?? [];
@@ -2199,6 +2200,7 @@ export function adminPanel({ page }) {
             const activeRouterId = this.routerSwitcher.active_router_id && this.routerSwitcher.active_router_id !== ''
                 ? this.routerSwitcher.active_router_id
                 : null;
+            console.log('[loadPage] page:', this.page, 'activeRouterId:', activeRouterId, 'routerSwitcher:', this.routerSwitcher);
 
             if (this.page === 'master-lokasi') {
                 await this.masterLokasi.loadData(activeRouterId);

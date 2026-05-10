@@ -2166,6 +2166,7 @@ export function adminPanel({ page }) {
             this.references.locations = this.references.network_locations;
 
             if (this.user?.role === 'superadmin' && this.references.routers.length > 0 && !this.routerSwitcher.enabled) {
+                // Hanya set routerSwitcher jika belum di-set oleh loadDashboard()
                 this.routerSwitcher = {
                     enabled: true,
                     active_router_id: this.user.dashboard_active_router_id ?? '',
@@ -2174,6 +2175,12 @@ export function adminPanel({ page }) {
                         ...this.references.routers,
                     ],
                 };
+            } else if (this.routerSwitcher.enabled && this.routerSwitcher.available_routers.length === 0) {
+                // Jika routerSwitcher sudah enabled tapi available_routers belum terisi, isi sekarang
+                this.routerSwitcher.available_routers = [
+                    { id: null, router_code: 'ALL', router_name: 'Semua Router', is_active: true },
+                    ...this.references.routers,
+                ];
             }
         },
 

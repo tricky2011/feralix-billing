@@ -1111,13 +1111,13 @@ function createMasterLokasiState() {
                 if (this.editId) { await api.patch(`/api/v1/admin/network-locations/${this.editId}`, payload); toast('success', 'Berhasil', 'Lokasi diperbarui'); }
                 else { await api.post('/api/v1/admin/network-locations', payload); toast('success', 'Berhasil', 'Lokasi ditambahkan'); }
                 this.cancelEdit();
-                await this.loadData();
+                await this.loadData(this.filters.router_id);
             } catch (e) { toast('error', 'Gagal', e?.response?.data?.message ?? e.message); } finally { this.saving = false; }
         },
 
         editItem(item) { this.editId = item.id; this.form = { name: item.location_name ?? item.name ?? '', code: item.location_code ?? item.code ?? '', latitude: item.latitude ?? '', longitude: item.longitude ?? '', description: item.description ?? '', is_active: item.status === 'active' }; },
 
-        async deleteItem(item) { if (!confirm(`Hapus "${item.location_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/network-locations/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(); },
+        async deleteItem(item) { if (!confirm(`Hapus "${item.location_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/network-locations/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(this.filters.router_id); },
 
         cancelEdit() { this.editId = null; this.form = { name: '', code: '', latitude: '', longitude: '', description: '', is_active: true }; },
 
@@ -1154,7 +1154,7 @@ function createMasterOltState() {
                 if (this.editId) { await api.patch(`/api/v1/admin/olts/${this.editId}`, payload); toast('success', 'Berhasil', 'OLT diperbarui'); }
                 else { await api.post('/api/v1/admin/olts', payload); toast('success', 'Berhasil', 'OLT ditambahkan'); }
                 this.cancelEdit();
-                await this.loadData();
+                await this.loadData(this.filters.router_id);
             } catch (e) { toast('error', 'Gagal', e?.response?.data?.message ?? e.message); } finally { this.saving = false; }
         },
 

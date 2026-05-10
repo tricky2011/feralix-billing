@@ -2701,6 +2701,8 @@ export function adminPanel({ page }) {
 
                 // Sync router_id to all router-scoped modules
                 this.applyRouterScopeToModules(routerId);
+                // Reload references with new router scope
+                await this.loadReferences();
 
                 // Reload the current page with new router scope
                 await this.loadPage();

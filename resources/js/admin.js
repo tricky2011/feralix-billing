@@ -1111,6 +1111,7 @@ function createMasterLokasiState() {
 
         async loadData(routerId = null) {
             this.loading = true;
+            this.items = []; // Clear old items before new fetch
             try {
                 const params = { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page };
                 const rawRouterId = routerId ?? this.$root?.routerSwitcher?.active_router_id ?? null;
@@ -1157,6 +1158,7 @@ function createMasterOltState() {
 
         async loadData(routerId = null) {
             this.loading = true;
+            this.items = []; // Clear old items before new fetch
             try {
                 const params = { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page };
                 const rawRouterId = routerId ?? this.$root?.routerSwitcher?.active_router_id ?? null;

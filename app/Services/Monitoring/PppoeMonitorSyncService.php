@@ -3,12 +3,14 @@
 namespace App\Services\Monitoring;
 
 use App\Contracts\Mikrotik\MikrotikApiClientFactory;
+use App\Contracts\Mikrotik\RouterOsCommandAdapter;
 use App\Enums\MonitorPppoeStatus;
 use App\Enums\ServiceOverallStatus;
 use App\Models\Router;
 use App\Models\Service;
 use App\Models\ServiceMonitorPppoeLog;
 use App\Models\ServiceMonitorPppoeStatus;
+use App\Services\Mikrotik\RouterOsCommandAdapterResolver;
 use App\Services\Provisioning\ServiceOverallStateManager;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +20,7 @@ class PppoeMonitorSyncService
     public function __construct(
         private readonly MikrotikApiClientFactory $clientFactory,
         private readonly ServiceOverallStateManager $overallStateManager,
+        private readonly RouterOsCommandAdapterResolver $commandAdapter,
     ) {}
 
     public function syncRouter(Router $router, int $chunkSize = 200): array
@@ -95,17 +98,13 @@ class PppoeMonitorSyncService
     private function fetchActiveSessionsByUsername(Router $router): array
     {
         $client = $this->clientFactory->forRouter($router);
+        $adapter = $this->commandAdapter->resolve($router);
 
         try {
-            $records = $client->print('/ppp/active', [
-                '.id',
-                'name',
-                'service',
-                'caller-id',
-                'address',
-                'uptime',
-                'session-id',
-            ]);
+            $records = $client->print(
+                $adapter->pppoeActivePath(),
+                $adapter->pppoeActiveProperties(),
+            );
         } finally {
             $client->disconnect();
         }

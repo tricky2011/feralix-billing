@@ -5,6 +5,7 @@ namespace App\Services\Finance;
 use App\Models\Cashflow;
 use App\Models\CashflowCategory;
 use App\Models\Payment;
+use App\Services\Access\RoleRouterScopeService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -13,6 +14,10 @@ use Illuminate\Validation\ValidationException;
 
 class CashflowService
 {
+    public function __construct(
+        private readonly RoleRouterScopeService $routerScope,
+    ) {}
+
     public function paginate(array $filters): LengthAwarePaginator
     {
         $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 100));
@@ -24,6 +29,7 @@ class CashflowService
                 'reference',
             ]);
 
+        $this->routerScope->applyRouterScope($query, 'router_id');
         $this->applyFilters($query, $filters);
 
         return $query
@@ -114,6 +120,7 @@ class CashflowService
     public function summary(array $filters = []): array
     {
         $query = Cashflow::query();
+        $this->routerScope->applyRouterScope($query, 'router_id');
         $this->applyFilters($query, $filters, includeTypeFilter: false);
 
         $totalIncome = (float) (clone $query)->where('type', 'income')->sum('amount');
@@ -145,6 +152,7 @@ class CashflowService
             'amount' => $data['amount'],
             'category_id' => $data['category_id'] ?? null,
             'description' => $data['description'] ?? null,
+            'router_id' => $data['router_id'] ?? null,
             'source' => 'manual',
             'created_by' => $data['created_by'] ?? null,
         ]);
@@ -203,6 +211,7 @@ class CashflowService
         }
 
         $query = Cashflow::query();
+        $this->routerScope->applyRouterScope($query, 'router_id');
         $this->applyFilters($query, $filters, includeTypeFilter: false);
 
         $rawRows = $query

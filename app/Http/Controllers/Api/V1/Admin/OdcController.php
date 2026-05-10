@@ -8,13 +8,17 @@ use App\Http\Requests\Odc\StoreOdcRequest;
 use App\Http\Requests\Odc\UpdateOdcRequest;
 use App\Http\Resources\OdcResource;
 use App\Models\Odc;
+use App\Services\Access\RoleRouterScopeService;
 use App\Services\Audit\ActivityLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class OdcController extends Controller
 {
-    public function __construct(private readonly ActivityLogger $activityLogger) {}
+    public function __construct(
+        private readonly ActivityLogger $activityLogger,
+        private readonly RoleRouterScopeService $routerScope,
+    ) {}
 
     public function index(IndexOdcRequest $request): JsonResponse
     {
@@ -24,7 +28,11 @@ class OdcController extends Controller
         $odcs = Odc::query()
             ->with('location:id,name,code,status')
             ->withCount('odps')
-            ->search($filters['search'] ?? null)
+            ->search($filters['search'] ?? null);
+
+        $this->routerScope->applyNetworkLocationScopeViaOlt($odcs);
+
+        $odcs
             ->when(
                 $filters['status'] ?? null,
                 fn ($query, $status) => $query->where('status', $status)

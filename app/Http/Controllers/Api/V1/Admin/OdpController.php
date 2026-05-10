@@ -8,13 +8,17 @@ use App\Http\Requests\Odp\StoreOdpRequest;
 use App\Http\Requests\Odp\UpdateOdpRequest;
 use App\Http\Resources\OdpResource;
 use App\Models\Odp;
+use App\Services\Access\RoleRouterScopeService;
 use App\Services\Audit\ActivityLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class OdpController extends Controller
 {
-    public function __construct(private readonly ActivityLogger $activityLogger) {}
+    public function __construct(
+        private readonly ActivityLogger $activityLogger,
+        private readonly RoleRouterScopeService $routerScope,
+    ) {}
 
     public function index(IndexOdpRequest $request): JsonResponse
     {
@@ -27,7 +31,11 @@ class OdpController extends Controller
                 'odc:id,name,code,status',
                 'olt:id,name,code,olt_name,olt_code,status',
             ])
-            ->search($filters['search'] ?? null)
+            ->search($filters['search'] ?? null);
+
+        $this->routerScope->applyOltScope($odps, 'router_id');
+
+        $odps
             ->when(
                 $filters['status'] ?? null,
                 fn ($query, $status) => $query->where('status', $status)

@@ -147,6 +147,45 @@ class RoleRouterScopeService
         });
     }
 
+    public function applyOltScope(
+        Builder $query,
+        string $qualifiedColumn = 'router_id',
+        ?Authenticatable $candidate = null,
+    ): Builder {
+        $routerIds = $this->visibleRouterIds($candidate);
+
+        if ($routerIds === null) {
+            return $query;
+        }
+
+        if ($routerIds === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('olt', function (Builder $oltQuery) use ($qualifiedColumn, $routerIds): void {
+            $oltQuery->whereIn($qualifiedColumn, $routerIds);
+        });
+    }
+
+    public function applyNetworkLocationScopeViaOlt(
+        Builder $query,
+        ?Authenticatable $candidate = null,
+    ): Builder {
+        $routerIds = $this->visibleRouterIds($candidate);
+
+        if ($routerIds === null) {
+            return $query;
+        }
+
+        if ($routerIds === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereHas('olts', function (Builder $oltQuery) use ($routerIds): void {
+            $oltQuery->whereIn('router_id', $routerIds);
+        });
+    }
+
     public function ensureRouterAccessible(
         ?int $routerId,
         string $key = 'router_id',

@@ -10,6 +10,7 @@ use App\Http\Resources\OltResource;
 use App\Models\NetworkLocation;
 use App\Models\Olt;
 use App\Models\PonPort;
+use App\Services\Access\RoleRouterScopeService;
 use App\Services\Audit\ActivityLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,10 @@ use Illuminate\Support\Str;
 
 class OltController extends Controller
 {
-    public function __construct(private readonly ActivityLogger $activityLogger) {}
+    public function __construct(
+        private readonly ActivityLogger $activityLogger,
+        private readonly RoleRouterScopeService $routerScope,
+    ) {}
 
     public function index(IndexOltRequest $request): JsonResponse
     {
@@ -30,7 +34,11 @@ class OltController extends Controller
                 'networkLocation:id,name,code,status',
             ])
             ->withCount(['onts', 'odps'])
-            ->search($filters['search'] ?? null)
+            ->search($filters['search'] ?? null);
+
+        $this->routerScope->applyRouterScope($olts, 'router_id');
+
+        $olts
             ->when(
                 $filters['location_id'] ?? null,
                 fn ($query, $locationId) => $query->where('network_location_id', $locationId)

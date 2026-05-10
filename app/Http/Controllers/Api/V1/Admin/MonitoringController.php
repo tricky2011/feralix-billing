@@ -5,11 +5,16 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\MonitoringPppoeResource;
 use App\Models\ServiceMonitorPppoeStatus;
+use App\Services\Access\RoleRouterScopeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class MonitoringController extends Controller
 {
+    public function __construct(
+        private readonly RoleRouterScopeService $routerScope,
+    ) {}
+
     public function pppoe(Request $request): JsonResponse
     {
         $filters = $request->validate([
@@ -26,7 +31,11 @@ class MonitoringController extends Controller
                 'service:id,service_code,customer_id',
                 'service.customer:id,full_name',
                 'router:id,router_code,router_name',
-            ])
+            ]);
+
+        $this->routerScope->applyRouterScope($query, 'router_id');
+
+        $query
             ->when(
                 $filters['search'] ?? null,
                 fn ($q, $search) => $q->where(function ($inner) use ($search): void {
@@ -41,7 +50,9 @@ class MonitoringController extends Controller
             ->orderByRaw("CASE WHEN status = 'online' THEN 0 ELSE 1 END")
             ->orderByDesc('last_seen_at');
 
-        $summaryBase = ServiceMonitorPppoeStatus::query()
+        $summaryBase = ServiceMonitorPppoeStatus::query();
+        $this->routerScope->applyRouterScope($summaryBase, 'router_id');
+        $summaryBase
             ->when($filters['router_id'] ?? null, fn ($q, $routerId) => $q->where('router_id', $routerId));
 
         $onlineCount = (clone $summaryBase)->where('status', 'online')->count();

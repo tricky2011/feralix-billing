@@ -8,11 +8,16 @@ use App\Http\Requests\Ont\StoreOntRequest;
 use App\Http\Requests\Ont\UpdateOntRequest;
 use App\Http\Resources\OntResource;
 use App\Models\Ont;
+use App\Services\Access\RoleRouterScopeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class OntController extends Controller
 {
+    public function __construct(
+        private readonly RoleRouterScopeService $routerScope,
+    ) {}
+
     public function index(IndexOntRequest $request)
     {
         $filters = $request->validated();
@@ -20,7 +25,11 @@ class OntController extends Controller
 
         $onts = Ont::query()
             ->with('olt:id,olt_code,olt_name')
-            ->search($filters['search'] ?? null)
+            ->search($filters['search'] ?? null);
+
+        $this->routerScope->applyOltScope($onts, 'router_id');
+
+        $onts
             ->when(
                 $filters['olt_id'] ?? null,
                 fn ($query, $oltId) => $query->where('olt_id', $oltId)
@@ -99,7 +108,11 @@ class OntController extends Controller
 
         $onts = Ont::query()
             ->with('olt:id,olt_code,olt_name')
-            ->search($filters['search'] ?? null)
+            ->search($filters['search'] ?? null);
+
+        $this->routerScope->applyOltScope($onts, 'router_id');
+
+        $onts
             ->when($filters['olt_id'] ?? null, fn ($q, $oltId) => $q->where('olt_id', $oltId))
             ->when($filters['router_id'] ?? null, fn ($q, $routerId) => $q->whereHas('olt', fn ($q) => $q->where('router_id', $routerId)))
             ->whereNotNull('last_seen_at')
@@ -135,7 +148,11 @@ class OntController extends Controller
 
         $onts = Ont::query()
             ->with('olt:id,olt_code,olt_name')
-            ->search($filters['search'] ?? null)
+            ->search($filters['search'] ?? null);
+
+        $this->routerScope->applyOltScope($onts, 'router_id');
+
+        $onts
             ->when($filters['olt_id'] ?? null, fn ($q, $oltId) => $q->where('olt_id', $oltId))
             ->when($filters['router_id'] ?? null, fn ($q, $routerId) => $q->whereHas('olt', fn ($q) => $q->where('router_id', $routerId)))
             ->where(function ($query) use ($threshold): void {

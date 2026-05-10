@@ -20,6 +20,7 @@ class IndexCashflowRequest extends AdminPanelRequest
         return [
             'type' => ['nullable', Rule::in(['income', 'expense'])],
             'category_id' => ['nullable', 'integer', 'exists:cashflow_categories,id'],
+            'router_id' => ['nullable', 'integer', 'exists:routers,id'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
             'search' => ['nullable', 'string', 'max:100'],

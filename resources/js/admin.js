@@ -1093,10 +1093,12 @@ function createMasterLokasiState() {
         filters: { search: '', page: 1, per_page: 15 },
         form: { name: '', code: '', latitude: '', longitude: '', description: '', is_active: true },
 
-        async loadData() {
+        async loadData(routerId = null) {
             this.loading = true;
             try {
-                const res = await api.get('/api/v1/admin/network-locations', { params: { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page } });
+                const params = { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page };
+                if (routerId) params.router_id = routerId;
+                const res = await api.get('/api/v1/admin/network-locations', { params });
                 this.items = res.data ?? [];
                 this.pagination = res.meta?.pagination ?? {};
             } finally { this.loading = false; }
@@ -1134,10 +1136,12 @@ function createMasterOltState() {
         items: [], loading: false, saving: false, editId: null, pagination: {}, filters: { search: '', page: 1, per_page: 15 },
         form: { name: '', code: '', host: '', pon_ports: 4, max_per_pon: 100, description: '', is_active: true, network_location_id: '', router_id: '' },
 
-        async loadData() {
+        async loadData(routerId = null) {
             this.loading = true;
             try {
-                const res = await api.get('/api/v1/admin/olts', { params: { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page } });
+                const params = { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page };
+                if (routerId) params.router_id = routerId;
+                const res = await api.get('/api/v1/admin/olts', { params });
                 this.items = res.data ?? [];
                 this.pagination = res.meta?.pagination ?? {};
             } finally { this.loading = false; }
@@ -1191,7 +1195,7 @@ export function adminPanel({ page }) {
         dashboard: null,
         items: [],
         pagination: {},
-        filters: { search: '', page: 1, per_page: 15 },
+        filters: { search: '', page: 1, per_page: 15, router_id: null },
         fiberMap: {
             summary: {
                 locations: 0,
@@ -1395,9 +1399,9 @@ export function adminPanel({ page }) {
             // Listen for toast events from standalone pages
             window.addEventListener('show-toast', (e) => this.toast(e.detail.type, e.detail.title, e.detail.message));
 
-            // Load master pages data when navigating to them
-            if (this.page === 'master-lokasi') this.masterLokasi.loadData();
-            if (this.page === 'master-olt') this.masterOlt.loadData();
+            // Load master pages data when navigating to them (pass router_id for filtering)
+            if (this.page === 'master-lokasi') this.masterLokasi.loadData(this.filters.router_id);
+            if (this.page === 'master-olt') this.masterOlt.loadData(this.filters.router_id);
 
             this.loadSidebarState();
             this.applyTheme();
@@ -2157,12 +2161,12 @@ export function adminPanel({ page }) {
 
         async loadPage() {
             if (this.page === 'master-lokasi') {
-                await this.masterLokasi.loadData();
+                await this.masterLokasi.loadData(this.filters.router_id);
                 return;
             }
 
             if (this.page === 'master-olt') {
-                await this.masterOlt.loadData();
+                await this.masterOlt.loadData(this.filters.router_id);
                 return;
             }
 
@@ -2534,12 +2538,11 @@ export function adminPanel({ page }) {
         },
 
         buildCurrentParams(config) {
+            // Use router_id from filters which is synced from routerSwitcher
             const params = { ...this.filters };
 
-            // Add router_id from routerSwitcher to all API calls if enabled
-            if (this.routerSwitcher.enabled && this.routerSwitcher.active_router_id) {
-                params.router_id = this.routerSwitcher.active_router_id;
-            }
+            // Clean up undefined/null values
+            if (!params.search) delete params.search;
 
             if (this.isCashflowPage()) {
                 params.type = this.cashflow.filters.type;
@@ -2639,6 +2642,11 @@ export function adminPanel({ page }) {
                         available_routers: switcher.available_routers ?? [],
                     };
                 }
+
+                // Sync router_id to filters if enabled
+                if (this.routerSwitcher.enabled && this.routerSwitcher.active_router_id) {
+                    this.filters.router_id = this.routerSwitcher.active_router_id;
+                }
             } catch (error) {
                 this.toast('error', 'Dashboard gagal dimuat', error.message);
             } finally {
@@ -2708,7 +2716,10 @@ export function adminPanel({ page }) {
          * Called after switchRouter to ensure all module filters use the selected router.
          */
         applyRouterScopeToModules(routerId) {
-            const routerIdStr = routerId ? String(routerId) : '';
+            const routerIdStr = routerId ? String(routerId) : null;
+
+            // Global filter router_id for all pages using this.filters
+            this.filters.router_id = routerIdStr;
 
             // IP Pools
             if (routerId) {

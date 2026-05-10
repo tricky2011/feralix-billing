@@ -26,6 +26,7 @@ class IndexOdcRequest extends FormRequest
             'search' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', 'in:active,inactive'],
             'location_id' => ['nullable', 'integer', 'exists:network_locations,id'],
+            'router_id' => ['nullable', 'integer', 'exists:routers,id'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:500'],
         ];
     }

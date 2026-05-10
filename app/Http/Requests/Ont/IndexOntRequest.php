@@ -24,6 +24,7 @@ class IndexOntRequest extends FormRequest
         return [
             'search' => ['nullable', 'string', 'max:100'],
             'olt_id' => ['nullable', 'integer', 'exists:olts,id'],
+            'router_id' => ['nullable', 'integer', 'exists:routers,id'],
             'status' => ['nullable', 'string', 'max:30'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ];

@@ -30,6 +30,7 @@ class IndexOdpRequest extends FormRequest
             'location_id' => ['nullable', 'integer', 'exists:network_locations,id'],
             'odc_id' => ['nullable', 'integer', 'exists:odcs,id'],
             'olt_id' => ['nullable', 'integer', 'exists:olts,id'],
+            'router_id' => ['nullable', 'integer', 'exists:routers,id'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ];
     }

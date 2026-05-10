@@ -23,6 +23,7 @@ class IndexNetworkLocationRequest extends FormRequest
     {
         return [
             'search' => ['nullable', 'string', 'max:100'],
+            'router_id' => ['nullable', 'integer', 'exists:routers,id'],
             'status' => ['nullable', 'in:active,inactive'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:500'],
         ];

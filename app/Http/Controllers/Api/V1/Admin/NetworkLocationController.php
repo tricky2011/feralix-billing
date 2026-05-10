@@ -28,6 +28,13 @@ class NetworkLocationController extends Controller
                 $filters['status'] ?? null,
                 fn ($query, $status) => $query->where('status', $status)
             )
+            ->when(
+                $filters['router_id'] ?? null,
+                fn ($query, $routerId) => $query->whereHas(
+                    'olts',
+                    fn ($oltQuery) => $oltQuery->where('router_id', (int) $routerId)
+                )
+            )
             ->orderBy('name')
             ->paginate($perPage)
             ->withQueryString();

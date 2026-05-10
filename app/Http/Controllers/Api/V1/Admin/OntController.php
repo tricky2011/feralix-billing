@@ -29,6 +29,13 @@ class OntController extends Controller
                 $filters['status'] ?? null,
                 fn ($query, $status) => $query->where('status', $status)
             )
+            ->when(
+                $filters['router_id'] ?? null,
+                fn ($query, $routerId) => $query->whereHas(
+                    'olt',
+                    fn ($q) => $q->where('router_id', (int) $routerId)
+                )
+            )
             ->orderByDesc('last_inform_at')
             ->orderByDesc('last_seen_at')
             ->orderBy('ont_sn')
@@ -83,6 +90,7 @@ class OntController extends Controller
         $filters = $request->validate([
             'search' => 'nullable|string|max:100',
             'olt_id' => 'nullable|integer|exists:olts,id',
+            'router_id' => 'nullable|integer|exists:routers,id',
             'per_page' => 'nullable|integer|min:1|max:100',
         ]);
 
@@ -93,6 +101,7 @@ class OntController extends Controller
             ->with('olt:id,olt_code,olt_name')
             ->search($filters['search'] ?? null)
             ->when($filters['olt_id'] ?? null, fn ($q, $oltId) => $q->where('olt_id', $oltId))
+            ->when($filters['router_id'] ?? null, fn ($q, $routerId) => $q->whereHas('olt', fn ($q) => $q->where('router_id', $routerId)))
             ->whereNotNull('last_seen_at')
             ->where('last_seen_at', '>=', $threshold)
             ->orderByDesc('last_seen_at')
@@ -117,6 +126,7 @@ class OntController extends Controller
         $filters = $request->validate([
             'search' => 'nullable|string|max:100',
             'olt_id' => 'nullable|integer|exists:olts,id',
+            'router_id' => 'nullable|integer|exists:routers,id',
             'per_page' => 'nullable|integer|min:1|max:100',
         ]);
 
@@ -127,6 +137,7 @@ class OntController extends Controller
             ->with('olt:id,olt_code,olt_name')
             ->search($filters['search'] ?? null)
             ->when($filters['olt_id'] ?? null, fn ($q, $oltId) => $q->where('olt_id', $oltId))
+            ->when($filters['router_id'] ?? null, fn ($q, $routerId) => $q->whereHas('olt', fn ($q) => $q->where('router_id', $routerId)))
             ->where(function ($query) use ($threshold): void {
                 $query
                     ->whereNull('last_seen_at')

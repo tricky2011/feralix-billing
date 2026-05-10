@@ -182,6 +182,10 @@ class CashflowService
             $search = $filters['search'];
             $query->where('description', 'like', "%{$search}%");
         }
+
+        if (($filters['router_id'] ?? null) !== null) {
+            $query->where('router_id', (int) $filters['router_id']);
+        }
     }
 
     private function monthlySummary(array $filters): array

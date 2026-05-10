@@ -36,6 +36,10 @@ class OltController extends Controller
                 fn ($query, $locationId) => $query->where('network_location_id', $locationId)
             )
             ->when(
+                $filters['router_id'] ?? null,
+                fn ($query, $routerId) => $query->where('router_id', (int) $routerId)
+            )
+            ->when(
                 $filters['status'] ?? null,
                 function ($query, $status): void {
                     $query->where(function ($statusQuery) use ($status): void {

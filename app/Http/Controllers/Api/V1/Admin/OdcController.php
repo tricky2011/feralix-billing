@@ -33,6 +33,13 @@ class OdcController extends Controller
                 $filters['location_id'] ?? null,
                 fn ($query, $locationId) => $query->where('location_id', $locationId)
             )
+            ->when(
+                $filters['router_id'] ?? null,
+                fn ($query, $routerId) => $query->whereHas(
+                    'location.olts',
+                    fn ($q) => $q->where('router_id', (int) $routerId)
+                )
+            )
             ->orderBy('name')
             ->paginate($perPage)
             ->withQueryString();

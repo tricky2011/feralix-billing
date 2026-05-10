@@ -38,6 +38,7 @@ class IndexOltRequest extends FormRequest
         return [
             'search' => ['nullable', 'string', 'max:100'],
             'location_id' => ['nullable', 'integer', 'exists:network_locations,id'],
+            'router_id' => ['nullable', 'integer', 'exists:routers,id'],
             'status' => ['nullable', 'in:active,inactive'],
             'is_active' => ['nullable', 'boolean'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:500'],

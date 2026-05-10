@@ -26,6 +26,7 @@ class IndexTicketRequest extends AdminPanelRequest
             'search' => ['nullable', 'string', 'max:100'],
             'customer_id' => ['nullable', 'integer', 'exists:customers,id'],
             'service_id' => ['nullable', 'integer', 'exists:services,id'],
+            'router_id' => ['nullable', 'integer', 'exists:routers,id'],
             'assigned_technician_id' => ['nullable', 'integer', 'exists:technicians,id'],
             'status' => ['nullable', Rule::enum(TicketStatus::class)],
             'priority' => ['nullable', Rule::enum(TicketPriority::class)],

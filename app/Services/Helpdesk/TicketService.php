@@ -65,6 +65,13 @@ class TicketService
             ->when(
                 $filters['assignment_mode'] ?? null,
                 fn (Builder $builder, $assignmentMode) => $builder->where('assignment_mode', $assignmentMode)
+            )
+            ->when(
+                $filters['router_id'] ?? null,
+                fn (Builder $builder, $routerId) => $builder->whereHas(
+                    'service',
+                    fn (Builder $serviceQuery) => $serviceQuery->where('router_id', $routerId)
+                )
             );
 
         $this->roleRouterScopeService->applyServiceRouterScope($query, 'service', 'router_id', 'service_id');

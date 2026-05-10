@@ -44,6 +44,13 @@ class OdpController extends Controller
                 $filters['olt_id'] ?? null,
                 fn ($query, $oltId) => $query->where('olt_id', $oltId)
             )
+            ->when(
+                $filters['router_id'] ?? null,
+                fn ($query, $routerId) => $query->whereHas(
+                    'olt',
+                    fn ($q) => $q->where('router_id', (int) $routerId)
+                )
+            )
             ->orderBy('name')
             ->paginate($perPage)
             ->withQueryString();

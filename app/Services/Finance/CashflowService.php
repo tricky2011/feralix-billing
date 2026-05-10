@@ -14,10 +14,6 @@ use Illuminate\Validation\ValidationException;
 
 class CashflowService
 {
-    public function __construct(
-        private readonly RoleRouterScopeService $routerScope,
-    ) {}
-
     public function paginate(array $filters): LengthAwarePaginator
     {
         $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 100));
@@ -29,7 +25,6 @@ class CashflowService
                 'reference',
             ]);
 
-        $this->routerScope->applyRouterScope($query, 'router_id');
         $this->applyFilters($query, $filters);
 
         return $query
@@ -120,7 +115,6 @@ class CashflowService
     public function summary(array $filters = []): array
     {
         $query = Cashflow::query();
-        $this->routerScope->applyRouterScope($query, 'router_id');
         $this->applyFilters($query, $filters, includeTypeFilter: false);
 
         $totalIncome = (float) (clone $query)->where('type', 'income')->sum('amount');
@@ -190,10 +184,6 @@ class CashflowService
             $search = $filters['search'];
             $query->where('description', 'like', "%{$search}%");
         }
-
-        if (($filters['router_id'] ?? null) !== null) {
-            $query->where('router_id', (int) $filters['router_id']);
-        }
     }
 
     private function monthlySummary(array $filters): array
@@ -211,7 +201,6 @@ class CashflowService
         }
 
         $query = Cashflow::query();
-        $this->routerScope->applyRouterScope($query, 'router_id');
         $this->applyFilters($query, $filters, includeTypeFilter: false);
 
         $rawRows = $query

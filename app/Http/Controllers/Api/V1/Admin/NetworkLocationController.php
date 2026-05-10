@@ -35,9 +35,9 @@ class NetworkLocationController extends Controller
                     fn ($oltQuery) => $oltQuery->where('router_id', (int) $routerId)
                 )
             )
-            ->orderBy('name')
-            ->paginate($perPage)
-            ->withQueryString();
+            ->orderBy('name');
+
+        $locations = $locations->paginate($perPage)->withQueryString();
 
         return $this->paginatedResponse(
             $locations,

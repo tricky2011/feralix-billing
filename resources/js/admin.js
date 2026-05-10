@@ -1113,7 +1113,8 @@ function createMasterLokasiState() {
             this.loading = true;
             try {
                 const params = { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page };
-                const activeRouterId = routerId ?? this.$root?.routerSwitcher?.active_router_id ?? null;
+                const rawRouterId = routerId ?? this.$root?.routerSwitcher?.active_router_id ?? null;
+                const activeRouterId = rawRouterId && rawRouterId !== '' ? String(rawRouterId) : null;
                 if (activeRouterId) params.router_id = activeRouterId;
                 const res = await api.get('/api/v1/admin/network-locations', { params });
                 this.items = res.data ?? [];
@@ -1157,7 +1158,8 @@ function createMasterOltState() {
             this.loading = true;
             try {
                 const params = { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page };
-                const activeRouterId = routerId ?? this.$root?.routerSwitcher?.active_router_id ?? null;
+                const rawRouterId = routerId ?? this.$root?.routerSwitcher?.active_router_id ?? null;
+                const activeRouterId = rawRouterId && rawRouterId !== '' ? String(rawRouterId) : null;
                 if (activeRouterId) params.router_id = activeRouterId;
                 const res = await api.get('/api/v1/admin/olts', { params });
                 this.items = res.data ?? [];
@@ -2193,13 +2195,18 @@ export function adminPanel({ page }) {
         },
 
         async loadPage() {
+            // Get active router directly from routerSwitcher (single source of truth)
+            const activeRouterId = this.routerSwitcher.active_router_id && this.routerSwitcher.active_router_id !== ''
+                ? this.routerSwitcher.active_router_id
+                : null;
+
             if (this.page === 'master-lokasi') {
-                await this.masterLokasi.loadData(this.filters.router_id);
+                await this.masterLokasi.loadData(activeRouterId);
                 return;
             }
 
             if (this.page === 'master-olt') {
-                await this.masterOlt.loadData(this.filters.router_id);
+                await this.masterOlt.loadData(activeRouterId);
                 return;
             }
 

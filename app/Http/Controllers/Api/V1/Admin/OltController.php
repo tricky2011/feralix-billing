@@ -67,9 +67,9 @@ class OltController extends Controller
                     });
                 }
             )
-            ->orderByRaw('COALESCE(name, olt_name) asc')
-            ->paginate($perPage)
-            ->withQueryString();
+            ->orderByRaw('COALESCE(name, olt_name) asc');
+
+        $olts = $olts->paginate($perPage)->withQueryString();
 
         return $this->paginatedResponse(
             $olts,

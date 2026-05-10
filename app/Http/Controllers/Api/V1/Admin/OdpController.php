@@ -59,9 +59,9 @@ class OdpController extends Controller
                     fn ($q) => $q->where('router_id', (int) $routerId)
                 )
             )
-            ->orderBy('name')
-            ->paginate($perPage)
-            ->withQueryString();
+            ->orderBy('name');
+
+        $odps = $odps->paginate($perPage)->withQueryString();
 
         return $this->paginatedResponse(
             $odps,

@@ -2198,22 +2198,6 @@ export function adminPanel({ page }) {
         },
 
         async loadPage() {
-            // Get active router directly from routerSwitcher (single source of truth)
-            const activeRouterId = this.routerSwitcher.active_router_id && this.routerSwitcher.active_router_id !== ''
-                ? this.routerSwitcher.active_router_id
-                : null;
-            console.log('[loadPage] page:', this.page, 'activeRouterId:', activeRouterId, 'routerSwitcher:', this.routerSwitcher);
-
-            if (this.page === 'master-lokasi') {
-                await this.masterLokasi.loadData(activeRouterId);
-                return;
-            }
-
-            if (this.page === 'master-olt') {
-                await this.masterOlt.loadData(activeRouterId);
-                return;
-            }
-
             if (this.page === 'dashboard') {
                 await this.loadDashboard();
                 return;
@@ -2244,6 +2228,7 @@ export function adminPanel({ page }) {
                 return;
             }
 
+            // master-lokasi, master-olt, and all generic pages use config+buildCurrentParams
             const config = this.currentConfig();
 
             if (config.placeholder) {

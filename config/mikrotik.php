@@ -18,6 +18,12 @@ return [
         'channel' => env('MIKROTIK_LOG_CHANNEL', env('AUTOMATION_LOG_CHANNEL', env('LOG_CHANNEL', 'stack'))),
     ],
 
+    'rest_api' => [
+        'default_port' => (int) env('MIKROTIK_REST_PORT', 80),
+        'tls'          => (bool) env('MIKROTIK_REST_TLS', false),
+        'timeout'      => (int) env('MIKROTIK_REST_TIMEOUT', 30),
+    ],
+
     'isolation' => [
         'address_list_name' => env('MIKROTIK_ISOLATION_ADDRESS_LIST_NAME', 'ISOLIR_CUSTOMER'),
     ],

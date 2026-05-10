@@ -33,6 +33,9 @@ class Router extends Model
         'api_username',
         'api_password',
         'ros_version',
+        'rest_port',
+        'use_rest_api',
+        'rest_tls',
         'acs_inform_url',
         'acs_nbi_url',
         'acs_username',
@@ -51,6 +54,9 @@ class Router extends Model
             'api_password' => 'encrypted',
             'acs_password' => 'encrypted',
             'is_active' => 'boolean',
+            'rest_port' => 'integer',
+            'use_rest_api' => 'boolean',
+            'rest_tls' => 'boolean',
         ];
     }
 

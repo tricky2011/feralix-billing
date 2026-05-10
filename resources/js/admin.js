@@ -407,6 +407,8 @@ const networkTabs = {
             { key: 'name', label: 'Nama Router' },
             { key: 'host', label: 'Host' },
             { key: 'api_port', label: 'API Port' },
+            { key: 'ros_version', label: 'ROS Ver', render: (row) => row.ros_version ? `v${row.ros_version}` : '-' },
+            { key: 'use_rest_api', label: 'API', render: (row) => row.use_rest_api ? 'REST' : 'Socket' },
             { key: 'status', label: 'Status', type: 'status' },
             { key: 'has_api_password', label: 'API Password', type: 'status' },
             { key: 'has_acs_password', label: 'ACS Password', type: 'status' },
@@ -424,6 +426,20 @@ const networkTabs = {
             { name: 'api_port', label: 'API port', type: 'number', tab: 'router-connection' },
             { name: 'timeout', label: 'Timeout (detik)', type: 'number', tab: 'router-connection' },
             { name: 'use_ssl', label: 'Gunakan SSL', type: 'select', options: baseSelects.bool, tab: 'router-connection' },
+            { name: 'ros_version', label: 'ROS Version', type: 'select', options: [
+                { value: '', label: 'Auto-detect' },
+                { value: '6', label: 'RouterOS v6' },
+                { value: '7', label: 'RouterOS v7' },
+            ], tab: 'router-connection' },
+            { name: 'use_rest_api', label: 'Gunakan REST API (v7)', type: 'select', options: [
+                { value: false, label: 'Tidak (Socket API)' },
+                { value: true, label: 'Ya (REST API)' },
+            ], tab: 'router-connection' },
+            { name: 'rest_port', label: 'REST API Port', type: 'number', placeholder: '443', tab: 'router-connection' },
+            { name: 'rest_tls', label: 'REST API TLS/HTTPS', type: 'select', options: [
+                { value: false, label: 'HTTP' },
+                { value: true, label: 'HTTPS' },
+            ], tab: 'router-connection' },
             { name: 'status', label: 'Status', type: 'select', options: select(['active', 'inactive']), tab: 'router-connection' },
             { name: 'api_username', label: 'API username', tab: 'router-connection' },
             { name: 'api_password', label: 'API password', type: 'password', passwordBadgeKey: 'has_api_password', tab: 'router-connection' },
@@ -1379,6 +1395,9 @@ export function adminPanel({ page }) {
             selectedPools: [],
             showSelection: false,
             summary: null,
+            synced_at: null,
+            source: null,
+            has_tracked: false,
             utilization: null,
             vidsWithAvailability: [],
             selectedPool: null,
@@ -1433,6 +1452,9 @@ export function adminPanel({ page }) {
                     return;
                 }
 
+                // loadDashboard dulu agar routerSwitcher + filters.router_id sudah ter-set
+                // baru depois loadReferences dan loadPage
+                await this.loadDashboard();
                 await this.loadReferences();
                 await this.loadPage();
                 await this.loadSidebarBadges();
@@ -2961,6 +2983,7 @@ export function adminPanel({ page }) {
                 const config = this.currentConfig();
                 return [
                     { key: 'test-connection', label: 'Test Connection', class: 'bg-emerald-50 text-emerald-800', handler: () => this.testRouterConnection(row) },
+                    { key: 'detect-version', label: 'Detect ROS', class: 'bg-blue-50 text-blue-700', handler: () => this.detectRouterVersion(row) },
                     ...(config.deletable && !config.noDelete
                         ? [{ key: 'delete', label: 'Delete', class: 'bg-red-50 text-red-700', handler: () => this.confirmDelete(row) }]
                         : []),
@@ -3068,6 +3091,16 @@ export function adminPanel({ page }) {
                 this.toast(response.success ? 'success' : 'error', response.message, response.data?.host ?? '');
             } catch (error) {
                 this.toast('error', 'Test connection gagal', error.message);
+            }
+        },
+
+        async detectRouterVersion(row) {
+            try {
+                const res = await api.post(`/api/v1/admin/routers/${row.id}/detect-version`);
+                toast('success', 'ROS Version Detected', `${row.name ?? row.router_name}: ROS v${res.data?.ros_version ?? '?'}`);
+                await this.loadPage();
+            } catch (e) {
+                toast('error', 'Gagal', e?.response?.data?.message ?? e.message);
             }
         },
 

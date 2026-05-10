@@ -178,6 +178,35 @@ class RouterController extends Controller
         return $this->operationResponse($result);
     }
 
+    public function detectVersion(Request $request, Router $router): JsonResponse
+    {
+        $request->validate([]);
+
+        $detector = app(\App\Services\Mikrotik\RouterOsVersionDetector::class);
+        $factory  = app(\App\Contracts\Mikrotik\MikrotikApiClientFactory::class);
+
+        try {
+            $client  = $factory->forRouter($router);
+            $version = $detector->detect($router, $client);
+            $client->disconnect();
+
+            $router->update(['ros_version' => (string) $version]);
+
+            return $this->successResponse('ROS version detected.', [
+                'router_id'   => $router->id,
+                'ros_version' => $version,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to detect version.',
+                'data' => null,
+                'meta' => (object) [],
+                'error' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
     /**
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
@@ -222,6 +251,9 @@ class RouterController extends Controller
             'location_name' => array_key_exists('location_name', $payload) ? $payload['location_name'] : $router?->location_name,
             'is_active' => $status === 'active',
             'ros_version' => array_key_exists('ros_version', $payload) ? $payload['ros_version'] : $router?->ros_version,
+            'use_rest_api' => array_key_exists('use_rest_api', $payload) ? (bool) $payload['use_rest_api'] : (bool) ($router?->use_rest_api ?? false),
+            'rest_port' => array_key_exists('rest_port', $payload) ? (int) ($payload['rest_port'] ?? 443) : ($router?->rest_port ?? 443),
+            'rest_tls' => array_key_exists('rest_tls', $payload) ? (bool) $payload['rest_tls'] : (bool) ($router?->rest_tls ?? false),
         ];
 
         if (array_key_exists('api_password', $payload)) {

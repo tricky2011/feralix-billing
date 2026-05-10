@@ -109,6 +109,7 @@ Route::prefix('v1/admin')
             Route::post('routers/{router}/test-connection', [RouterController::class, 'testConnection'])->middleware('role:superadmin,admin');
             Route::post('routers/{router}/test-acs', [RouterController::class, 'testAcs'])->middleware('role:superadmin,admin');
             Route::post('routers/{router}/sync-ont', [RouterController::class, 'syncOnt'])->middleware('role:superadmin,admin');
+            Route::post('routers/{router}/detect-version', [RouterController::class, 'detectVersion'])->middleware('role:superadmin,admin');
             Route::post('router-sync/pppoe', [RouterSyncController::class, 'syncPppoe'])->middleware('role:superadmin,admin');
             Route::post('router-sync/static', [RouterSyncController::class, 'syncStatic'])->middleware('role:superadmin,admin');
             Route::post('router-sync/address-list', [RouterSyncController::class, 'syncAddressList'])->middleware('role:superadmin,admin');

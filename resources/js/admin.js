@@ -1116,7 +1116,6 @@ function createMasterLokasiState() {
                 const params = { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page };
                 const rawRouterId = routerId ?? this.$root?.routerSwitcher?.active_router_id ?? null;
                 const activeRouterId = rawRouterId && rawRouterId !== '' ? String(rawRouterId) : null;
-                console.log('[masterLokasi.loadData] routerId param:', routerId, 'rawRouterId:', rawRouterId, 'activeRouterId:', activeRouterId);
                 if (activeRouterId) params.router_id = activeRouterId;
                 const res = await api.get('/api/v1/admin/network-locations', { params });
                 this.items = res.data ?? [];
@@ -1614,6 +1613,14 @@ export function adminPanel({ page }) {
 
             if (this.page === 'settings-telegram') {
                 return telegramTabs[this.activeTab] ?? telegramTabs.bots;
+            }
+
+            // master-lokasi and master-olt use networkTabs entries
+            if (this.page === 'master-lokasi') {
+                return networkTabs['locations'];
+            }
+            if (this.page === 'master-olt') {
+                return networkTabs['olts'];
             }
 
             if (modules[this.page]) {
@@ -2235,7 +2242,6 @@ export function adminPanel({ page }) {
                 try {
                     const config = this.currentConfig();
                     const params = this.buildCurrentParams(config);
-                    console.log('[loadPage] master page request:', this.page, 'endpoint:', config.endpoint, 'params:', JSON.stringify(params));
                     const response = await api.get(config.endpoint, params);
                     const rows = Array.isArray(response.data) ? response.data : [];
 
@@ -2616,8 +2622,6 @@ export function adminPanel({ page }) {
 
             // Clean up undefined/null values
             if (!params.search) delete params.search;
-
-            console.log('[buildCurrentParams] config.endpoint:', config.endpoint, 'params:', JSON.stringify(params));
 
             if (this.isCashflowPage()) {
                 params.type = this.cashflow.filters.type;

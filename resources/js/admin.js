@@ -3880,7 +3880,14 @@ export function adminPanel({ page }) {
         },
 
         dashboardInvoiceRows() {
-            return (this.references.invoices ?? []).slice(0, 5).map((invoice) => ({
+            const routerId = this.routerSwitcher.active_router_id
+                ? Number(this.routerSwitcher.active_router_id)
+                : null;
+            const invoices = (this.references.invoices ?? []).filter(inv => {
+                if (!routerId) return true;
+                return (inv.service?.router_id ?? inv.router_id) === routerId;
+            });
+            return invoices.slice(0, 5).map((invoice) => ({
                 id: invoice.id,
                 invoice: invoice.invoice_number ?? `INV-${invoice.id}`,
                 customer: invoice.customer?.full_name ?? invoice.customer_name ?? '-',

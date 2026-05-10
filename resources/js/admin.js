@@ -1091,13 +1091,17 @@ function createMasterLokasiState() {
         editId: null,
         pagination: {},
         filters: { search: '', page: 1, per_page: 15 },
+        currentRouterId: null,
         form: { name: '', code: '', latitude: '', longitude: '', description: '', is_active: true },
 
+        setRouterFilter(routerId) { this.currentRouterId = routerId; },
+
         async loadData(routerId = null) {
+            if (routerId !== null) this.currentRouterId = routerId;
             this.loading = true;
             try {
                 const params = { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page };
-                if (routerId) params.router_id = routerId;
+                if (this.currentRouterId) params.router_id = this.currentRouterId;
                 const res = await api.get('/api/v1/admin/network-locations', { params });
                 this.items = res.data ?? [];
                 this.pagination = res.meta?.pagination ?? {};
@@ -1107,7 +1111,7 @@ function createMasterLokasiState() {
         async submitForm() {
             this.saving = true;
             try {
-                const payload = { name: this.form.name, code: this.form.code.toUpperCase().replace(/\s/g, ''), description: this.form.description, latitude: this.form.latitude || null, longitude: this.form.longitude || null, status: this.form.is_active ? 'active' : 'inactive' };
+                const payload = { name: this.form.name, code: this.form.code.toUpperCase().replace(/\s/g, ''), description: this.form.description, latitude: this.form.latitude || null, longitude: this.form.longitude || null, status: this.form.is_active ? 'active' : 'inactive', router_id: this.currentRouterId || null };
                 if (this.editId) { await api.patch(`/api/v1/admin/network-locations/${this.editId}`, payload); toast('success', 'Berhasil', 'Lokasi diperbarui'); }
                 else { await api.post('/api/v1/admin/network-locations', payload); toast('success', 'Berhasil', 'Lokasi ditambahkan'); }
                 this.cancelEdit();
@@ -1134,13 +1138,17 @@ function createMasterLokasiState() {
 function createMasterOltState() {
     return {
         items: [], loading: false, saving: false, editId: null, pagination: {}, filters: { search: '', page: 1, per_page: 15 },
+        currentRouterId: null,
         form: { name: '', code: '', host: '', pon_ports: 4, max_per_pon: 100, description: '', is_active: true, network_location_id: '', router_id: '' },
 
+        setRouterFilter(routerId) { this.currentRouterId = routerId; if (routerId) this.form.router_id = routerId; },
+
         async loadData(routerId = null) {
+            if (routerId !== null) this.currentRouterId = routerId;
             this.loading = true;
             try {
                 const params = { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page };
-                if (routerId) params.router_id = routerId;
+                if (this.currentRouterId) params.router_id = this.currentRouterId;
                 const res = await api.get('/api/v1/admin/olts', { params });
                 this.items = res.data ?? [];
                 this.pagination = res.meta?.pagination ?? {};
@@ -2722,9 +2730,7 @@ export function adminPanel({ page }) {
             this.filters.router_id = routerIdStr;
 
             // IP Pools
-            if (routerId) {
-                this.ipPools.router_id = routerIdStr;
-            }
+            this.ipPools.router_id = routerIdStr;
 
             // Router Sync
             if (routerId) {
@@ -2744,6 +2750,15 @@ export function adminPanel({ page }) {
             // ACS Config
             if (routerId) {
                 this.acsConfig.router_id = routerIdStr;
+            }
+
+            // Master data modules carry their own router_id for load calls.
+            // Push the new scope so the next loadData() call uses the right router.
+            if (this.masterLokasi && typeof this.masterLokasi.setRouterFilter === 'function') {
+                this.masterLokasi.setRouterFilter(routerIdStr);
+            }
+            if (this.masterOlt && typeof this.masterOlt.setRouterFilter === 'function') {
+                this.masterOlt.setRouterFilter(routerIdStr);
             }
 
             // Reset pagination for all modules

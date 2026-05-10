@@ -17,27 +17,49 @@ class FiberMapController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $request->validate([]);
+        $routerId = $request->integer('router_id') ?: null;
+
+        $locationCount = NetworkLocation::query()
+            ->when($routerId, fn ($q, $id) => $q->where('router_id', $id))
+            ->count();
+
+        $oltCount = Olt::query()
+            ->when($routerId, fn ($q, $id) => $q->where('router_id', $id))
+            ->count();
+
+        $odcCount = Odc::query()
+            ->when(
+                $routerId,
+                fn ($q, $id) => $q->whereHas('location', fn ($lq) => $lq->where('router_id', $id))
+            )
+            ->count();
+
+        $odpCount = Odp::query()
+            ->when(
+                $routerId,
+                fn ($q, $id) => $q->whereHas('olt', fn ($oq) => $oq->where('router_id', $id))
+            )
+            ->count();
 
         $this->activityLogger->record(
             $request->user(),
             'fiber_map.viewed',
             'network',
-            'Viewed fiber network map placeholder.',
+            'Viewed fiber network map.',
             $request,
         );
 
         return $this->successResponse(
-            'Fiber network map placeholder retrieved successfully.',
+            'Fiber network map retrieved successfully.',
             [
                 'summary' => [
-                    'locations' => NetworkLocation::query()->count(),
-                    'olts' => Olt::query()->count(),
-                    'odcs' => Odc::query()->count(),
-                    'odps' => Odp::query()->count(),
+                    'locations' => $locationCount,
+                    'olts'      => $oltCount,
+                    'odcs'      => $odcCount,
+                    'odps'      => $odpCount,
                 ],
-                'nodes' => [],
-                'edges' => [],
+                'nodes'       => [],
+                'edges'       => [],
                 'placeholder' => true,
             ],
         );

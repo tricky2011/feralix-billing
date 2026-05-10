@@ -9,22 +9,35 @@ use App\Models\Router;
 use App\Models\Service;
 use App\Models\ServiceMonitorPppoeLog;
 use App\Models\ServiceMonitorPppoeStatus;
+use App\Services\Mikrotik\RouterOsVersionDetector;
 use App\Services\Provisioning\ServiceOverallStateManager;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class PppoeMonitorSyncService
 {
     public function __construct(
         private readonly MikrotikApiClientFactory $clientFactory,
         private readonly ServiceOverallStateManager $overallStateManager,
+        private readonly RouterOsVersionDetector $versionDetector,
     ) {}
 
     public function syncRouter(Router $router, int $chunkSize = 200): array
     {
         $router = Router::query()->findOrFail($router->getKey());
         $syncedAt = now();
-        $sessionsByUsername = $this->fetchActiveSessionsByUsername($router);
+
+        try {
+            $sessionsByUsername = $this->fetchActiveSessionsByUsername($router);
+        } catch (\Throwable $e) {
+            Log::warning('PPPoE monitor fetch failed, marking all services offline.', [
+                'router_id'   => $router->id,
+                'router_code' => $router->router_code,
+                'error'       => $e->getMessage(),
+            ]);
+            $sessionsByUsername = [];
+        }
         $summary = [
             'router_id' => $router->id,
             'router_code' => $router->router_code,
@@ -97,15 +110,15 @@ class PppoeMonitorSyncService
         $client = $this->clientFactory->forRouter($router);
 
         try {
-            $records = $client->print('/ppp/active', [
-                '.id',
-                'name',
-                'service',
-                'caller-id',
-                'address',
-                'uptime',
-                'session-id',
-            ]);
+            $rosVersion = $this->versionDetector->detect($router, $client);
+
+            // ROSv7 dropped 'session-id' in some builds; request only stable fields.
+            // ROSv6 and ROSv7 both expose /ppp/active with the same core fields.
+            $properties = $rosVersion >= 7
+                ? ['.id', 'name', 'service', 'caller-id', 'address', 'uptime']
+                : ['.id', 'name', 'service', 'caller-id', 'address', 'uptime', 'session-id'];
+
+            $records = $client->print('/ppp/active', $properties);
         } finally {
             $client->disconnect();
         }

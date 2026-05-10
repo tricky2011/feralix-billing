@@ -99,9 +99,15 @@ class SyncPppoeMonitorCommand extends Command
         return Router::query()
             ->where('is_active', true)
             ->whereHas('services', function ($query): void {
-                $query
-                    ->whereNotNull('monitor_pppoe_username')
-                    ->where('monitor_pppoe_username', '!=', '');
+                $query->where(function ($q): void {
+                    $q->where(function ($inner): void {
+                        $inner->whereNotNull('monitor_pppoe_username')
+                              ->where('monitor_pppoe_username', '!=', '');
+                    })->orWhere(function ($inner): void {
+                        $inner->whereNotNull('pppoe_username')
+                              ->where('pppoe_username', '!=', '');
+                    });
+                });
             })
             ->orderBy('router_code')
             ->get();

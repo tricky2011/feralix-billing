@@ -36,7 +36,7 @@ class OdcController extends Controller
             ->when(
                 $filters['router_id'] ?? null,
                 fn ($query, $routerId) => $query->whereHas(
-                    'location.olts',
+                    'location',
                     fn ($q) => $q->where('router_id', (int) $routerId)
                 )
             )

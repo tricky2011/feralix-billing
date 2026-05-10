@@ -25,13 +25,14 @@ class StoreNetworkLocationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
-            'code' => ['nullable', 'string', 'max:100', 'unique:network_locations,code'],
-            'address' => ['nullable', 'string'],
-            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'name'      => ['required', 'string', 'max:255'],
+            'code'      => ['nullable', 'string', 'max:100', 'unique:network_locations,code'],
+            'address'   => ['nullable', 'string'],
+            'latitude'  => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'description' => ['nullable', 'string'],
-            'status' => ['required', 'in:active,inactive'],
+            'status'    => ['required', 'in:active,inactive'],
+            'router_id' => ['nullable', 'integer', 'exists:routers,id'],
         ];
     }
 }

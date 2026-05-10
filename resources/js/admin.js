@@ -2235,6 +2235,7 @@ export function adminPanel({ page }) {
                 try {
                     const config = this.currentConfig();
                     const params = this.buildCurrentParams(config);
+                    console.log('[loadPage] master page request:', this.page, 'endpoint:', config.endpoint, 'params:', JSON.stringify(params));
                     const response = await api.get(config.endpoint, params);
                     const rows = Array.isArray(response.data) ? response.data : [];
 
@@ -2615,6 +2616,8 @@ export function adminPanel({ page }) {
 
             // Clean up undefined/null values
             if (!params.search) delete params.search;
+
+            console.log('[buildCurrentParams] config.endpoint:', config.endpoint, 'params:', JSON.stringify(params));
 
             if (this.isCashflowPage()) {
                 params.type = this.cashflow.filters.type;

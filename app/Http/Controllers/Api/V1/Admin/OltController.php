@@ -38,7 +38,7 @@ class OltController extends Controller
 
         $this->routerScope->applyRouterScope($olts, 'router_id');
 
-        $olts
+        $olts = $olts
             ->when(
                 $filters['location_id'] ?? null,
                 fn ($query, $locationId) => $query->where('network_location_id', $locationId)

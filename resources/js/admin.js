@@ -2105,7 +2105,7 @@ export function adminPanel({ page }) {
                 api.get('/api/v1/admin/customer-references', { only_active: 1 }),
                 api.get('/api/v1/admin/customers', { per_page: 100 }),
                 api.get('/api/v1/admin/services', { per_page: 100 }),
-                api.get('/api/v1/admin/invoices', { per_page: 100 }),
+                api.get('/api/v1/admin/invoices', { per_page: 100, router_id: this.routerSwitcher.active_router_id || undefined }),
                 api.get('/api/v1/admin/hotspot-profiles', { per_page: 100 }),
                 api.get('/api/v1/admin/resellers', { per_page: 100 }),
                 api.get('/api/v1/admin/tickets', { per_page: 10 }),

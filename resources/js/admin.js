@@ -4,7 +4,7 @@ import { tokenStore } from './services/token';
 const statusGroups = {
     green: ['active', 'paid', 'completed', 'resolved', 'closed', 'applied', 'online', 'assigned'],
     red: ['suspend', 'suspended', 'isolir', 'isolated', 'overdue', 'failed', 'canceled', 'terminated', 'expired', 'down', 'inactive'],
-    yellow: ['pending', 'issued', 'unpaid', 'partially_paid', 'provisioning', 'open', 'in_progress', 'reserved', 'unknown'],
+    yellow: ['pending', 'issued', 'unpaid', 'partially_paid', 'provisioning', 'open', 'in_progress', 'reserved', 'unknown', 'generated'],
 };
 
 const select = (values) => values.map((value) => ({ value, label: human(value) }));
@@ -715,13 +715,18 @@ const hotspotTabs = {
     },
     vouchers: {
         label: 'Vouchers',
+        title: 'Hotspot Vouchers',
+        section: 'Hotspot',
+        description: 'Daftar voucher hotspot. Aktifkan voucher agar dapat digunakan login di semua router via FreeRADIUS.',
         endpoint: '/api/v1/admin/hotspot-vouchers',
         columns: [
+            { key: 'voucher_code', label: 'Kode Voucher' },
             { key: 'username', label: 'Username' },
             { key: 'password_masked', label: 'Password' },
-            { key: 'reseller.full_name', label: 'Reseller' },
             { key: 'hotspot_profile.profile_name', label: 'Profile' },
-            { key: 'locked_mac', label: 'MAC' },
+            { key: 'locked_mac', label: 'MAC Terkunci' },
+            { key: 'first_login_at', label: 'Login Pertama', type: 'datetime' },
+            { key: 'expires_at', label: 'Kadaluarsa', type: 'datetime' },
             { key: 'status', label: 'Status', type: 'status' },
         ],
         noCreate: true,
@@ -3085,8 +3090,15 @@ export function adminPanel({ page }) {
                 return [{ key: 'complete-wo', label: 'Done', class: 'bg-emerald-50 text-emerald-800', handler: () => this.completeWorkOrder(row) }];
             }
 
-            if (this.page === 'hotspot' && this.activeTab === 'vouchers' && row.status === 'generated') {
-                return [{ key: 'activate-voucher', label: 'Activate', class: 'bg-amber-50 text-amber-800', handler: () => this.openVoucherActivation(row) }];
+            if (this.page === 'hotspot' && this.activeTab === 'vouchers') {
+                const actions = [];
+                if (row.status === 'generated') {
+                    actions.push({ key: 'activate-voucher', label: 'Aktifkan', class: 'bg-amber-50 text-amber-800', handler: () => this.activateVoucher(row) });
+                }
+                if (row.status === 'active') {
+                    actions.push({ key: 'deactivate-voucher', label: 'Nonaktifkan', class: 'bg-red-50 text-red-700', handler: () => this.deactivateVoucher(row) });
+                }
+                return actions;
             }
 
             if (this.page === 'user-management') {
@@ -3505,21 +3517,26 @@ export function adminPanel({ page }) {
             });
         },
 
-        openVoucherActivation(row) {
-            this.modal = {
-                open: true,
-                mode: 'activate-voucher',
-                title: `Aktivasi voucher ${row.username}`,
-                fields: [
-                    { name: 'mac_address', label: 'MAC address', placeholder: 'AA:BB:CC:DD:EE:FF' },
-                    { name: 'login_at', label: 'Login at', type: 'datetime-local' },
-                ],
-                form: { mac_address: '', login_at: this.localDateTime() },
-                errors: {},
-                message: '',
-                endpoint: `/api/v1/admin/hotspot-vouchers/${row.id}/activate`,
-                method: 'POST',
-            };
+        async activateVoucher(row) {
+            if (!confirm(`Aktifkan voucher "${row.username}"?\n\nVoucher akan diprovisi ke FreeRADIUS dan dapat digunakan login di semua router.`)) return;
+            try {
+                await api.post(`/api/v1/admin/hotspot-vouchers/${row.id}/activate`, {});
+                this.toast('success', 'Voucher diaktifkan', `${row.username} berhasil diprovisi ke FreeRADIUS.`);
+                await this.loadPage();
+            } catch (error) {
+                this.toast('error', 'Gagal mengaktifkan voucher', error.message);
+            }
+        },
+
+        async deactivateVoucher(row) {
+            if (!confirm(`Nonaktifkan voucher "${row.username}"?\n\nVoucher akan dihapus dari FreeRADIUS dan tidak dapat digunakan untuk login.`)) return;
+            try {
+                await api.post(`/api/v1/admin/hotspot-vouchers/${row.id}/deactivate`, {});
+                this.toast('success', 'Voucher dinonaktifkan', `${row.username} dihapus dari FreeRADIUS.`);
+                await this.loadPage();
+            } catch (error) {
+                this.toast('error', 'Gagal menonaktifkan voucher', error.message);
+            }
         },
 
         openUserPasswordReset(row) {

@@ -158,8 +158,14 @@ class PppoeImportController extends Controller
                     $lastNumber++;
                     $customerCode = 'CUST-' . str_pad($lastNumber, 4, '0', STR_PAD_LEFT);
 
-                    // Generate unique service_code from username
-                    $serviceCode = 'SVC-' . strtoupper(preg_replace('/[^A-Z0-9]/i', '', $username));
+                    // Generate unique service_code from username + router prefix to avoid unique constraint collision across routers
+                    $routerCode = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $router->router_code ?? $router->router_name ?? $router->id));
+                    $serviceCode = 'SVC-' . $routerCode . '-' . strtoupper(preg_replace('/[^A-Z0-9]/i', '', $username));
+
+                    // If service_code already exists (duplicate from previous import), append router suffix to make unique
+                    if (Service::where('service_code', $serviceCode)->exists()) {
+                        $serviceCode .= '-' . $router->id;
+                    }
 
                     // Create new customer
                     $customer = Customer::create([

@@ -2275,6 +2275,7 @@ export function adminPanel({ page }) {
             }
 
             // All other pages use generic config+buildCurrentParams
+            console.log('[loadPage] page:', this.page, 'filters.router_id:', this.filters.router_id);
             const config = this.currentConfig();
 
             if (config.placeholder) {
@@ -2730,6 +2731,7 @@ export function adminPanel({ page }) {
                 } else {
                     this.filters.router_id = null;
                 }
+                console.log('[loadDashboard] routerSwitcher.active_router_id:', this.routerSwitcher.active_router_id, 'filters.router_id:', this.filters.router_id);
             } catch (error) {
                 this.toast('error', 'Dashboard gagal dimuat', error.message);
             } finally {

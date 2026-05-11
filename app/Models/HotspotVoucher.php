@@ -25,6 +25,7 @@ class HotspotVoucher extends Model
         'hotspot_profile_id',
         'username',
         'password',
+        'password_plain',
         'voucher_code',
         'locked_mac',
         'first_login_at',
@@ -70,6 +71,11 @@ class HotspotVoucher extends Model
     public function radiusEvents(): HasMany
     {
         return $this->hasMany(HotspotRadiusEvent::class);
+    }
+
+    public function hotspotServices(): HasMany
+    {
+        return $this->hasMany(HotspotService::class, 'hotspot_voucher_id');
     }
 
     public function scopeSearch(Builder $query, ?string $search): Builder

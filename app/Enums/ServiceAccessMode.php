@@ -7,6 +7,7 @@ enum ServiceAccessMode: string
     case Vlan = 'vlan';
     case Pppoe = 'pppoe';
     case Static = 'static';
+    case Hotspot = 'hotspot';
 
     public function supportsPppoeIsolation(): bool
     {

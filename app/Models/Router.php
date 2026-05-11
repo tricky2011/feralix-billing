@@ -209,6 +209,11 @@ class Router extends Model
         return $this->hasMany(Service::class);
     }
 
+    public function hotspotServices(): HasMany
+    {
+        return $this->hasMany(HotspotService::class);
+    }
+
     public function workOrders(): HasMany
     {
         return $this->hasMany(WorkOrder::class);

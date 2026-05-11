@@ -102,6 +102,7 @@ class VoucherBatchService
                     'hotspot_profile_id' => $hotspotProfile->id,
                     'username' => $username,
                     'password' => $password,
+                    'password_plain' => $password,
                     'voucher_code' => $voucherCode,
                     'locked_mac' => null,
                     'first_login_at' => null,

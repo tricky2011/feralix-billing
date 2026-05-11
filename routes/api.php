@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\Admin\CustomerReferenceController;
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\V1\Admin\FiberMapController;
 use App\Http\Controllers\Api\V1\Admin\HotspotProfileController;
+use App\Http\Controllers\Api\V1\Admin\HotspotRouterController;
 use App\Http\Controllers\Api\V1\Admin\HotspotVoucherController;
 use App\Http\Controllers\Api\V1\Admin\InvoiceController;
 use App\Http\Controllers\Api\V1\Admin\IpPoolController;
@@ -117,6 +118,16 @@ Route::prefix('v1/admin')
             Route::get('mikrotik/pppoe-servers', [MikrotikInfoController::class, 'pppoeServers']);
             Route::get('pppoe-import/candidates', [PppoeImportController::class, 'candidates'])->middleware('role:superadmin,admin');
             Route::post('pppoe-import/import', [PppoeImportController::class, 'import'])->middleware('role:superadmin,admin');
+
+            // Hotspot cross-router management
+            Route::post('hotspot-router/activate', [HotspotRouterController::class, 'activate'])->middleware('role:superadmin,admin');
+            Route::post('hotspot-router/activate-all', [HotspotRouterController::class, 'activateAll'])->middleware('role:superadmin,admin');
+            Route::delete('hotspot-router/deactivate', [HotspotRouterController::class, 'deactivate'])->middleware('role:superadmin,admin');
+            Route::delete('hotspot-router/deactivate-all', [HotspotRouterController::class, 'deactivateAll'])->middleware('role:superadmin,admin');
+            Route::post('hotspot-router/sync-radius', [HotspotRouterController::class, 'syncRadius'])->middleware('role:superadmin,admin');
+            Route::get('hotspot-router/services/{hotspotVoucher}', [HotspotRouterController::class, 'getVoucherServices'])->middleware('role:superadmin,admin');
+            Route::get('hotspot-router/routers/{router}/services', [HotspotRouterController::class, 'getRouterServices'])->middleware('role:superadmin,admin');
+
             Route::apiResource('routers', RouterController::class)->middleware('role:superadmin,admin');
             Route::get('routers/{router}/stats', [RouterStatsController::class, 'show']);
             Route::apiResource('router-scopes', RouterScopeController::class);

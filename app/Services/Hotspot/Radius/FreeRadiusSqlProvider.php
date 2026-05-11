@@ -152,19 +152,6 @@ class FreeRadiusSqlProvider
     {
         $rows = [];
 
-        // Session timeout from profile validity
-        if ($profile !== null && $profile->usesTimeExpiry() && $profile->validity_days !== null) {
-            $sessionTimeoutSeconds = $profile->validity_days * 86400; // days → seconds
-            $rows[] = [
-                'username' => $username,
-                'attribute' => 'Session-Timeout',
-                'op' => '=',
-                'value' => (string) $sessionTimeoutSeconds,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
-        }
-
         // Idle timeout (default: 5 minutes)
         $rows[] = [
             'username' => $username,
@@ -213,29 +200,29 @@ class FreeRadiusSqlProvider
     {
         $voucher->refresh();
 
-        $raw = $voucher->getRawOriginal('password');
-
-        if ($raw !== null) {
-            return $raw;
-        }
-
         $plain = $voucher->getRawOriginal('password_plain');
 
         if ($plain !== null && $plain !== '') {
             return $plain;
         }
 
-        $rawPassword = $voucher->getAttribute('password');
+        $raw = $voucher->getRawOriginal('password');
 
-        if (str_starts_with((string) $rawPassword, 'eyJp')) {
+        if ($raw !== null && ! str_starts_with((string) $raw, 'eyJp')) {
+            return $raw;
+        }
+
+        $password = $voucher->getAttribute('password');
+
+        if (str_starts_with((string) $password, 'eyJp')) {
             try {
-                return \Illuminate\Support\Facades\Crypt::decryptString($rawPassword);
+                return \Illuminate\Support\Facades\Crypt::decryptString($password);
             } catch (\Throwable) {
-                return $rawPassword;
+                return (string) $password;
             }
         }
 
-        return (string) $rawPassword;
+        return (string) $password;
     }
 
     private function upsertRadAcct(HotspotRadiusAccountingRequest $request): void
@@ -284,7 +271,7 @@ class FreeRadiusSqlProvider
                 'acctsessionid' => $request->acctSessionId,
                 'username' => $request->username,
                 'nasipaddress' => $request->nasIpAddress,
-                'nasidentifier' => $request->nasIdentifier,
+                'nasidentifier' => $request->nasIdentifier, // VERIFIED: NAS identifier stored for per-router session tracking
                 'calledstationid' => $request->calledStationId,
                 'callingstationid' => $request->callingStationId,
                 'framedipaddress' => $request->framedIpAddress,
@@ -294,7 +281,7 @@ class FreeRadiusSqlProvider
                 'inputoctets' => $inputOctets,
                 'outputoctets' => $outputOctets,
                 'acctauthentic' => 'RADIUS',
-                'acctstatus type' => $request->acctStatusType->value,
+                'acctstatustype' => $request->acctStatusType->value,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);

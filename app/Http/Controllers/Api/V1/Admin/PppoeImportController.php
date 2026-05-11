@@ -62,19 +62,27 @@ class PppoeImportController extends Controller
             },
         );
 
-        // Get usernames already in DB
-        $existingUsernames = Service::whereNotNull('pppoe_username')
+        // Get usernames already in DB (check both pppoe_username and monitor_pppoe_username,
+        // since both columns have unique indexes and are set to the same value during import)
+        $existingPppoe = Service::whereNotNull('pppoe_username')
             ->where('pppoe_username', '!=', '')
-            ->where('router_id', $router->id)
             ->pluck('pppoe_username')
             ->map(static fn (string $u): string => strtolower(trim($u)))
             ->flip()
             ->all();
 
-        // Filter: only candidates not yet imported
+        $existingMonitor = Service::whereNotNull('monitor_pppoe_username')
+            ->where('monitor_pppoe_username', '!=', '')
+            ->pluck('monitor_pppoe_username')
+            ->map(static fn (string $u): string => strtolower(trim($u)))
+            ->flip()
+            ->all();
+
+        // Filter: only candidates not yet imported (into any router)
         $candidates = array_values(array_filter(
             $secrets,
-            static fn (array $s): bool => !isset($existingUsernames[strtolower(trim($s['name'] ?? ''))]),
+            static fn (array $s): bool => !isset($existingPppoe[strtolower(trim($s['name'] ?? ''))])
+                                   && !isset($existingMonitor[strtolower(trim($s['name'] ?? ''))]),
         ));
 
         // Format response
@@ -140,8 +148,12 @@ class PppoeImportController extends Controller
             foreach ($request->usernames as $username) {
                 $username = trim($username);
 
-                // Skip if already in DB
-                $alreadyExists = Service::where('pppoe_username', $username)->where('router_id', $router->id)->exists();
+                // Skip if already in DB (check both pppoe_username and monitor_pppoe_username
+                // globally since both columns have unique indexes and are set to same value)
+                $alreadyExists = Service::where(function ($q) use ($username) {
+                    $q->where('pppoe_username', $username)
+                      ->orWhere('monitor_pppoe_username', $username);
+                })->exists();
                 if ($alreadyExists) {
                     $skipped++;
                     continue;

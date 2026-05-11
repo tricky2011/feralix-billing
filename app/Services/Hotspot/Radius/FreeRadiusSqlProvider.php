@@ -2,6 +2,7 @@
 
 namespace App\Services\Hotspot\Radius;
 
+use App\Contracts\Hotspot\HotspotRadiusProvider;
 use App\Data\Hotspot\HotspotRadiusAccountingRequest;
 use App\Data\Hotspot\HotspotRadiusAccountingResult;
 use App\Data\Hotspot\HotspotRadiusAuthorizeRequest;
@@ -32,8 +33,13 @@ use Illuminate\Support\Facades\DB;
  *
  * radusergroup: groupname = hotspot_profile.profile_name
  */
-class FreeRadiusSqlProvider
+class FreeRadiusSqlProvider implements HotspotRadiusProvider
 {
+    public function name(): string
+    {
+        return 'freeradius-sql';
+    }
+
     /**
      * Write voucher credentials and attributes to FreeRADIUS tables.
      *
@@ -125,11 +131,12 @@ class FreeRadiusSqlProvider
      * called by our billing system after FreeRADIUS authentication succeeds,
      * so we just return an Accept with current voucher state.
      */
-    public function authorize(
-        HotspotRadiusAuthorizeRequest $request,
-        HotspotRadiusAccountingResult $authorizeResult,
-    ): HotspotRadiusAuthorizeResult {
-        return $authorizeResult;
+    public function authorize(HotspotRadiusAuthorizeRequest $request): HotspotRadiusAuthorizeResult
+    {
+        // RADIUS authentication is handled by FreeRADIUS server via rlm_sql.
+        // This callback is invoked after FreeRADIUS auth succeeds — return Accept.
+        // The Laravel app controls voucher state via syncVoucher/disableVoucher/removeVoucher.
+        return HotspotRadiusAuthorizeResult::accept();
     }
 
     /**
@@ -139,13 +146,10 @@ class FreeRadiusSqlProvider
      * @param  HotspotRadiusAccountingResult  $accountingResult
      * @return HotspotRadiusAccountingResult
      */
-    public function account(
-        HotspotRadiusAccountingRequest $request,
-        HotspotRadiusAccountingResult $accountingResult,
-    ): HotspotRadiusAccountingResult {
+    public function account(HotspotRadiusAccountingRequest $request): HotspotRadiusAccountingResult
+    {
         $this->upsertRadAcct($request);
-
-        return $accountingResult;
+        return HotspotRadiusAccountingResult::accepted();
     }
 
     private function insertReplyAttributes(string $username, ?\App\Models\HotspotProfile $profile): void

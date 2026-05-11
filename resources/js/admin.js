@@ -2623,6 +2623,8 @@ export function adminPanel({ page }) {
             // Clean up undefined/null values
             if (!params.search) delete params.search;
 
+            console.log('[buildCurrentParams]', config.endpoint, JSON.stringify(params));
+
             if (this.isCashflowPage()) {
                 params.type = this.cashflow.filters.type;
                 params.category_id = this.cashflow.filters.category_id;

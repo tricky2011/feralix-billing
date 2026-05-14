@@ -39,26 +39,19 @@ class PppoeImportController extends Controller
         // Filter: hanya PPPoE secrets yang aktif
         // ROS v6: service='pppoe'
         // ROS v7: service='any' (default) atau 'pppoe'
-        // Exclude: l2tp, pptp, sstp, ovpn, disabled=yes
+        // Accept: pppoe, any, '' (kosong = any di ROS v6/v7)
+        // Reject: l2tp, pptp, sstp, ovpn, disabled=yes
         $secrets = array_filter(
             $secrets,
             static function (array $s): bool {
-                // Skip disabled secrets
                 if (in_array(strtolower($s['disabled'] ?? 'false'), ['true', 'yes', '1'], true)) {
                     return false;
                 }
-
-                $service = strtolower(trim($s['service'] ?? 'any'));
-
-                // Exclude non-PPPoE services
-                if (in_array($service, ['l2tp', 'pptp', 'sstp', 'ovpn'], true)) {
-                    return false;
-                }
-
-                // Accept: pppoe, any, '' (ROS v6 dan v7)
-
-                // Accept: pppoe, any, '' (empty = any)
-                return true;
+                $service = strtolower(trim($s['service'] ?? ''));
+                // Accept: pppoe, any, '' (kosong = any di ROS v6/v7)
+                // Reject hanya non-PPPoE explicit
+                $rejected = ['l2tp', 'pptp', 'sstp', 'ovpn'];
+                return !in_array($service, $rejected, true);
             },
         );
 
@@ -106,6 +99,10 @@ class PppoeImportController extends Controller
                 'id'   => $router->id,
                 'name' => $router->router_name ?? $router->name,
                 'code' => $router->router_code,
+            ],
+            '_debug' => [
+                'existing_pppoe'   => count($existingPppoe),
+                'existing_monitor' => count($existingMonitor),
             ],
         ]);
     }

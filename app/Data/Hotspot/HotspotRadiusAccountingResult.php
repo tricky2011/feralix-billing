@@ -46,4 +46,20 @@ final readonly class HotspotRadiusAccountingResult
             'context' => $this->context,
         ];
     }
+
+    public static function accepted(string $username = 'unknown', ?int $voucherId = null): self
+    {
+        return new self(
+            processed: true,
+            action: 'accounting-accepted',
+            voucherId: $voucherId,
+            sessionRecordId: null,
+            acctSessionId: null,
+            username: $username,
+            voucherStatus: null,
+            sessionStatus: null,
+            reason: null,
+            message: 'Accounting accepted',
+        );
+    }
 }

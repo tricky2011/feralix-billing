@@ -107,6 +107,7 @@ Route::prefix('v1/admin')
                 ->parameters(['hotspot-vouchers' => 'hotspotVoucher'])
                 ->only(['index', 'show']);
             Route::post('hotspot-vouchers/{hotspotVoucher}/activate', [HotspotVoucherController::class, 'activate']);
+            Route::post('hotspot-vouchers/{hotspotVoucher}/deactivate', [HotspotVoucherController::class, 'deactivate']);
             Route::post('routers/{router}/test-connection', [RouterController::class, 'testConnection'])->middleware('role:superadmin,admin');
             Route::post('routers/{router}/test-acs', [RouterController::class, 'testAcs'])->middleware('role:superadmin,admin');
             Route::post('routers/{router}/sync-ont', [RouterController::class, 'syncOnt'])->middleware('role:superadmin,admin');

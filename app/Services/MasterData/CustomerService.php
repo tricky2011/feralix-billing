@@ -180,6 +180,8 @@ class CustomerService
             'customer_code',
             'full_name',
             'phone',
+            'contact',
+            'email',
             'address',
             'preferred_olt_id',
             'assigned_technician_id',
@@ -187,11 +189,13 @@ class CustomerService
             'longitude',
             'customer_type',
             'status',
+            'install_date',
             'ip_count',
             'monthly_price',
             'billing_day',
             'pppoe_username',
             'pppoe_password',
+            'notes',
         ]);
 
         // location_id dari form adalah network_location_id (bukan legacy locations table)

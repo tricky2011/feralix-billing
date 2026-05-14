@@ -2,12 +2,14 @@
 
 namespace App\Services\Hotspot\Radius;
 
+use App\Contracts\Hotspot\HotspotRadiusProvider;
 use App\Data\Hotspot\HotspotRadiusAccountingRequest;
 use App\Data\Hotspot\HotspotRadiusAccountingResult;
 use App\Data\Hotspot\HotspotRadiusAuthorizeRequest;
 use App\Data\Hotspot\HotspotRadiusAuthorizeResult;
 use App\Models\HotspotVoucher;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * FreeRADIUS SQL provider — writes directly to FreeRADIUS's MySQL tables.
@@ -32,8 +34,69 @@ use Illuminate\Support\Facades\DB;
  *
  * radusergroup: groupname = hotspot_profile.profile_name
  */
-class FreeRadiusSqlProvider
+class FreeRadiusSqlProvider implements HotspotRadiusProvider
 {
+    public function __construct(private readonly HotspotRadiusService $hotspotRadiusService) {}
+
+    public function name(): string
+    {
+        return 'freeradius-sql';
+    }
+
+    /**
+     * Authorize via RADIUS packet — delegates to HotspotRadiusService then syncs FreeRADIUS.
+     *
+     * HotspotRadiusService handles voucher state (expiry, MAC lock, data limit, event logging).
+     * After accept, ensure radcheck/radreply are up-to-date for this session.
+     */
+    public function authorize(HotspotRadiusAuthorizeRequest $request): HotspotRadiusAuthorizeResult
+    {
+        $result = $this->hotspotRadiusService->authorize($request);
+
+        if ($result->accepted) {
+            $voucher = HotspotVoucher::query()
+                ->with('hotspotProfile')
+                ->where('username', $request->username)
+                ->first();
+
+            if ($voucher !== null) {
+                try {
+                    $this->syncVoucher($voucher);
+                } catch (\Throwable $e) {
+                    Log::warning('FreeRADIUS sync failed during authorization', [
+                        'username' => $request->username,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Account — update hotspot billing state then write accounting to radacct.
+     *
+     * HotspotRadiusService updates bytes_used, session records, and voucher status.
+     * upsertRadAcct() mirrors the session to FreeRADIUS's own radacct table.
+     */
+    public function account(HotspotRadiusAccountingRequest $request): HotspotRadiusAccountingResult
+    {
+        $result = $this->hotspotRadiusService->account($request);
+
+        try {
+            $this->upsertRadAcct($request);
+        } catch (\Throwable $e) {
+            Log::warning('FreeRADIUS radacct upsert failed', [
+                'username' => $request->username,
+                'acct_session_id' => $request->acctSessionId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $result;
+    }
+
     /**
      * Write voucher credentials and attributes to FreeRADIUS tables.
      *
@@ -102,7 +165,6 @@ class FreeRadiusSqlProvider
      */
     public function disableVoucher(string $username): void
     {
-        // Remove password so FreeRADIUS rejects auth
         DB::statement('DELETE FROM radcheck WHERE username = ? AND attribute = ?', [$username, 'Cleartext-Password']);
     }
 
@@ -114,47 +176,13 @@ class FreeRadiusSqlProvider
         $this->syncVoucher($voucher);
     }
 
-    /**
-     * Authorize via RADIUS packet — validates username/password against radcheck.
-     *
-     * This is the callback invoked when MikroTik forwards Access-Request to our
-     * /v1/internal/hotspot-radius/authorize endpoint. We verify credentials here
-     * (using the same logic as HotspotRadiusService) then return Accept/Reject.
-     *
-     * Note: The actual RADIUS auth is done by FreeRADIUS server. This method is
-     * called by our billing system after FreeRADIUS authentication succeeds,
-     * so we just return an Accept with current voucher state.
-     */
-    public function authorize(
-        HotspotRadiusAuthorizeRequest $request,
-        HotspotRadiusAccountingResult $authorizeResult,
-    ): HotspotRadiusAuthorizeResult {
-        return $authorizeResult;
-    }
-
-    /**
-     * Account — update radacct with accounting packet.
-     *
-     * @param  HotspotRadiusAccountingRequest  $request
-     * @param  HotspotRadiusAccountingResult  $accountingResult
-     * @return HotspotRadiusAccountingResult
-     */
-    public function account(
-        HotspotRadiusAccountingRequest $request,
-        HotspotRadiusAccountingResult $accountingResult,
-    ): HotspotRadiusAccountingResult {
-        $this->upsertRadAcct($request);
-
-        return $accountingResult;
-    }
-
     private function insertReplyAttributes(string $username, ?\App\Models\HotspotProfile $profile): void
     {
         $rows = [];
 
         // Session timeout from profile validity
         if ($profile !== null && $profile->usesTimeExpiry() && $profile->validity_days !== null) {
-            $sessionTimeoutSeconds = $profile->validity_days * 86400; // days → seconds
+            $sessionTimeoutSeconds = $profile->validity_days * 86400;
             $rows[] = [
                 'username' => $username,
                 'attribute' => 'Session-Timeout',
@@ -205,37 +233,50 @@ class FreeRadiusSqlProvider
     /**
      * Resolve the plaintext password for a voucher.
      *
-     * The HotspotVoucher's password is encrypted in DB (cast: 'encrypted').
-     * We store plaintext in password_plain during voucher creation so FreeRADIUS
-     * can read the cleartext value directly from radcheck.value.
+     * Priority:
+     * 1. password_plain (stored unencrypted at voucher creation time)
+     * 2. Decrypt the encrypted password field
+     * 3. Fail fast — never silently pass an encrypted blob to FreeRADIUS
      */
     private function resolvePlaintextPassword(HotspotVoucher $voucher): string
     {
         $voucher->refresh();
 
-        $raw = $voucher->getRawOriginal('password');
-
-        if ($raw !== null) {
-            return $raw;
-        }
-
+        // Priority 1: password_plain stores the raw plaintext at voucher creation
         $plain = $voucher->getRawOriginal('password_plain');
-
-        if ($plain !== null && $plain !== '') {
+        if ($plain !== null && trim((string) $plain) !== '') {
             return $plain;
         }
 
-        $rawPassword = $voucher->getAttribute('password');
+        // Priority 2: decrypt the encrypted password field
+        $encrypted = $voucher->getRawOriginal('password');
+        if ($encrypted !== null && trim((string) $encrypted) !== '') {
+            // Skip if the raw value is already plaintext (not a Laravel Crypt payload)
+            if (! str_starts_with((string) $encrypted, 'eyJp')) {
+                return $encrypted;
+            }
 
-        if (str_starts_with((string) $rawPassword, 'eyJp')) {
             try {
-                return \Illuminate\Support\Facades\Crypt::decryptString($rawPassword);
-            } catch (\Throwable) {
-                return $rawPassword;
+                return \Illuminate\Support\Facades\Crypt::decryptString($encrypted);
+            } catch (\Throwable $e) {
+                Log::error('Failed to decrypt voucher password for FreeRADIUS sync', [
+                    'voucher_id' => $voucher->id,
+                    'username' => $voucher->username,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
 
-        return (string) $rawPassword;
+        // Priority 3: password attribute (already decrypted by Eloquent cast)
+        $passwordAttr = $voucher->getAttribute('password');
+        if ($passwordAttr !== null && (string) $passwordAttr !== '') {
+            return (string) $passwordAttr;
+        }
+
+        throw new \RuntimeException(
+            "No plaintext password available for voucher ID {$voucher->id} (username: {$voucher->username}). "
+            . 'Ensure password_plain is populated at voucher creation.',
+        );
     }
 
     private function upsertRadAcct(HotspotRadiusAccountingRequest $request): void
@@ -257,7 +298,6 @@ class FreeRadiusSqlProvider
             ->first();
 
         if ($existing) {
-            // Update existing session
             $updateFields = [
                 'acctupdatetime' => $now,
                 'acctsessiontime' => $request->acctSessionTime ?? $existing->acctsessiontime,
@@ -267,7 +307,7 @@ class FreeRadiusSqlProvider
                 'framedipaddress' => $request->framedIpAddress,
             ];
 
-            if ($request->acctStatusType->value === 'Stop') {
+            if ($request->acctStatusType->value === 'stop') {
                 $updateFields['acctstoptime'] = $now;
                 $updateFields['acctterminatecause'] = $request->terminateCause ?? 'User-Request';
             }
@@ -276,8 +316,7 @@ class FreeRadiusSqlProvider
                 ->where('acctuniqueid', $acctUniqueId)
                 ->update($updateFields);
         } else {
-            // Insert new session
-            $acctStartTime = $request->acctStatusType->value === 'Stop' ? $now : $request->eventAt;
+            $acctStartTime = $request->acctStatusType->value === 'stop' ? $now : $request->eventAt;
 
             DB::table('radacct')->insert([
                 'acctuniqueid' => $acctUniqueId,
@@ -294,7 +333,7 @@ class FreeRadiusSqlProvider
                 'inputoctets' => $inputOctets,
                 'outputoctets' => $outputOctets,
                 'acctauthentic' => 'RADIUS',
-                'acctstatus type' => $request->acctStatusType->value,
+                'acctstatustype' => $request->acctStatusType->value,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);

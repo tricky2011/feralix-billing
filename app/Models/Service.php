@@ -255,6 +255,11 @@ class Service extends Model
 
     public function resolvedIsolationTargetType(): ServiceIsolationTargetType
     {
+        // VID CustomerInternet always uses Subnet — PPPoE on service is monitoring-only
+        if ($this->vid !== null && $this->vid->isIsolatable()) {
+            return ServiceIsolationTargetType::Subnet;
+        }
+
         if ($this->resolvedAccessMode() === ServiceAccessMode::Pppoe) {
             return ServiceIsolationTargetType::Pppoe;
         }

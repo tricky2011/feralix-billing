@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use App\Models\NetworkLocation;
 
 class Customer extends Model
 {
@@ -45,6 +46,7 @@ class Customer extends Model
     {
         return [
             'location_id' => 'integer',
+            'network_location_id' => 'integer',
             'preferred_olt_id' => 'integer',
             'assigned_technician_id' => 'integer',
             'latitude' => 'decimal:7',
@@ -94,6 +96,11 @@ class Customer extends Model
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class);
+    }
+
+    public function networkLocation(): BelongsTo
+    {
+        return $this->belongsTo(NetworkLocation::class);
     }
 
     public function preferredOlt(): BelongsTo

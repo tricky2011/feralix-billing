@@ -576,6 +576,174 @@
         </form>
     </section>
 
+    {{-- Customer Edit Form --}}
+    <section x-show="page === 'customers-edit'" x-cloak x-data="customerEdit()" x-init="init()" class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+        <div class="mb-5 flex items-center justify-between">
+            <div>
+                <p class="text-xs font-black uppercase tracking-[0.24em] text-blue-700 dark:text-blue-300">CRM</p>
+                <h2 class="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Edit Pelanggan</h2>
+            </div>
+            <a href="/admin/customers" class="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:text-white">
+                &larr; Kembali
+            </a>
+        </div>
+
+        <div x-show="loading" class="py-10 text-center text-sm text-slate-500">Memuat data pelanggan...</div>
+
+        <div x-show="!loading && loadError" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300" x-text="loadError"></div>
+
+        <form x-show="!loading && !loadError" @submit.prevent="save()">
+            <div class="space-y-5">
+
+                {{-- Pesan berhasil --}}
+                <div x-show="saveSuccess" class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-bold text-green-700 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-300">
+                    Data pelanggan berhasil disimpan.
+                </div>
+                <div x-show="errors._general" x-text="errors._general" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300"></div>
+
+                {{-- Section 1: Data Pelanggan --}}
+                <div class="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 dark:border-white/10 dark:bg-white/[0.02]">
+                    <h3 class="mb-4 text-sm font-black uppercase tracking-wide text-slate-600 dark:text-slate-400">Data Pelanggan</h3>
+                    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Kode Pelanggan *</span>
+                            <input type="text" x-model="form.customer_code"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-mono uppercase outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                                placeholder="CUST-0001" required>
+                            <p x-show="errors.customer_code" x-text="errors.customer_code" class="mt-1 text-xs text-red-600"></p>
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Nama Pelanggan *</span>
+                            <input type="text" x-model="form.full_name"
+                                @input="form.full_name = $event.target.value.toUpperCase()"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                                placeholder="Nama lengkap" required>
+                            <p x-show="errors.full_name" x-text="errors.full_name" class="mt-1 text-xs text-red-600"></p>
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">No HP *</span>
+                            <input type="tel" x-model="form.phone"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                                placeholder="08xxxxxxxxxx" required>
+                            <p x-show="errors.phone" x-text="errors.phone" class="mt-1 text-xs text-red-600"></p>
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Tipe Pelanggan</span>
+                            <select x-model="form.customer_type"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10">
+                                <option value="personal">Personal</option>
+                                <option value="business">Business</option>
+                            </select>
+                            <p x-show="errors.customer_type" x-text="errors.customer_type" class="mt-1 text-xs text-red-600"></p>
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Status</span>
+                            <select x-model="form.status"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10">
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="suspended">Suspended</option>
+                            </select>
+                            <p x-show="errors.status" x-text="errors.status" class="mt-1 text-xs text-red-600"></p>
+                        </label>
+
+                        <label class="block sm:col-span-2 lg:col-span-3">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Alamat *</span>
+                            <textarea x-model="form.address" rows="2"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                                placeholder="Alamat lengkap pelanggan" required></textarea>
+                            <p x-show="errors.address" x-text="errors.address" class="mt-1 text-xs text-red-600"></p>
+                        </label>
+                    </div>
+                </div>
+
+                {{-- Section 2: Lokasi & Penugasan --}}
+                <div class="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 dark:border-white/10 dark:bg-white/[0.02]">
+                    <h3 class="mb-4 text-sm font-black uppercase tracking-wide text-slate-600 dark:text-slate-400">Lokasi & Penugasan</h3>
+                    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Lokasi</span>
+                            <select x-model="form.location_id" @change="onLocationChange()"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10">
+                                <option value="">Pilih Lokasi...</option>
+                                <template x-for="loc in locations" :key="loc.id">
+                                    <option :value="String(loc.id)" x-text="(loc.location_code ?? loc.code ?? '') + ' - ' + (loc.location_name ?? loc.name ?? '')"></option>
+                                </template>
+                            </select>
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">OLT</span>
+                            <select x-model="form.preferred_olt_id" :disabled="!form.location_id"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10">
+                                <option value="">Pilih OLT...</option>
+                                <template x-for="olt in filteredOlts()" :key="olt.id">
+                                    <option :value="String(olt.id)" x-text="(olt.olt_code ?? olt.code ?? '') + ' - ' + (olt.olt_name ?? olt.name ?? '')"></option>
+                                </template>
+                            </select>
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Teknisi</span>
+                            <select x-model="form.assigned_technician_id"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10">
+                                <option value="">Pilih Teknisi...</option>
+                                <template x-for="tech in technicians" :key="tech.id">
+                                    <option :value="String(tech.id)" x-text="(tech.technician_code ?? '') + ' - ' + (tech.full_name ?? tech.name ?? '')"></option>
+                                </template>
+                            </select>
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Latitude</span>
+                            <input type="text" x-model="form.latitude"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                                placeholder="-6.9xxxxxx">
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Longitude</span>
+                            <input type="text" x-model="form.longitude"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                                placeholder="107.6xxxxxx">
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">VLAN ID (VID)</span>
+                            <select x-model="form.vid_id"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10">
+                                <option value="">Tidak Diubah / Tidak Ada</option>
+                                <template x-for="vid in vids" :key="vid.id">
+                                    <option :value="String(vid.id)" x-text="'VID ' + vid.vid + (vid.description ? ' - ' + vid.description : '')"></option>
+                                </template>
+                            </select>
+                            <p class="mt-1 text-xs text-slate-400">VLAN ID untuk layanan internet pelanggan</p>
+                        </label>
+                    </div>
+                </div>
+
+                {{-- Submit --}}
+                <div class="flex items-center justify-end gap-4">
+                    <a href="/admin/customers"
+                        class="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:text-white">
+                        Batal
+                    </a>
+                    <button type="submit" :disabled="saving"
+                        class="rounded-xl bg-blue-600 px-8 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 disabled:cursor-not-allowed disabled:opacity-50">
+                        <span x-show="!saving">Simpan Perubahan</span>
+                        <span x-show="saving">Menyimpan...</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </section>
+
     <section class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>

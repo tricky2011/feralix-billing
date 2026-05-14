@@ -192,7 +192,7 @@ Route::prefix('v1/technician')->middleware(['auth:sanctum', 'panel.role:technici
     Route::get('dashboard', [TechnicianDashboardController::class, 'show']);
 });
 
-Route::prefix('v1/internal')->group(function (): void {
+Route::prefix('v1/internal')->middleware('throttle:60,1')->group(function (): void {
     Route::post('hotspot-radius/authorize', [HotspotRadiusController::class, 'authorize']);
     Route::post('hotspot-radius/accounting', [HotspotRadiusController::class, 'account']);
 });

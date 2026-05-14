@@ -4685,13 +4685,21 @@ function customerEdit() {
                 window.location.href = '/admin/customers';
                 return;
             }
-            await Promise.all([this.loadRefs(), this.loadCustomer()]);
+            try {
+                await Promise.all([this.loadRefs(), this.loadCustomer()]);
+            } catch (e) {
+                console.error('[customerEdit] init error:', e);
+            }
             this.loading = false;
         },
 
         async loadRefs() {
-            const token = localStorage.getItem('auth_token');
-            const headers = { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' };
+            const token = tokenStore.get();
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+            const headers = { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
             try {
                 const [locs, olts, techs, routers, pkgs] = await Promise.all([
                     fetch('/api/v1/admin/locations?per_page=500', { headers }).then(r => r.json()),
@@ -4706,19 +4714,35 @@ function customerEdit() {
                 this.refs.routers = routers.data ?? routers ?? [];
                 this.refs.packages = pkgs.data ?? pkgs ?? [];
             } catch (e) {
-                console.error('Failed to load references:', e);
+                console.error('[customerEdit] loadRefs error:', e);
             }
         },
 
         async loadCustomer() {
-            const token = localStorage.getItem('auth_token');
+            const token = tokenStore.get();
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+            const headers = { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
             try {
-                const res = await fetch(`/api/v1/admin/customers/${this.customerId}`, {
-                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
-                });
-                if (!res.ok) throw new Error('Failed to load customer');
-                const data = await res.json();
-                const c = data.data ?? data;
+                const res = await fetch(`/api/v1/admin/customers/${this.customerId}`, { headers });
+                console.log('[customerEdit] loadCustomer status:', res.status, 'url:', res.url);
+                if (res.status === 401) {
+                    tokenStore.forget();
+                    window.location.href = '/login';
+                    return;
+                }
+                if (!res.ok) {
+                    const errText = await res.text();
+                    console.error('[customerEdit] loadCustomer non-ok:', res.status, errText);
+                    return;
+                }
+                const json = await res.json();
+                console.log('[customerEdit] raw response:', json);
+                // API envelope: { success, data: { ...customer } }
+                const c = (json.data !== undefined ? json.data : json);
+                console.log('[customerEdit] parsed customer:', c);
 
                 this.form.full_name = c.full_name ?? '';
                 this.form.phone = c.phone ?? '';
@@ -4726,13 +4750,15 @@ function customerEdit() {
                 this.form.location_id = c.location_id ?? '';
                 this.form.olt_id = c.preferred_olt_id ?? '';
                 this.form.assigned_technician_id = c.assigned_technician_id ?? '';
-                this.form.latitude = c.latitude ?? '';
-                this.form.longitude = c.longitude ?? '';
+                this.form.latitude = c.latitude != null ? String(c.latitude) : '';
+                this.form.longitude = c.longitude != null ? String(c.longitude) : '';
                 this.form.status = c.status ?? '';
                 this.form.address = c.address ?? '';
 
-                const svc = c.latest_active_service ?? c.active_service ?? c.service ?? null;
-                if (svc) {
+                // latest_active_service might be nested or flat depending on response
+                const svc = c.latest_active_service ?? null;
+                console.log('[customerEdit] service:', svc);
+                if (svc && typeof svc === 'object') {
                     this.form.access_mode = svc.access_mode ?? '';
                     this.form.package_id = svc.package_id ?? '';
                     this.form.router_id = svc.router_id ?? '';
@@ -4747,7 +4773,7 @@ function customerEdit() {
 
                 this.updateMapsLink();
             } catch (e) {
-                console.error('Failed to load customer:', e);
+                console.error('[customerEdit] loadCustomer exception:', e);
             }
         },
 
@@ -4766,25 +4792,26 @@ function customerEdit() {
 
         async loadVids() {
             this.loadingVids = true;
-            const token = localStorage.getItem('auth_token');
+            const token = tokenStore.get();
+            if (!token) return;
             try {
                 const res = await fetch(`/api/v1/admin/vids?router_id=${this.form.router_id}&per_page=500`, {
-                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 });
                 if (res.ok) {
                     const data = await res.json();
                     this.vids = data.data ?? data ?? [];
                 }
             } catch (e) {
-                console.error('Failed to load VIDs:', e);
+                console.error('[customerEdit] loadVids error:', e);
             }
             this.loadingVids = false;
         },
 
         updateMapsLink() {
-            const lat = this.form.latitude;
-            const lng = this.form.longitude;
-            if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+            const lat = parseFloat(this.form.latitude);
+            const lng = parseFloat(this.form.longitude);
+            if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
                 this.form.maps_link = `https://www.google.com/maps?q=${lat},${lng}`;
             } else {
                 this.form.maps_link = '';
@@ -4794,7 +4821,11 @@ function customerEdit() {
         async submitEdit() {
             this.saving = true;
             this.errors = {};
-            const token = localStorage.getItem('auth_token');
+            const token = tokenStore.get();
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
             try {
                 const res = await fetch(`/api/v1/admin/customers/${this.customerId}`, {
                     method: 'PATCH',
@@ -4802,6 +4833,7 @@ function customerEdit() {
                         'Authorization': `Bearer ${token}`,
                         'Accept': 'application/json',
                         'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
                     },
                     body: JSON.stringify(this.form),
                 });
@@ -4812,7 +4844,7 @@ function customerEdit() {
                 }
                 window.location.href = '/admin/customers';
             } catch (e) {
-                console.error('Submit failed:', e);
+                console.error('[customerEdit] submit error:', e);
             }
             this.saving = false;
         },

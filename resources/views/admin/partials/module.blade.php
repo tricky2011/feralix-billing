@@ -2169,13 +2169,13 @@
         </div>
     </section>
 
-    <div x-show="loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map' && page !== 'ip-pools'" class="grid gap-3">
+    <div x-show="loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map' && page !== 'ip-pools' && page !== 'customers-edit'" class="grid gap-3">
         <template x-for="i in 5" :key="i">
             <div class="h-16 animate-pulse rounded-3xl bg-white/70 dark:bg-white/[0.05]"></div>
         </template>
     </div>
 
-    <x-table x-show="!loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map' && page !== 'ip-pools'">
+    <x-table x-show="!loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map' && page !== 'ip-pools' && page !== 'customers-edit'">
         <thead class="bg-slate-50 text-left text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:bg-white/[0.03] dark:text-slate-400">
             <tr>
                 <template x-for="column in currentColumns()" :key="column.key">
@@ -2211,7 +2211,7 @@
         </tbody>
     </x-table>
 
-    <div x-show="!loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map' && page !== 'ip-pools' && items.length === 0" class="rounded-[2rem] border border-dashed border-slate-300 bg-white/70 p-10 text-center dark:border-white/10 dark:bg-white/[0.04]">
+    <div x-show="!loading && !isPlaceholderCurrent() && page !== 'technician-dashboard' && page !== 'router-sync' && page !== 'fiber-network-map' && page !== 'ip-pools' && page !== 'customers-edit' && items.length === 0" class="rounded-[2rem] border border-dashed border-slate-300 bg-white/70 p-10 text-center dark:border-white/10 dark:bg-white/[0.04]">
         <p class="text-2xl font-black text-slate-900 dark:text-white">Belum ada data.</p>
         <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Coba ubah pencarian, refresh, atau buat data baru jika modul ini mendukung create.</p>
     </div>

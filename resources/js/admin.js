@@ -4769,3 +4769,5 @@ function customerEdit() {
     };
 }
 
+window.customerEdit = customerEdit;
+

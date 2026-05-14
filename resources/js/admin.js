@@ -4650,7 +4650,8 @@ function customerEdit() {
         loadingVids: false,
         form: {
             full_name: '', phone: '', email: '', address: '',
-            location_id: '', preferred_olt_id: '', assigned_technician_id: '',
+            location_id: '', preferred_olt_id: '', olt_id: '',
+            assigned_technician_id: '',
             access_mode: 'pppoe', package_id: '', router_id: '',
             pppoe_username: '', pppoe_password: '', static_ip_address: '',
             vid_id: '', latitude: '', longitude: '', maps_link: '', status: 'active',
@@ -4661,24 +4662,37 @@ function customerEdit() {
         availableVids: [],
         refs: { locations: [], olts: [], technicians: [], routers: [], packages: [] },
 
-        get vids() { return this.availableVids; },
-
         async init() {
-            const segments = window.location.pathname.split('/').filter(Boolean);
-            this.customerId = segments[segments.length - 2];
+            const match = window.location.pathname.match(/\/customers\/(\d+)\/edit/);
+            this.customerId = match ? match[1] : null;
+            console.log('customerEdit init, customerId:', this.customerId);
+            if (!this.customerId) {
+                this.errorMessage = 'Customer ID tidak valid di URL.';
+                this.loading = false;
+                return;
+            }
             await Promise.all([this.loadRefs(), this.loadCustomer()]);
             this.loading = false;
             if (this.form.router_id) await this.loadVids();
         },
 
+        filteredOlts() {
+            if (!this.form.location_id) return this.refs.olts;
+            const locId = String(this.form.location_id);
+            return this.refs.olts.filter((olt) => {
+                const oltLoc = String(olt.location_id ?? olt.network_location_id ?? '');
+                return oltLoc === locId;
+            });
+        },
+
         async loadRefs() {
             try {
                 const [locs, olts, techs, routers, pkgs] = await Promise.all([
-                    api.get('/api/v1/admin/locations', { per_page: 200 }),
-                    api.get('/api/v1/admin/olts', { per_page: 200 }),
-                    api.get('/api/v1/admin/technicians', { per_page: 200 }),
+                    api.get('/api/v1/admin/locations', { per_page: 100 }),
+                    api.get('/api/v1/admin/olts', { per_page: 100 }),
+                    api.get('/api/v1/admin/technicians', { per_page: 100 }),
                     api.get('/api/v1/admin/routers', { per_page: 50 }),
-                    api.get('/api/v1/admin/packages', { per_page: 200 }),
+                    api.get('/api/v1/admin/packages', { per_page: 100 }),
                 ]);
                 this.refs.locations   = locs.data?.data   ?? locs.data   ?? [];
                 this.refs.olts        = olts.data?.data   ?? olts.data   ?? [];
@@ -4687,39 +4701,40 @@ function customerEdit() {
                 this.refs.packages    = pkgs.data?.data   ?? pkgs.data   ?? [];
             } catch (e) {
                 console.error('loadRefs error:', e);
+                this.errorMessage = 'Gagal memuat referensi: ' + (e?.message ?? '');
             }
         },
 
         async loadCustomer() {
             try {
                 const res = await api.get(`/api/v1/admin/customers/${this.customerId}`);
-                const customer = res.data ?? {};
-                const svc = customer.latest_active_service ?? {};
+                const c = res.data ?? {};
+                const svc = c.latest_active_service ?? {};
+                console.log('Customer data loaded:', c);
                 this.form = {
-                    full_name:              customer.full_name ?? '',
-                    phone:                  customer.phone ?? '',
-                    email:                  customer.email ?? '',
-                    address:                customer.address ?? '',
-                    location_id:            customer.network_location_id ?? customer.location_id ?? '',
-                    preferred_olt_id:       customer.preferred_olt_id ?? '',
-                    assigned_technician_id: customer.assigned_technician_id ?? '',
+                    full_name:              c.full_name ?? '',
+                    phone:                  c.phone ?? '',
+                    email:                  c.email ?? '',
+                    address:                c.address ?? '',
+                    location_id:            c.network_location_id ?? c.location_id ?? '',
+                    preferred_olt_id:       c.preferred_olt_id ?? '',
+                    olt_id:                 c.preferred_olt_id ?? '',
+                    assigned_technician_id: c.assigned_technician_id ?? '',
                     access_mode:            svc.access_mode ?? 'pppoe',
                     package_id:             svc.package_id ?? '',
                     router_id:              svc.router_id ?? '',
-                    pppoe_username:         svc.pppoe_username ?? '',
-                    pppoe_password:         svc.pppoe_password ?? '',
+                    pppoe_username:         svc.pppoe_username ?? c.pppoe_username ?? '',
+                    pppoe_password:         svc.pppoe_password ?? c.pppoe_password ?? '',
                     static_ip_address:      svc.static_ip_address ?? '',
                     vid_id:                 svc.vid_id ?? '',
-                    latitude:               customer.latitude ?? '',
-                    longitude:              customer.longitude ?? '',
-                    maps_link:              (customer.latitude && customer.longitude)
-                                                ? `https://maps.google.com/?q=${customer.latitude},${customer.longitude}`
-                                                : '',
-                    status:                 svc.network_status ?? customer.status ?? 'active',
+                    latitude:               c.latitude ?? '',
+                    longitude:              c.longitude ?? '',
+                    maps_link:              (c.latitude && c.longitude) ? `https://maps.google.com/?q=${c.latitude},${c.longitude}` : '',
+                    status:                 svc.network_status ?? c.status ?? 'active',
                 };
             } catch (e) {
-                this.errorMessage = 'Gagal memuat data pelanggan: ' + (e?.message ?? 'Unknown error');
                 console.error('loadCustomer error:', e);
+                this.errorMessage = `Gagal memuat customer ID ${this.customerId}: ${e?.message ?? 'Tidak ditemukan'}`;
             }
         },
 
@@ -4734,7 +4749,7 @@ function customerEdit() {
             try {
                 const res = await api.get('/api/v1/admin/vids', {
                     router_id: this.form.router_id,
-                    per_page: 500,
+                    per_page: 100,
                 });
                 this.availableVids = res.data?.data ?? res.data ?? [];
             } catch (e) {
@@ -4756,7 +4771,11 @@ function customerEdit() {
             this.errorMessage = '';
             this.successMessage = '';
             try {
-                await api.patch(`/api/v1/admin/customers/${this.customerId}`, this.form);
+                const payload = { ...this.form };
+                if (payload.olt_id && !payload.preferred_olt_id) {
+                    payload.preferred_olt_id = payload.olt_id;
+                }
+                await api.patch(`/api/v1/admin/customers/${this.customerId}`, payload);
                 this.successMessage = 'Data pelanggan berhasil diperbarui.';
                 setTimeout(() => { window.location.href = '/admin/customers'; }, 1500);
             } catch (e) {
@@ -4768,6 +4787,5 @@ function customerEdit() {
         },
     };
 }
-
 window.customerEdit = customerEdit;
 

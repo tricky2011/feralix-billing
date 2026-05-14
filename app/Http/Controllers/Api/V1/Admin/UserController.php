@@ -270,7 +270,6 @@ class UserController extends Controller
      */
     private function syncRouters(User $user, array $routerIds): void
     {
-        $user->routers()->sync($routerIds);
         $user->accessibleRouters()->sync($routerIds);
     }
 

@@ -126,6 +126,80 @@ class ServiceIsolationService
         });
     }
 
+    public function markFailed(ServiceIsolation $serviceIsolation, string $reason, array $payload = []): ServiceIsolation
+    {
+        return DB::transaction(function () use ($serviceIsolation, $reason, $payload): ServiceIsolation {
+            $isolation = ServiceIsolation::query()
+                ->with('service')
+                ->lockForUpdate()
+                ->findOrFail($serviceIsolation->id);
+
+            if ($isolation->status === ServiceIsolationStatus::Failed) {
+                return $isolation;
+            }
+
+            if ($isolation->status === ServiceIsolationStatus::Released) {
+                return $isolation;
+            }
+
+            $failureNotes = sprintf(
+                '[FAILED] %s | Reason: %s',
+                now()->format('Y-m-d H:i:s'),
+                $reason,
+            );
+
+            $isolation->update([
+                'status' => ServiceIsolationStatus::Failed->value,
+                'notes' => $this->appendNotes($isolation->notes, $failureNotes),
+            ]);
+
+            if ($isolation->service !== null) {
+                $this->syncRouterOperationIsolationState($isolation->service, $isolation, false);
+            }
+
+            return $this->loadIsolation($isolation);
+        });
+    }
+
+    public function markReleaseFailed(ServiceIsolation $serviceIsolation, string $reason, array $payload = []): ServiceIsolation
+    {
+        return DB::transaction(function () use ($serviceIsolation, $reason, $payload): ServiceIsolation {
+            $isolation = ServiceIsolation::query()
+                ->with('service')
+                ->lockForUpdate()
+                ->findOrFail($serviceIsolation->id);
+
+            if ($isolation->status === ServiceIsolationStatus::Failed) {
+                return $isolation;
+            }
+
+            $failureNotes = sprintf(
+                '[RELEASE_FAILED] %s | Reason: %s',
+                now()->format('Y-m-d H:i:s'),
+                $reason,
+            );
+
+            if ($isolation->status === ServiceIsolationStatus::Released) {
+                $isolation->update([
+                    'status' => ServiceIsolationStatus::Applied->value,
+                    'released_at' => null,
+                    'notes' => $this->appendNotes($isolation->notes, $failureNotes),
+                ]);
+            } else {
+                $isolation->update([
+                    'status' => ServiceIsolationStatus::Failed->value,
+                    'notes' => $this->appendNotes($isolation->notes, $failureNotes),
+                ]);
+            }
+
+            if ($isolation->service !== null) {
+                $this->syncRouterOperationIsolationState($isolation->service, $isolation, true);
+            }
+
+            return $this->loadIsolation($isolation);
+        });
+    }
+
     public function releaseIsolation(ServiceIsolation $serviceIsolation, array $payload = []): ServiceIsolation
     {
         return DB::transaction(function () use ($serviceIsolation, $payload): ServiceIsolation {

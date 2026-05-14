@@ -85,12 +85,20 @@ class ServiceIsolationRouterExecutionService
                 ),
             };
         } catch (MikrotikApiException $exception) {
+            $isLastAttempt = $operationJob->attempts >= $this->getJobTries($operationJob);
+
+            if ($isLastAttempt) {
+                $this->markServiceIsolationFailed($operationJob, $exception->getMessage());
+            }
+
             $this->markJobFailed(
                 $operationJob,
                 $exception->getMessage(),
                 ServiceRouterOperationLogAction::Failed,
                 [
                     'exception' => get_class($exception),
+                    'is_last_attempt' => $isLastAttempt,
+                    'attempts' => $operationJob->attempts,
                 ],
             );
 
@@ -303,5 +311,41 @@ class ServiceIsolationRouterExecutionService
         $channel = (string) (config('mikrotik.logging.channel') ?: config('logging.default', 'stack'));
 
         return $this->logManager->channel($channel);
+    }
+
+    private function markServiceIsolationFailed(ServiceRouterOperationJob $operationJob, string $reason): void
+    {
+        $serviceIsolation = $operationJob->serviceIsolation?->refresh();
+
+        if ($serviceIsolation === null) {
+            return;
+        }
+
+        try {
+            if ($operationJob->operation_type === ServiceRouterOperationType::Release) {
+                $this->serviceIsolationService->markReleaseFailed($serviceIsolation, $reason);
+            } else {
+                $this->serviceIsolationService->markFailed($serviceIsolation, $reason);
+            }
+
+            $this->logger()->warning('ServiceIsolation marked as failed after Mikrotik operation exhausted all retries.', [
+                'operation_job_id' => $operationJob->id,
+                'service_isolation_id' => $serviceIsolation->id,
+                'operation_type' => $operationJob->operation_type?->value,
+                'reason' => $reason,
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger()->error('Failed to mark ServiceIsolation as failed.', [
+                'operation_job_id' => $operationJob->id,
+                'service_isolation_id' => $serviceIsolation->id,
+                'reason' => $reason,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function getJobTries(): int
+    {
+        return 3;
     }
 }

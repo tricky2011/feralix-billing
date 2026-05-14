@@ -333,9 +333,6 @@ class FreeRadiusSqlProvider implements HotspotRadiusProvider
                 'inputoctets' => $inputOctets,
                 'outputoctets' => $outputOctets,
                 'acctauthentic' => 'RADIUS',
-                'acctstatustype' => $request->acctStatusType->value,
-                'created_at' => $now,
-                'updated_at' => $now,
             ]);
         }
     }

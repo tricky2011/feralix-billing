@@ -236,7 +236,7 @@ class Router extends Model
 
     public function assignedUsers(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'user_router_assignments')
+        return $this->belongsToMany(User::class, 'user_router')
             ->withTimestamps();
     }
 

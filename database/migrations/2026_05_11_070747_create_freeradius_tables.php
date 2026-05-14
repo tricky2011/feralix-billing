@@ -95,7 +95,7 @@ return new class extends Migration
             $table->string('framedipv6address', 45)->charset('utf8')->nullable();
             $table->string('framedipv6prefix', 45)->charset('utf8')->nullable();
             $table->string('framedinterfaceid', 44)->charset('utf8')->nullable();
-            $table->string(' delegatedipv6prefix', 45)->charset('utf8')->nullable();
+            $table->string('delegatedipv6prefix', 45)->charset('utf8')->nullable();
             $table->index(['username', 'acctsessionid'], 'radacct_username_session_idx');
             $table->index(['acctstarttime', 'acctstoptime'], 'radacct_time_idx');
         });

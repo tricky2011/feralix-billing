@@ -20,7 +20,7 @@ class HotspotRadiusController extends Controller
         $result = $provider->authorize(HotspotRadiusAuthorizeRequest::fromArray($request->validated()));
 
         return $this->successResponse(
-            'Hotspot RADIUS authorization simulated successfully.',
+            'Hotspot RADIUS authorization processed successfully.',
             $result->toArray(),
             ['provider' => $provider->name()],
         );
@@ -32,7 +32,7 @@ class HotspotRadiusController extends Controller
         $result = $provider->account(HotspotRadiusAccountingRequest::fromArray($request->validated()));
 
         return $this->successResponse(
-            'Hotspot RADIUS accounting simulated successfully.',
+            'Hotspot RADIUS accounting processed successfully.',
             $result->toArray(),
             ['provider' => $provider->name()],
         );

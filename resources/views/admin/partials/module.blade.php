@@ -576,6 +576,298 @@
         </form>
     </section>
 
+    {{-- Customer Edit Form --}}
+    <section x-show="page === 'customers-edit'" x-cloak x-data="customerEdit()" x-init="init()" class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
+        <div class="mb-5 flex items-center justify-between">
+            <div>
+                <p class="text-xs font-black uppercase tracking-[0.24em] text-blue-700 dark:text-blue-300">CRM</p>
+                <h2 class="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Edit Data Pelanggan</h2>
+            </div>
+            <a
+                href="/admin/upgrade-paket"
+                class="rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-500/20 transition hover:bg-amber-600"
+            >
+                Upgrade Paket
+            </a>
+        </div>
+
+        <div x-show="loading" class="flex items-center justify-center py-16">
+            <div class="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+            <span class="ml-3 text-sm text-slate-500">Memuat data pelanggan...</span>
+        </div>
+
+        <form x-show="!loading" @submit.prevent="submitEdit()">
+            <div class="space-y-5">
+                {{-- Section 1: Data Pelanggan --}}
+                <div class="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 dark:border-white/10 dark:bg-white/[0.02]">
+                    <h3 class="mb-4 text-sm font-black uppercase tracking-wide text-slate-600 dark:text-slate-400">Data Pelanggan</h3>
+                    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Nama Pelanggan *</span>
+                            <input
+                                type="text"
+                                x-model="form.full_name"
+                                @input="form.full_name = $event.target.value.toUpperCase()"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                                placeholder="Nama lengkap"
+                                required
+                            >
+                            <p x-show="errors.full_name" x-text="errors.full_name" class="mt-1 text-xs text-red-600"></p>
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">No. HP</span>
+                            <input
+                                type="tel"
+                                x-model="form.phone"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                                placeholder="08xxxxxxxxxx"
+                            >
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Lokasi</span>
+                            <select
+                                x-model="form.location_id"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                            >
+                                <option value="">Pilih Lokasi...</option>
+                                <template x-for="loc in refs.locations" :key="loc.id">
+                                    <option :value="loc.id" x-text="(loc.location_code ?? loc.code ?? '') + ' - ' + (loc.location_name ?? loc.name ?? '')"></option>
+                                </template>
+                            </select>
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">OLT</span>
+                            <select
+                                x-model="form.olt_id"
+                                :disabled="!form.location_id"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                            >
+                                <option value="">Pilih OLT...</option>
+                                <template x-for="olt in filteredOlts()" :key="olt.id">
+                                    <option :value="olt.id" x-text="(olt.olt_code ?? olt.code ?? '') + ' - ' + (olt.olt_name ?? olt.name ?? '')"></option>
+                                </template>
+                            </select>
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Email</span>
+                            <input
+                                type="email"
+                                x-model="form.email"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                                placeholder="email@example.com"
+                            >
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Assign Teknisi</span>
+                            <select
+                                x-model="form.assigned_technician_id"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                            >
+                                <option value="">Pilih Teknisi...</option>
+                                <template x-for="tech in refs.technicians" :key="tech.id">
+                                    <option :value="tech.id" x-text="(tech.technician_code ?? '') + ' - ' + (tech.full_name ?? tech.name ?? '')"></option>
+                                </template>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+
+                {{-- Section 2: Mode Layanan & Koneksi --}}
+                <div class="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 dark:border-white/10 dark:bg-white/[0.02]">
+                    <h3 class="mb-4 text-sm font-black uppercase tracking-wide text-slate-600 dark:text-slate-400">Mode Layanan & Koneksi</h3>
+                    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Mode Layanan</span>
+                            <select
+                                x-model="form.access_mode"
+                                @change="onRouterChange()"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                            >
+                                <option value="">Pilih Mode...</option>
+                                <option value="pppoe">PPPoE</option>
+                                <option value="vlan">VLAN</option>
+                                <option value="static">Static IP</option>
+                                <option value="hotspot">Hotspot</option>
+                            </select>
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Paket/Profile</span>
+                            <select
+                                x-model="form.package_id"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                            >
+                                <option value="">Pilih Paket...</option>
+                                <template x-for="pkg in refs.packages" :key="pkg.id">
+                                    <option :value="pkg.id" x-text="(pkg.package_name ?? pkg.name ?? '') + ' - Rp ' + Number(pkg.monthly_price ?? pkg.price ?? 0).toLocaleString('id-ID')"></option>
+                                </template>
+                            </select>
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Router</span>
+                            <select
+                                x-model="form.router_id"
+                                @change="onRouterChange()"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                            >
+                                <option value="">Pilih Router...</option>
+                                <template x-for="router in refs.routers" :key="router.id">
+                                    <option :value="router.id" x-text="(router.router_code ?? '') + ' - ' + (router.router_name ?? '')"></option>
+                                </template>
+                            </select>
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Username PPP</span>
+                            <input
+                                type="text"
+                                x-model="form.pppoe_username"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-mono uppercase outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                                placeholder="USERNAME"
+                            >
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Password PPP</span>
+                            <input
+                                type="text"
+                                x-model="form.pppoe_password"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-mono outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                                placeholder="Password PPPoE"
+                            >
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">IP Remote</span>
+                            <input
+                                type="text"
+                                x-model="form.static_ip_address"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-mono outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                                placeholder="10.x.x.x"
+                            >
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">VLAN ID (VID)</span>
+                            <select
+                                x-model="form.vid_id"
+                                :disabled="!form.router_id || loadingVids"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                            >
+                                <option value="">Pilih VID...</option>
+                                <template x-for="vid in vids" :key="vid.id">
+                                    <option :value="vid.id" x-text="'VID ' + vid.vid + ' — ' + vid.subnet_cidr + ' [' + vid.status + ']'"></option>
+                                </template>
+                            </select>
+                            <p x-show="loadingVids" class="mt-1 text-xs text-slate-500">Memuat VID...</p>
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Status</span>
+                            <select
+                                x-model="form.status"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                            >
+                                <option value="">Pilih Status...</option>
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+
+                {{-- Section 3: Titik Koordinat --}}
+                <div class="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 dark:border-white/10 dark:bg-white/[0.02]">
+                    <h3 class="mb-4 text-sm font-black uppercase tracking-wide text-slate-600 dark:text-slate-400">Titik Koordinat</h3>
+                    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Latitude</span>
+                            <input
+                                type="text"
+                                x-model="form.latitude"
+                                @input="updateMapsLink()"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                                placeholder="-6.9xxxxxx"
+                            >
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Longitude</span>
+                            <input
+                                type="text"
+                                x-model="form.longitude"
+                                @input="updateMapsLink()"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                                placeholder="107.6xxxxxx"
+                            >
+                        </label>
+
+                        <label class="block">
+                            <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Link Google Maps</span>
+                            <div class="mt-2 flex items-center gap-2">
+                                <input
+                                    type="url"
+                                    x-model="form.maps_link"
+                                    readonly
+                                    class="w-full rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm outline-none dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300"
+                                    placeholder="Auto-generate"
+                                >
+                                <a
+                                    x-show="form.maps_link"
+                                    :href="form.maps_link"
+                                    target="_blank"
+                                    class="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/[0.08]"
+                                    title="Buka Google Maps"
+                                >
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                    </svg>
+                                </a>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                {{-- Section 4: Alamat --}}
+                <div class="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 dark:border-white/10 dark:bg-white/[0.02]">
+                    <h3 class="mb-4 text-sm font-black uppercase tracking-wide text-slate-600 dark:text-slate-400">Alamat</h3>
+                    <label class="block">
+                        <textarea
+                            x-model="form.address"
+                            rows="3"
+                            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
+                            placeholder="Alamat lengkap pelanggan"
+                        ></textarea>
+                    </label>
+                </div>
+
+                {{-- Submit --}}
+                <div class="flex items-center justify-end gap-4">
+                    <a
+                        href="/admin/customers"
+                        class="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:text-blue-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:text-white"
+                    >
+                        Kembali
+                    </a>
+                    <button
+                        type="submit"
+                        :disabled="saving"
+                        class="rounded-xl bg-blue-600 px-8 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        <span x-show="!saving">Update</span>
+                        <span x-show="saving">Menyimpan...</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </section>
+
     <section class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm shadow-slate-950/5 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-black/20">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -1908,7 +2200,7 @@
                     <td class="px-5 py-4 text-right">
                         <div class="flex justify-end gap-2">
                             <button class="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 dark:border-white/10 dark:text-slate-300" @click="openDetail(row)">Detail</button>
-                            <button class="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 dark:border-white/10 dark:text-slate-300" x-show="canEditCurrent() && canEditRow(row)" @click="openEdit(row)">Edit</button>
+                            <button class="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 dark:border-white/10 dark:text-slate-300" x-show="canEditCurrent() && canEditRow(row)" @click="page === 'customers' ? (window.location.href = '/admin/customers/' + row.id + '/edit') : openEdit(row)">Edit</button>
                             <template x-for="action in rowActions(row)" :key="action.key">
                                 <button class="rounded-xl px-3 py-2 text-xs font-bold" :class="action.class" @click="runRowAction(action, row)" x-text="action.label"></button>
                             </template>

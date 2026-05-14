@@ -4642,3 +4642,180 @@ export function adminPanel({ page }) {
     };
 }
 
+function customerEdit() {
+    return {
+        loading: true,
+        saving: false,
+        loadingVids: false,
+        customerId: null,
+        refs: {
+            locations: [],
+            olts: [],
+            technicians: [],
+            routers: [],
+            packages: [],
+        },
+        vids: [],
+        form: {
+            full_name: '',
+            phone: '',
+            email: '',
+            location_id: '',
+            olt_id: '',
+            assigned_technician_id: '',
+            access_mode: '',
+            package_id: '',
+            router_id: '',
+            pppoe_username: '',
+            pppoe_password: '',
+            static_ip_address: '',
+            vid_id: '',
+            status: '',
+            latitude: '',
+            longitude: '',
+            maps_link: '',
+            address: '',
+        },
+        errors: {},
+
+        async init() {
+            const pathParts = window.location.pathname.split('/');
+            this.customerId = pathParts[pathParts.length - 1];
+            if (!this.customerId || isNaN(this.customerId)) {
+                window.location.href = '/admin/customers';
+                return;
+            }
+            await Promise.all([this.loadRefs(), this.loadCustomer()]);
+            this.loading = false;
+        },
+
+        async loadRefs() {
+            const token = localStorage.getItem('auth_token');
+            const headers = { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' };
+            try {
+                const [locs, olts, techs, routers, pkgs] = await Promise.all([
+                    fetch('/api/v1/admin/locations?per_page=500', { headers }).then(r => r.json()),
+                    fetch('/api/v1/admin/olts?per_page=500', { headers }).then(r => r.json()),
+                    fetch('/api/v1/admin/technicians?per_page=500', { headers }).then(r => r.json()),
+                    fetch('/api/v1/admin/routers?per_page=500', { headers }).then(r => r.json()),
+                    fetch('/api/v1/admin/packages?per_page=500', { headers }).then(r => r.json()),
+                ]);
+                this.refs.locations = locs.data ?? locs ?? [];
+                this.refs.olts = olts.data ?? olts ?? [];
+                this.refs.technicians = techs.data ?? techs ?? [];
+                this.refs.routers = routers.data ?? routers ?? [];
+                this.refs.packages = pkgs.data ?? pkgs ?? [];
+            } catch (e) {
+                console.error('Failed to load references:', e);
+            }
+        },
+
+        async loadCustomer() {
+            const token = localStorage.getItem('auth_token');
+            try {
+                const res = await fetch(`/api/v1/admin/customers/${this.customerId}`, {
+                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+                });
+                if (!res.ok) throw new Error('Failed to load customer');
+                const data = await res.json();
+                const c = data.data ?? data;
+
+                this.form.full_name = c.full_name ?? '';
+                this.form.phone = c.phone ?? '';
+                this.form.email = c.email ?? '';
+                this.form.location_id = c.location_id ?? '';
+                this.form.olt_id = c.preferred_olt_id ?? '';
+                this.form.assigned_technician_id = c.assigned_technician_id ?? '';
+                this.form.latitude = c.latitude ?? '';
+                this.form.longitude = c.longitude ?? '';
+                this.form.status = c.status ?? '';
+                this.form.address = c.address ?? '';
+
+                const svc = c.latest_active_service ?? c.active_service ?? c.service ?? null;
+                if (svc) {
+                    this.form.access_mode = svc.access_mode ?? '';
+                    this.form.package_id = svc.package_id ?? '';
+                    this.form.router_id = svc.router_id ?? '';
+                    this.form.pppoe_username = svc.pppoe_username ?? '';
+                    this.form.pppoe_password = svc.pppoe_password ?? '';
+                    this.form.static_ip_address = svc.static_ip_address ?? '';
+                    this.form.vid_id = svc.vid_id ?? '';
+                    if (this.form.router_id) {
+                        await this.loadVids();
+                    }
+                }
+
+                this.updateMapsLink();
+            } catch (e) {
+                console.error('Failed to load customer:', e);
+            }
+        },
+
+        filteredOlts() {
+            if (!this.form.location_id) return this.refs.olts;
+            return this.refs.olts.filter(o => String(o.location_id) === String(this.form.location_id));
+        },
+
+        onRouterChange() {
+            this.form.vid_id = '';
+            this.vids = [];
+            if (this.form.router_id) {
+                this.loadVids();
+            }
+        },
+
+        async loadVids() {
+            this.loadingVids = true;
+            const token = localStorage.getItem('auth_token');
+            try {
+                const res = await fetch(`/api/v1/admin/vids?router_id=${this.form.router_id}&per_page=500`, {
+                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    this.vids = data.data ?? data ?? [];
+                }
+            } catch (e) {
+                console.error('Failed to load VIDs:', e);
+            }
+            this.loadingVids = false;
+        },
+
+        updateMapsLink() {
+            const lat = this.form.latitude;
+            const lng = this.form.longitude;
+            if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+                this.form.maps_link = `https://www.google.com/maps?q=${lat},${lng}`;
+            } else {
+                this.form.maps_link = '';
+            }
+        },
+
+        async submitEdit() {
+            this.saving = true;
+            this.errors = {};
+            const token = localStorage.getItem('auth_token');
+            try {
+                const res = await fetch(`/api/v1/admin/customers/${this.customerId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(this.form),
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    this.errors = data.errors ?? {};
+                    return;
+                }
+                window.location.href = '/admin/customers';
+            } catch (e) {
+                console.error('Submit failed:', e);
+            }
+            this.saving = false;
+        },
+    };
+}
+

@@ -20,6 +20,10 @@ Route::get('/admin/customers/create', function () {
     return view('admin.index', ['page' => 'customers-create']);
 })->name('admin.customers.create');
 
+Route::get('/admin/customers/{id}/edit', function (string $id) {
+    return view('admin.index', ['page' => 'customers-edit', 'editCustomerId' => $id]);
+})->name('admin.customers.edit');
+
 Route::get('/admin/master-lokasi', function () {
     return view('admin.index', ['page' => 'master-lokasi']);
 })->name('admin.master-lokasi');

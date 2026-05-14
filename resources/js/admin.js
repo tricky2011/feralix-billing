@@ -4644,209 +4644,127 @@ export function adminPanel({ page }) {
 
 function customerEdit() {
     return {
+        customerId: null,
         loading: true,
         saving: false,
         loadingVids: false,
-        customerId: null,
-        refs: {
-            locations: [],
-            olts: [],
-            technicians: [],
-            routers: [],
-            packages: [],
-        },
-        vids: [],
         form: {
-            full_name: '',
-            phone: '',
-            email: '',
-            location_id: '',
-            olt_id: '',
-            assigned_technician_id: '',
-            access_mode: '',
-            package_id: '',
-            router_id: '',
-            pppoe_username: '',
-            pppoe_password: '',
-            static_ip_address: '',
-            vid_id: '',
-            status: '',
-            latitude: '',
-            longitude: '',
-            maps_link: '',
-            address: '',
+            full_name: '', phone: '', email: '', address: '',
+            location_id: '', preferred_olt_id: '', assigned_technician_id: '',
+            access_mode: 'pppoe', package_id: '', router_id: '',
+            pppoe_username: '', pppoe_password: '', static_ip_address: '',
+            vid_id: '', latitude: '', longitude: '', maps_link: '', status: 'active',
         },
         errors: {},
+        errorMessage: '',
+        successMessage: '',
+        availableVids: [],
+        refs: { locations: [], olts: [], technicians: [], routers: [], packages: [] },
+
+        get vids() { return this.availableVids; },
 
         async init() {
-            const pathParts = window.location.pathname.split('/');
-            this.customerId = pathParts[pathParts.length - 1];
-            if (!this.customerId || isNaN(this.customerId)) {
-                window.location.href = '/admin/customers';
-                return;
-            }
-            try {
-                await Promise.all([this.loadRefs(), this.loadCustomer()]);
-            } catch (e) {
-                console.error('[customerEdit] init error:', e);
-            }
+            const segments = window.location.pathname.split('/').filter(Boolean);
+            this.customerId = segments[segments.length - 2];
+            await Promise.all([this.loadRefs(), this.loadCustomer()]);
             this.loading = false;
+            if (this.form.router_id) await this.loadVids();
         },
 
         async loadRefs() {
-            const token = tokenStore.get();
-            if (!token) {
-                window.location.href = '/login';
-                return;
-            }
-            const headers = { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
             try {
                 const [locs, olts, techs, routers, pkgs] = await Promise.all([
-                    fetch('/api/v1/admin/locations?per_page=500', { headers }).then(r => r.json()),
-                    fetch('/api/v1/admin/olts?per_page=500', { headers }).then(r => r.json()),
-                    fetch('/api/v1/admin/technicians?per_page=500', { headers }).then(r => r.json()),
-                    fetch('/api/v1/admin/routers?per_page=500', { headers }).then(r => r.json()),
-                    fetch('/api/v1/admin/packages?per_page=500', { headers }).then(r => r.json()),
+                    api.get('/api/v1/admin/locations', { per_page: 200 }),
+                    api.get('/api/v1/admin/olts', { per_page: 200 }),
+                    api.get('/api/v1/admin/technicians', { per_page: 200 }),
+                    api.get('/api/v1/admin/routers', { per_page: 50 }),
+                    api.get('/api/v1/admin/packages', { per_page: 200 }),
                 ]);
-                this.refs.locations = locs.data ?? locs ?? [];
-                this.refs.olts = olts.data ?? olts ?? [];
-                this.refs.technicians = techs.data ?? techs ?? [];
-                this.refs.routers = routers.data ?? routers ?? [];
-                this.refs.packages = pkgs.data ?? pkgs ?? [];
+                this.refs.locations   = locs.data?.data   ?? locs.data   ?? [];
+                this.refs.olts        = olts.data?.data   ?? olts.data   ?? [];
+                this.refs.technicians = techs.data?.data  ?? techs.data  ?? [];
+                this.refs.routers     = routers.data?.data ?? routers.data ?? [];
+                this.refs.packages    = pkgs.data?.data   ?? pkgs.data   ?? [];
             } catch (e) {
-                console.error('[customerEdit] loadRefs error:', e);
+                console.error('loadRefs error:', e);
             }
         },
 
         async loadCustomer() {
-            const token = tokenStore.get();
-            if (!token) {
-                window.location.href = '/login';
-                return;
-            }
-            const headers = { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
             try {
-                const res = await fetch(`/api/v1/admin/customers/${this.customerId}`, { headers });
-                console.log('[customerEdit] loadCustomer status:', res.status, 'url:', res.url);
-                if (res.status === 401) {
-                    tokenStore.forget();
-                    window.location.href = '/login';
-                    return;
-                }
-                if (!res.ok) {
-                    const errText = await res.text();
-                    console.error('[customerEdit] loadCustomer non-ok:', res.status, errText);
-                    return;
-                }
-                const json = await res.json();
-                console.log('[customerEdit] raw response:', json);
-                // API envelope: { success, data: { ...customer } }
-                const c = (json.data !== undefined ? json.data : json);
-                console.log('[customerEdit] parsed customer:', c);
-
-                this.form.full_name = c.full_name ?? '';
-                this.form.phone = c.phone ?? '';
-                this.form.email = c.email ?? '';
-                this.form.location_id = c.location_id ?? '';
-                this.form.olt_id = c.preferred_olt_id ?? '';
-                this.form.assigned_technician_id = c.assigned_technician_id ?? '';
-                this.form.latitude = c.latitude != null ? String(c.latitude) : '';
-                this.form.longitude = c.longitude != null ? String(c.longitude) : '';
-                this.form.status = c.status ?? '';
-                this.form.address = c.address ?? '';
-
-                // latest_active_service might be nested or flat depending on response
-                const svc = c.latest_active_service ?? null;
-                console.log('[customerEdit] service:', svc);
-                if (svc && typeof svc === 'object') {
-                    this.form.access_mode = svc.access_mode ?? '';
-                    this.form.package_id = svc.package_id ?? '';
-                    this.form.router_id = svc.router_id ?? '';
-                    this.form.pppoe_username = svc.pppoe_username ?? '';
-                    this.form.pppoe_password = svc.pppoe_password ?? '';
-                    this.form.static_ip_address = svc.static_ip_address ?? '';
-                    this.form.vid_id = svc.vid_id ?? '';
-                    if (this.form.router_id) {
-                        await this.loadVids();
-                    }
-                }
-
-                this.updateMapsLink();
+                const res = await api.get(`/api/v1/admin/customers/${this.customerId}`);
+                const customer = res.data ?? {};
+                const svc = customer.latest_active_service ?? {};
+                this.form = {
+                    full_name:              customer.full_name ?? '',
+                    phone:                  customer.phone ?? '',
+                    email:                  customer.email ?? '',
+                    address:                customer.address ?? '',
+                    location_id:            customer.network_location_id ?? customer.location_id ?? '',
+                    preferred_olt_id:       customer.preferred_olt_id ?? '',
+                    assigned_technician_id: customer.assigned_technician_id ?? '',
+                    access_mode:            svc.access_mode ?? 'pppoe',
+                    package_id:             svc.package_id ?? '',
+                    router_id:              svc.router_id ?? '',
+                    pppoe_username:         svc.pppoe_username ?? '',
+                    pppoe_password:         svc.pppoe_password ?? '',
+                    static_ip_address:      svc.static_ip_address ?? '',
+                    vid_id:                 svc.vid_id ?? '',
+                    latitude:               customer.latitude ?? '',
+                    longitude:              customer.longitude ?? '',
+                    maps_link:              (customer.latitude && customer.longitude)
+                                                ? `https://maps.google.com/?q=${customer.latitude},${customer.longitude}`
+                                                : '',
+                    status:                 svc.network_status ?? customer.status ?? 'active',
+                };
             } catch (e) {
-                console.error('[customerEdit] loadCustomer exception:', e);
+                this.errorMessage = 'Gagal memuat data pelanggan: ' + (e?.message ?? 'Unknown error');
+                console.error('loadCustomer error:', e);
             }
         },
 
-        filteredOlts() {
-            if (!this.form.location_id) return this.refs.olts;
-            return this.refs.olts.filter(o => String(o.location_id) === String(this.form.location_id));
-        },
-
-        onRouterChange() {
+        async onRouterChange() {
             this.form.vid_id = '';
-            this.vids = [];
-            if (this.form.router_id) {
-                this.loadVids();
-            }
+            this.availableVids = [];
+            if (this.form.router_id) await this.loadVids();
         },
 
         async loadVids() {
             this.loadingVids = true;
-            const token = tokenStore.get();
-            if (!token) return;
             try {
-                const res = await fetch(`/api/v1/admin/vids?router_id=${this.form.router_id}&per_page=500`, {
-                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                const res = await api.get('/api/v1/admin/vids', {
+                    router_id: this.form.router_id,
+                    per_page: 500,
                 });
-                if (res.ok) {
-                    const data = await res.json();
-                    this.vids = data.data ?? data ?? [];
-                }
+                this.availableVids = res.data?.data ?? res.data ?? [];
             } catch (e) {
-                console.error('[customerEdit] loadVids error:', e);
+                console.error('loadVids error:', e);
+            } finally {
+                this.loadingVids = false;
             }
-            this.loadingVids = false;
         },
 
         updateMapsLink() {
-            const lat = parseFloat(this.form.latitude);
-            const lng = parseFloat(this.form.longitude);
-            if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-                this.form.maps_link = `https://www.google.com/maps?q=${lat},${lng}`;
-            } else {
-                this.form.maps_link = '';
+            if (this.form.latitude && this.form.longitude) {
+                this.form.maps_link = `https://maps.google.com/?q=${this.form.latitude},${this.form.longitude}`;
             }
         },
 
         async submitEdit() {
             this.saving = true;
             this.errors = {};
-            const token = tokenStore.get();
-            if (!token) {
-                window.location.href = '/login';
-                return;
-            }
+            this.errorMessage = '';
+            this.successMessage = '';
             try {
-                const res = await fetch(`/api/v1/admin/customers/${this.customerId}`, {
-                    method: 'PATCH',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                    body: JSON.stringify(this.form),
-                });
-                const data = await res.json();
-                if (!res.ok) {
-                    this.errors = data.errors ?? {};
-                    return;
-                }
-                window.location.href = '/admin/customers';
+                await api.patch(`/api/v1/admin/customers/${this.customerId}`, this.form);
+                this.successMessage = 'Data pelanggan berhasil diperbarui.';
+                setTimeout(() => { window.location.href = '/admin/customers'; }, 1500);
             } catch (e) {
-                console.error('[customerEdit] submit error:', e);
+                this.errors = e?.errors ?? {};
+                this.errorMessage = e?.message ?? 'Gagal menyimpan data.';
+            } finally {
+                this.saving = false;
             }
-            this.saving = false;
         },
     };
 }

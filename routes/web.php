@@ -20,6 +20,11 @@ Route::get('/admin/customers/create', function () {
     return view('admin.index', ['page' => 'customers-create']);
 })->name('admin.customers.create');
 
+Route::get('/admin/customers/{id}/edit', function (string $id) {
+    abort_unless(ctype_digit($id), 404);
+    return view('admin.index', ['page' => 'customers-edit']);
+})->name('admin.customers.edit');
+
 Route::get('/admin/master-lokasi', function () {
     return view('admin.index', ['page' => 'master-lokasi']);
 })->name('admin.master-lokasi');

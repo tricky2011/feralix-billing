@@ -11,23 +11,36 @@ class InvoicePaymentStatusService
     public function __construct(private readonly ServiceBillingStatusService $serviceBillingStatusService) {}
 
     public function resolve(
-        float $amountPaid,
-        float $totalAmount,
+        string|float $amountPaid,
+        string|float $totalAmount,
         ?Carbon $dueDate,
         bool $issued,
         ?Carbon $referenceDate = null,
     ): InvoicePaymentStatus {
         $referenceDate ??= now()->startOfDay();
 
-        if ($totalAmount <= 0 || $amountPaid >= $totalAmount) {
+        // Konversi ke string untuk bcmath, gunakan presisi 2 desimal
+        $paidStr = is_string($amountPaid) ? $amountPaid : number_format($amountPaid, 2, '.', '');
+        $totalStr = is_string($totalAmount) ? $totalAmount : number_format($totalAmount, 2, '.', '');
+
+        // bcmath comparison: returns -1 if left < right, 0 if equal, 1 if left > right
+        $isPaid = bccomp($paidStr, $totalStr, 2) >= 0;
+        $isZero = bccomp($totalStr, '0', 2) <= 0;
+
+        if ($isZero || $isPaid) {
             return InvoicePaymentStatus::Paid;
         }
 
-        if ($dueDate !== null && $dueDate->copy()->startOfDay()->lt($referenceDate->copy()->startOfDay()) && ($issued || $amountPaid > 0)) {
+        $hasAmountPaid = bccomp($paidStr, '0', 2) > 0;
+        $isOverdue = $dueDate !== null
+            && $dueDate->copy()->startOfDay()->lt($referenceDate->copy()->startOfDay())
+            && ($issued || $hasAmountPaid);
+
+        if ($isOverdue) {
             return InvoicePaymentStatus::Overdue;
         }
 
-        if ($amountPaid > 0) {
+        if ($hasAmountPaid) {
             return InvoicePaymentStatus::PartiallyPaid;
         }
 
@@ -76,9 +89,12 @@ class InvoicePaymentStatusService
         return $invoice->refresh();
     }
 
-    private function isIssued(Invoice $invoice, float $amountPaid): bool
+    private function isIssued(Invoice $invoice, string|float $amountPaid): bool
     {
-        if ($invoice->issued_at !== null || $amountPaid > 0) {
+        $paidStr = is_string($amountPaid) ? $amountPaid : number_format($amountPaid, 2, '.', '');
+        $hasAmountPaid = bccomp($paidStr, '0', 2) > 0;
+
+        if ($invoice->issued_at !== null || $hasAmountPaid) {
             return true;
         }
 

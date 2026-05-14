@@ -88,13 +88,13 @@ Route::prefix('v1/admin')
             Route::get('customer-references', [CustomerReferenceController::class, 'index']);
             Route::post('customers/onboard', [CustomerController::class, 'onboard']);
             Route::post('customers/provisioning', [CustomerController::class, 'provisioning']);
-            Route::post('customers/bulk-delete', [CustomerController::class, 'bulkDelete']);
-            Route::post('customers/bulk-disable', [CustomerController::class, 'bulkDisable']);
+            Route::post('customers/bulk-delete', [CustomerController::class, 'bulkDelete'])->middleware('throttle:bulk-operations');
+            Route::post('customers/bulk-disable', [CustomerController::class, 'bulkDisable'])->middleware('throttle:bulk-operations');
             Route::post('customers/bulk-generate-invoice', [CustomerController::class, 'bulkGenerateInvoice']);
             Route::post('customers/provisioning-preview', [CustomerController::class, 'provisioningPreview']);
             Route::apiResource('locations', LocationController::class);
             Route::apiResource('customers', CustomerController::class);
-            Route::delete('/customers/{customer}/terminate', [CustomerController::class, 'terminate']);
+            Route::delete('/customers/{customer}/terminate', [CustomerController::class, 'terminate'])->middleware('throttle:destructive');
             Route::apiResource('packages', PackageController::class);
             Route::apiResource('hotspot-profiles', HotspotProfileController::class)
                 ->parameters(['hotspot-profiles' => 'hotspotProfile'])
@@ -112,10 +112,14 @@ Route::prefix('v1/admin')
             Route::post('routers/{router}/test-acs', [RouterController::class, 'testAcs'])->middleware('role:superadmin,admin');
             Route::post('routers/{router}/sync-ont', [RouterController::class, 'syncOnt'])->middleware('role:superadmin,admin');
             Route::post('routers/{router}/detect-version', [RouterController::class, 'detectVersion'])->middleware('role:superadmin,admin');
-            Route::post('router-sync/pppoe', [RouterSyncController::class, 'syncPppoe'])->middleware('role:superadmin,admin');
-            Route::post('router-sync/static', [RouterSyncController::class, 'syncStatic'])->middleware('role:superadmin,admin');
-            Route::post('router-sync/address-list', [RouterSyncController::class, 'syncAddressList'])->middleware('role:superadmin,admin');
-            Route::post('router-sync/all', [RouterSyncController::class, 'syncAll'])->middleware('role:superadmin,admin');
+            Route::post('router-sync/pppoe', [RouterSyncController::class, 'syncPppoe'])
+                ->middleware(['role:superadmin,admin', 'throttle:router-sync']);
+            Route::post('router-sync/static', [RouterSyncController::class, 'syncStatic'])
+                ->middleware(['role:superadmin,admin', 'throttle:router-sync']);
+            Route::post('router-sync/address-list', [RouterSyncController::class, 'syncAddressList'])
+                ->middleware(['role:superadmin,admin', 'throttle:router-sync']);
+            Route::post('router-sync/all', [RouterSyncController::class, 'syncAll'])
+                ->middleware(['role:superadmin,admin', 'throttle:destructive']);
             Route::get('mikrotik/pppoe-servers', [MikrotikInfoController::class, 'pppoeServers']);
             Route::get('pppoe-import/candidates', [PppoeImportController::class, 'candidates'])->middleware('role:superadmin,admin');
             Route::post('pppoe-import/import', [PppoeImportController::class, 'import'])->middleware('role:superadmin,admin');
@@ -172,8 +176,8 @@ Route::prefix('v1/admin')
             Route::post('isolir/release', [ManualIsolirController::class, 'release']);
             Route::post('invoices/manual-generate', [InvoiceController::class, 'manualGenerate']);
             Route::post('invoices/generate-monthly', [InvoiceController::class, 'generateMonthly']);
-            Route::post('invoices/bulk-action', [InvoiceController::class, 'bulkAction']);
-            Route::post('invoices/auto-suspend', [InvoiceController::class, 'autoSuspend']);
+            Route::post('invoices/bulk-action', [InvoiceController::class, 'bulkAction'])->middleware('throttle:bulk-operations');
+            Route::post('invoices/auto-suspend', [InvoiceController::class, 'autoSuspend'])->middleware('throttle:auto-suspend');
             Route::get('invoices/overdue', [InvoiceController::class, 'overdue']);
             Route::get('invoices/paid', [InvoiceController::class, 'paid']);
             Route::get('invoices/unpaid', [InvoiceController::class, 'unpaid']);

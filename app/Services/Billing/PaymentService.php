@@ -142,32 +142,64 @@ class PaymentService
 
     public function settleInvoice(Invoice $invoice, array $payload = []): Payment
     {
-        $invoice = Invoice::query()->withSum('payments', 'amount_paid')->findOrFail($invoice->id);
-        $remainingAmount = round((float) $invoice->total_amount - (float) $invoice->amountPaid(), 2);
+        return DB::transaction(function () use ($invoice, $payload): Payment {
+            $invoice = Invoice::query()
+                ->withSum('payments', 'amount_paid')
+                ->lockForUpdate()
+                ->findOrFail($invoice->id);
 
-        if ($remainingAmount <= 0) {
-            throw ValidationException::withMessages([
-                'invoice' => 'The selected invoice is already fully paid.',
-            ]);
-        }
+            $remainingAmount = round((float) $invoice->total_amount - (float) $invoice->amountPaid(), 2);
 
-        if ($invoice->payment_status === InvoicePaymentStatus::Canceled) {
-            throw ValidationException::withMessages([
-                'invoice' => 'Canceled invoices cannot be settled.',
-            ]);
-        }
+            if ($remainingAmount <= 0) {
+                throw ValidationException::withMessages([
+                    'invoice' => 'The selected invoice is already fully paid.',
+                ]);
+            }
 
-        $this->roleRouterScopeService->ensureModelAccessibleForInput($invoice, 'invoice');
+            if ($invoice->payment_status === InvoicePaymentStatus::Canceled) {
+                throw ValidationException::withMessages([
+                    'invoice' => 'Canceled invoices cannot be settled.',
+                ]);
+            }
 
-        return $this->create([
+            $this->roleRouterScopeService->ensureModelAccessibleForInput($invoice, 'invoice');
+
+            return $this->createPaymentUnderExistingTransaction(
+                $invoice,
+                $remainingAmount,
+                $payload
+            );
+        });
+    }
+
+    private function createPaymentUnderExistingTransaction(
+        Invoice $invoice,
+        float $remainingAmount,
+        array $payload
+    ): Payment {
+        $incomingAmount = round($remainingAmount, 2);
+
+        $payment = Payment::query()->create([
             'invoice_id' => $invoice->id,
-            'amount_paid' => $remainingAmount,
+            'customer_id' => $invoice->customer_id,
+            'service_id' => $invoice->service_id,
+            'amount_paid' => number_format($incomingAmount, 2, '.', ''),
             'payment_method' => $payload['payment_method'] ?? 'manual_adjustment',
             'paid_at' => $payload['paid_at'] ?? now()->toDateTimeString(),
             'reference_no' => $payload['reference_no'] ?? null,
-            'created_by' => Auth::id(),
+            'created_by' => $payload['created_by'] ?? Auth::id(),
             'notes' => $payload['notes'] ?? null,
         ]);
+
+        $invoice = $this->invoicePaymentStatusService->sync(
+            $invoice,
+            amountPaid: $remainingAmount,
+            referenceDate: Carbon::parse((string) ($payload['paid_at'] ?? now()->toDateTimeString())),
+            issued: true,
+        );
+        $this->cashflowIncomeService->recordPayment($payment, $invoice->loadMissing('service'));
+
+        return $this->loadPayment($payment);
     }
 
     public function find(Payment $payment): Payment

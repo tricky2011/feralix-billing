@@ -11,8 +11,10 @@ use App\Models\ServiceIsolation;
 use App\Models\ServiceRouterOperationJob;
 use App\Models\ServiceRouterOperationStatus;
 use App\Models\Vid;
+use App\Services\Helpdesk\TelegramAlertService;
 use App\Services\Mikrotik\MikrotikAddressListService;
 use App\Services\Provisioning\ServiceIsolationRouterExecutionService;
+use App\Services\Provisioning\ServiceIsolationRouterJobDispatcher;
 use App\Services\Provisioning\ServiceIsolationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Log\LogManager;
@@ -26,6 +28,8 @@ class ServiceIsolationRouterExecutionServiceTest extends TestCase
     private ServiceIsolationRouterExecutionService $service;
     private MikrotikAddressListService $addressListService;
     private ServiceIsolationService $serviceIsolationService;
+    private ServiceIsolationRouterJobDispatcher $routerJobDispatcher;
+    private TelegramAlertService $telegramAlertService;
 
     protected function setUp(): void
     {
@@ -33,6 +37,8 @@ class ServiceIsolationRouterExecutionServiceTest extends TestCase
 
         $this->addressListService = Mockery::mock(MikrotikAddressListService::class);
         $this->serviceIsolationService = Mockery::mock(ServiceIsolationService::class);
+        $this->routerJobDispatcher = Mockery::mock(ServiceIsolationRouterJobDispatcher::class);
+        $this->telegramAlertService = Mockery::mock(TelegramAlertService::class);
 
         $logManager = Mockery::mock(LogManager::class);
         $logChannel = Mockery::mock();
@@ -44,6 +50,8 @@ class ServiceIsolationRouterExecutionServiceTest extends TestCase
         $this->service = new ServiceIsolationRouterExecutionService(
             $this->addressListService,
             $this->serviceIsolationService,
+            $this->routerJobDispatcher,
+            $this->telegramAlertService,
             $logManager,
         );
     }
@@ -66,6 +74,8 @@ class ServiceIsolationRouterExecutionServiceTest extends TestCase
             'api_username' => 'admin',
             'api_password' => 'password',
             'is_active' => true,
+            'status' => 'active',
+            'router_role' => 'distribution',
         ]);
     }
 
@@ -189,5 +199,86 @@ class ServiceIsolationRouterExecutionServiceTest extends TestCase
 
         $this->assertEquals($isolation->id, $status->open_isolation_id);
         $this->assertTrue($status->isolation_applied);
+    }
+
+    public function test_concurrent_state_change_when_status_is_released_dispatches_release_job(): void
+    {
+        $isolation = $this->createServiceIsolation([
+            'status' => ServiceIsolationStatus::Released,
+        ]);
+
+        $operationJob = $this->createServiceRouterOperationJob([
+            'operation_type' => ServiceRouterOperationType::Isolate->value,
+            'service_isolation_id' => $isolation->id,
+        ]);
+
+        // Mock the service to throw ValidationException (simulating concurrent state change)
+        $this->serviceIsolationService
+            ->shouldReceive('markApplied')
+            ->andThrow(\Illuminate\Validation\ValidationException::withMessages(['status' => 'Already changed']));
+
+        $this->routerJobDispatcher
+            ->shouldReceive('dispatchRelease')
+            ->with($isolation->id)
+            ->once();
+
+        $this->telegramAlertService
+            ->shouldReceive('queueIsolationConflictAlert')
+            ->once();
+
+        // Execute applyIsolationStateIfNeeded which should handle the conflict
+        $this->service->applyIsolationStateIfNeeded($operationJob);
+
+        // Verify release job was dispatched via mock expectation
+    }
+
+    public function test_concurrent_state_change_when_status_is_applied_does_not_dispatch_release(): void
+    {
+        $isolation = $this->createServiceIsolation([
+            'status' => ServiceIsolationStatus::Applied,
+        ]);
+
+        $operationJob = $this->createServiceRouterOperationJob([
+            'operation_type' => ServiceRouterOperationType::Isolate->value,
+            'service_isolation_id' => $isolation->id,
+        ]);
+
+        // Mock the service to throw ValidationException
+        $this->serviceIsolationService
+            ->shouldReceive('markApplied')
+            ->andThrow(\Illuminate\Validation\ValidationException::withMessages(['status' => 'Already applied']));
+
+        // RouterJobDispatcher should NOT be called for Applied status
+        $this->routerJobDispatcher
+            ->shouldNotReceive('dispatchRelease');
+
+        $this->service->applyIsolationStateIfNeeded($operationJob);
+    }
+
+    public function test_concurrent_state_change_when_status_is_failed_dispatches_release_job(): void
+    {
+        $isolation = $this->createServiceIsolation([
+            'status' => ServiceIsolationStatus::Failed,
+        ]);
+
+        $operationJob = $this->createServiceRouterOperationJob([
+            'operation_type' => ServiceRouterOperationType::Isolate->value,
+            'service_isolation_id' => $isolation->id,
+        ]);
+
+        $this->serviceIsolationService
+            ->shouldReceive('markApplied')
+            ->andThrow(\Illuminate\Validation\ValidationException::withMessages(['status' => 'Failed']));
+
+        $this->routerJobDispatcher
+            ->shouldReceive('dispatchRelease')
+            ->with($isolation->id)
+            ->once();
+
+        $this->telegramAlertService
+            ->shouldReceive('queueIsolationConflictAlert')
+            ->once();
+
+        $this->service->applyIsolationStateIfNeeded($operationJob);
     }
 }

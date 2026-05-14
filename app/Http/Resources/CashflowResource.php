@@ -19,6 +19,7 @@ class CashflowResource extends JsonResource
             'source' => $this->source,
             'reference_type' => $this->reference_type !== null ? class_basename((string) $this->reference_type) : null,
             'reference_id' => $this->reference_id,
+            'reference_label' => $this->referenceLabel(),
             'created_by' => $this->created_by,
             'can_update' => $this->source === 'manual',
             'can_delete' => $this->source === 'manual',

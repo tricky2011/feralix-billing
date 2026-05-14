@@ -30,7 +30,7 @@ class InvoiceAutoSuspendService
      *     failed:int
      * }
      */
-    public function trigger(array $filters = [], ?Carbon $referenceDate = null, int $chunkSize = 100): array
+    public function trigger(array $filters = [], ?Carbon $referenceDate = null, int $chunkSize = 100, bool $dryRun = false): array
     {
         $referenceDate ??= now()->startOfDay();
         $notes = trim((string) config('automation.billing.service_isolation.notes'));
@@ -42,6 +42,7 @@ class InvoiceAutoSuspendService
             'skipped_missing_router' => 0,
             'skipped_missing_target_subnet' => 0,
             'failed' => 0,
+            'dry_run' => $dryRun,
         ];
 
         if (($filters['router_id'] ?? null) !== null) {
@@ -65,7 +66,7 @@ class InvoiceAutoSuspendService
         $this->roleRouterScopeService->applyServiceRouterScope($query, 'service', 'router_id');
 
         $query
-            ->chunkById($chunkSize, function ($invoiceReferences) use (&$summary, $notes): void {
+            ->chunkById($chunkSize, function ($invoiceReferences) use (&$summary, $notes, $dryRun): void {
                 foreach ($invoiceReferences as $invoiceReference) {
                     $summary['checked_invoices']++;
 
@@ -102,6 +103,12 @@ class InvoiceAutoSuspendService
                         continue;
                     }
 
+                    if ($dryRun) {
+                        $summary['created_isolations']++;
+
+                        continue;
+                    }
+
                     try {
                         $this->serviceIsolationService->createIsolationRecord([
                             'service_id' => $invoice->service_id,
@@ -122,5 +129,26 @@ class InvoiceAutoSuspendService
             });
 
         return $summary;
+    }
+
+    public function countAffected(array $filters = [], ?Carbon $referenceDate = null): int
+    {
+        $referenceDate ??= now()->startOfDay();
+
+        $query = Invoice::query()
+            ->overdue($referenceDate)
+            ->when(
+                $filters['customer_id'] ?? null,
+                fn (Builder $builder, $customerId) => $builder->where('customer_id', $customerId),
+            )
+            ->when(
+                $filters['service_id'] ?? null,
+                fn (Builder $builder, $serviceId) => $builder->where('service_id', $serviceId),
+            )
+            ->router(isset($filters['router_id']) ? (int) $filters['router_id'] : null);
+
+        $this->roleRouterScopeService->applyServiceRouterScope($query, 'service', 'router_id');
+
+        return $query->count();
     }
 }

@@ -10,6 +10,7 @@ use App\Enums\ServiceOverallStatus;
 use App\Enums\VidType;
 use App\Http\Requests\AdminPanelRequest;
 use App\Models\Ont;
+use App\Models\Package;
 use App\Models\Service;
 use App\Models\Vid;
 use Illuminate\Support\Str;
@@ -119,6 +120,7 @@ abstract class ServicePayloadRequest extends AdminPanelRequest
             $this->validateActiveCustomerRule($validator);
             $this->validateActiveInternetVidUniqueness($validator);
             $this->validateActiveOntUniqueness($validator);
+            $this->validateActiveServiceMonthlyPrice($validator);
         });
     }
 
@@ -314,5 +316,45 @@ abstract class ServicePayloadRequest extends AdminPanelRequest
             : null;
 
         return $status?->usesDedicatedResources() ?? false;
+    }
+
+    private function requestedOverallStatusIsBillable(): bool
+    {
+        $status = $this->filled('overall_status')
+            ? ServiceOverallStatus::tryFrom((string) $this->input('overall_status'))
+            : null;
+
+        if ($status === null) {
+            return false;
+        }
+
+        return in_array($status, [
+            ServiceOverallStatus::Active,
+            ServiceOverallStatus::Down,
+            ServiceOverallStatus::Suspended,
+            ServiceOverallStatus::Isolated,
+        ], true);
+    }
+
+    private function validateActiveServiceMonthlyPrice(Validator $validator): void
+    {
+        if (! $this->requestedOverallStatusIsBillable() || ! $this->filled('package_id')) {
+            return;
+        }
+
+        $package = Package::query()->find($this->input('package_id'));
+
+        if ($package === null) {
+            return;
+        }
+
+        $packagePrice = $package->monthly_price !== null ? (float) $package->monthly_price : null;
+
+        if ($packagePrice === null || $packagePrice <= 0) {
+            $validator->errors()->add(
+                'package_id',
+                'The selected package must have a monthly price greater than 0 for billable services.',
+            );
+        }
     }
 }

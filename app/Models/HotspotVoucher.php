@@ -17,6 +17,7 @@ class HotspotVoucher extends Model
 
     protected $hidden = [
         'password',
+        'password_plain',
     ];
 
     protected $fillable = [

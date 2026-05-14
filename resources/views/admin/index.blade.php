@@ -30,5 +30,6 @@
 
         <x-modal />
         <x-toast-notification />
+        @include('admin.partials.hotspot-voucher-detail')
     </div>
 @endsection

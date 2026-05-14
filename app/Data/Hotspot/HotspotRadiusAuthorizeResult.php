@@ -25,6 +25,30 @@ final readonly class HotspotRadiusAuthorizeResult
         public array $context = [],
     ) {}
 
+    public static function accept(string $username = 'unknown', ?int $voucherId = null): self
+    {
+        return new self(
+            accepted: true,
+            voucherId: $voucherId,
+            username: $username,
+            voucherStatus: null,
+            reason: null,
+            message: 'Access accepted',
+        );
+    }
+
+    public static function reject(string $username, HotspotRadiusRejectReason $reason, string $message): self
+    {
+        return new self(
+            accepted: false,
+            voucherId: null,
+            username: $username,
+            voucherStatus: null,
+            reason: $reason,
+            message: $message,
+        );
+    }
+
     public function toArray(): array
     {
         return [

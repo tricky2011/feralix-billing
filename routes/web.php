@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\HotspotLoginController;
 use App\Http\Controllers\IsolirPageController;
 use Illuminate\Support\Facades\Route;
 
@@ -8,6 +9,8 @@ Route::get('/', function () {
 });
 
 Route::view('/login', 'auth.login')->name('admin.login');
+
+Route::get('/hotspot', HotspotLoginController::class)->name('hotspot.login');
 
 Route::get('/isolir', IsolirPageController::class)->name('isolir');
 

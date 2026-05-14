@@ -45,12 +45,14 @@ class FreeRadiusSqlProvider implements HotspotRadiusProvider
 
     /**
      * Authorize via RADIUS packet — delegates to HotspotRadiusService then syncs FreeRADIUS.
+     *
+     * HotspotRadiusService handles voucher state (expiry, MAC lock, data limit, event logging).
+     * After accept, ensure radcheck/radreply are up-to-date for this session.
      */
     public function authorize(HotspotRadiusAuthorizeRequest $request): HotspotRadiusAuthorizeResult
     {
         $result = $this->hotspotRadiusService->authorize($request);
 
-        // If authorized, ensure FreeRADIUS radcheck/radreply are up-to-date
         if ($result->accepted) {
             $voucher = HotspotVoucher::query()
                 ->with('hotspotProfile')
@@ -73,7 +75,10 @@ class FreeRadiusSqlProvider implements HotspotRadiusProvider
     }
 
     /**
-     * Account — update hotspot state then write accounting to radacct.
+     * Account — update hotspot billing state then write accounting to radacct.
+     *
+     * HotspotRadiusService updates bytes_used, session records, and voucher status.
+     * upsertRadAcct() mirrors the session to FreeRADIUS's own radacct table.
      */
     public function account(HotspotRadiusAccountingRequest $request): HotspotRadiusAccountingResult
     {
@@ -177,7 +182,7 @@ class FreeRadiusSqlProvider implements HotspotRadiusProvider
 
         // Session timeout from profile validity
         if ($profile !== null && $profile->usesTimeExpiry() && $profile->validity_days !== null) {
-            $sessionTimeoutSeconds = $profile->validity_days * 86400; // days → seconds
+            $sessionTimeoutSeconds = $profile->validity_days * 86400;
             $rows[] = [
                 'username' => $username,
                 'attribute' => 'Session-Timeout',
@@ -229,8 +234,9 @@ class FreeRadiusSqlProvider implements HotspotRadiusProvider
      * Resolve the plaintext password for a voucher.
      *
      * Priority:
-     * 1. password_plain (stored at creation time, unencrypted)
+     * 1. password_plain (stored unencrypted at voucher creation time)
      * 2. Decrypt the encrypted password field
+     * 3. Fail fast — never silently pass an encrypted blob to FreeRADIUS
      */
     private function resolvePlaintextPassword(HotspotVoucher $voucher): string
     {
@@ -245,6 +251,11 @@ class FreeRadiusSqlProvider implements HotspotRadiusProvider
         // Priority 2: decrypt the encrypted password field
         $encrypted = $voucher->getRawOriginal('password');
         if ($encrypted !== null && trim((string) $encrypted) !== '') {
+            // Skip if the raw value is already plaintext (not a Laravel Crypt payload)
+            if (! str_starts_with((string) $encrypted, 'eyJp')) {
+                return $encrypted;
+            }
+
             try {
                 return \Illuminate\Support\Facades\Crypt::decryptString($encrypted);
             } catch (\Throwable $e) {
@@ -256,7 +267,7 @@ class FreeRadiusSqlProvider implements HotspotRadiusProvider
             }
         }
 
-        // Priority 3: password attribute (already decrypted by cast)
+        // Priority 3: password attribute (already decrypted by Eloquent cast)
         $passwordAttr = $voucher->getAttribute('password');
         if ($passwordAttr !== null && (string) $passwordAttr !== '') {
             return (string) $passwordAttr;
@@ -322,6 +333,9 @@ class FreeRadiusSqlProvider implements HotspotRadiusProvider
                 'inputoctets' => $inputOctets,
                 'outputoctets' => $outputOctets,
                 'acctauthentic' => 'RADIUS',
+                'acctstatustype' => $request->acctStatusType->value,
+                'created_at' => $now,
+                'updated_at' => $now,
             ]);
         }
     }

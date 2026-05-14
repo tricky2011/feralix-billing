@@ -261,6 +261,106 @@
         @media (max-width: 440px) {
             .card { padding: 22px 18px; border-radius: 12px; }
         }
+
+        /* ── Voucher Code Toggle ── */
+        .voucher-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--muted);
+            cursor: pointer;
+            padding: 4px 0;
+            user-select: none;
+        }
+
+        .voucher-toggle input { display: none; }
+
+        .voucher-check {
+            width: 16px; height: 16px;
+            border: 1.5px solid var(--border);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .15s;
+            flex-shrink: 0;
+        }
+
+        .voucher-toggle input:checked ~ .voucher-check {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .voucher-check svg { display: none; width: 10px; height: 10px; color: #fff; }
+        .voucher-toggle input:checked ~ .voucher-check svg { display: block; }
+
+        .voucher-code-section { display: none; }
+        .voucher-code-section.open { display: flex; }
+
+        .voucher-code-section .field { animation: slideDown .2s ease; }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Countdown Timer ── */
+        .countdown {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #fbbf24;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .countdown svg { width: 13px; height: 13px; color: #fbbf24; }
+
+        .countdown-critical { color: #f87171; }
+        .countdown-critical svg { color: #f87171; }
+
+        /* ── Traffic Limit Progress ── */
+        .traffic-progress {
+            margin-bottom: 20px;
+        }
+
+        .traffic-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--error);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .traffic-label svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+        .traffic-bar-wrap {
+            background: rgba(255,255,255,.06);
+            border-radius: 6px;
+            height: 8px;
+            overflow: hidden;
+        }
+
+        .traffic-bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            background: linear-gradient(90deg, #f87171, #ef4444);
+            transition: width .5s ease;
+        }
+
+        .traffic-bar-fill.full { width: 100% !important; }
+
+        .traffic-bar-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 11px;
+            color: #64748b;
+        }
     </style>
 </head>
 <body>
@@ -302,6 +402,25 @@
             </svg>
             <span>{{ $errorMessage }}</span>
         </div>
+
+        {{-- Traffic limit progress bar visual --}}
+        @if($errorCode === 'traffic-limit-reached')
+        <div class="traffic-progress">
+            <div class="traffic-label">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                </svg>
+                Kuota Habis
+            </div>
+            <div class="traffic-bar-wrap">
+                <div class="traffic-bar-fill full" style="width: 100%;"></div>
+            </div>
+            <div class="traffic-bar-labels">
+                <span>Data terpakai</span>
+                <span>Limit tercapai</span>
+            </div>
+        </div>
+        @endif
         @endif
 
         {{-- No link-login fallback --}}
@@ -321,6 +440,34 @@
               onsubmit="handleSubmit(event)">
 
             <input type="hidden" name="dst" value="{{ $linkOrig }}">
+
+            {{-- Voucher Code Toggle (optional auto-fill) --}}
+            <label class="voucher-toggle" for="voucherToggle">
+                <input type="checkbox" id="voucherToggle" onclick="toggleVoucherCode()">
+                <span class="voucher-check">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" fill="currentColor">
+                        <path d="M10.28 2.28L4.28 8.28 1.72 5.72l.7-.7 1.86 1.86 3.86-3.86.7.7z"/>
+                    </svg>
+                </span>
+                Punya kode voucher?
+            </label>
+
+            {{-- Voucher Code (collapsible) --}}
+            <div class="voucher-code-section field" id="voucherCodeSection">
+                <label for="voucher_code">Kode Voucher</label>
+                <div class="input-wrap">
+                    <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"/>
+                    </svg>
+                    <input type="text"
+                           id="voucher_code"
+                           name="voucher_code"
+                           placeholder="Masukkan kode voucher"
+                           autocomplete="off"
+                           autocapitalize="characters"
+                           oninput="lookupVoucher(this.value)">
+                </div>
+            </div>
 
             {{-- Username --}}
             <div class="field">
@@ -383,6 +530,15 @@
 
     {{-- Info Strip --}}
     <div class="info-strip">
+        {{-- Countdown timer (if expires_at param is present in URL) --}}
+        <template id="countdownTimer">
+            <div class="countdown" id="countdownDisplay">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clip-rule="evenodd"/>
+                </svg>
+                <span id="countdownText">Sisa waktu: -</span>
+            </div>
+        </template>
         <div class="info-item">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/>
@@ -424,19 +580,92 @@
             : `<path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>`;
     }
 
+    function toggleVoucherCode() {
+        const section = document.getElementById('voucherCodeSection');
+        const checked  = document.getElementById('voucherToggle').checked;
+        if (checked) {
+            section.classList.add('open');
+        } else {
+            section.classList.remove('open');
+        }
+    }
+
+    let voucherLookupTimeout = null;
+    function lookupVoucher(code) {
+        clearTimeout(voucherLookupTimeout);
+        if (code.length < 4) return;
+        voucherLookupTimeout = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/v1/internal/hotspot-voucher-lookup?code=${encodeURIComponent(code)}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.username) {
+                    document.getElementById('username').value = data.username;
+                }
+            } catch (_) {
+                // Soft fail — user can still type manually
+            }
+        }, 500);
+    }
+
     function handleSubmit(e) {
         const action = document.getElementById('loginForm').action;
         if (!action || action === '#' || action === window.location.href) {
             e.preventDefault();
             return;
         }
+        // Save username to localStorage for remember feature
+        const u = document.getElementById('username').value.trim();
+        if (u) localStorage.setItem('feralix_hotspot_username', u);
         document.getElementById('submitBtn').classList.add('loading');
     }
 
-    // Auto-focus username jika kosong
+    // Countdown timer from URL expires_at param
+    function initCountdown() {
+        const params = new URLSearchParams(window.location.search);
+        const expiresAt = params.get('expires_at');
+        if (!expiresAt) return;
+
+        const deadline = new Date(expiresAt);
+        if (isNaN(deadline.getTime())) return;
+
+        const strip = document.querySelector('.info-strip');
+        const el    = document.createElement('div');
+        el.className = 'countdown';
+        el.id        = 'countdownDisplay';
+        el.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clip-rule="evenodd"/>
+            </svg>
+            <span id="countdownText">Sisa waktu: -</span>`;
+        strip.prepend(el);
+
+        const text  = el.querySelector('#countdownText');
+        const icon  = el.querySelector('svg');
+        function tick() {
+            const diff = deadline - Date.now();
+            if (diff <= 0) { text.textContent = 'Sisa waktu: Habis'; return; }
+            const h = Math.floor(diff / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            const s = Math.floor((diff % 60000) / 1000);
+            text.textContent = h > 0 ? `Sisa waktu: ${h}j ${m}m` : `Sisa waktu: ${m}m ${s}d`;
+            if (diff < 600000) { el.classList.add('countdown-critical'); icon.style.color = '#f87171'; }
+        }
+        tick();
+        setInterval(tick, 1000);
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
+        // Remember username from localStorage
         const u = document.getElementById('username');
-        if (!u.value) u.focus();
+        if (!u.value) {
+            const saved = localStorage.getItem('feralix_hotspot_username');
+            if (saved) u.value = saved;
+            u.focus();
+        }
+
+        // Init countdown if URL has expires_at
+        initCountdown();
     });
 </script>
 

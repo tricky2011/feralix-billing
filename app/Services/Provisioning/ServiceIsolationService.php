@@ -69,7 +69,7 @@ class ServiceIsolationService
                     ? $payload['redirect_url']
                     : $this->defaultRedirectUrl(),
                 'status' => ServiceIsolationStatus::Pending->value,
-                'created_by' => $payload['created_by'] ?? Auth::id(),
+                'created_by' => Auth::id(),
                 'notes' => $payload['notes'] ?? null,
             ]);
 
@@ -179,7 +179,13 @@ class ServiceIsolationService
                 $reason,
             );
 
-            if ($isolation->status === ServiceIsolationStatus::Released) {
+            if ($isolation->status === ServiceIsolationStatus::ReleasePending) {
+                $isolation->update([
+                    'status' => ServiceIsolationStatus::Applied->value,
+                    'released_at' => null,
+                    'notes' => $this->appendNotes($isolation->notes, $failureNotes),
+                ]);
+            } elseif ($isolation->status === ServiceIsolationStatus::Released) {
                 $isolation->update([
                     'status' => ServiceIsolationStatus::Applied->value,
                     'released_at' => null,
@@ -216,34 +222,16 @@ class ServiceIsolationService
 
             $wasApplied = $isolation->status === ServiceIsolationStatus::Applied;
 
+            // Status tidak langsung diubah ke Released di sini.
+            // Ubah ke ReleasePending, router job akan mengupdate ke Released SETELAH sukses.
             $isolation->update([
-                'status' => ServiceIsolationStatus::Released->value,
+                'status' => ServiceIsolationStatus::ReleasePending->value,
                 'released_at' => $payload['released_at'] ?? now(),
                 'notes' => $this->appendNotes($isolation->notes, $payload['notes'] ?? null),
             ]);
 
-            if ($wasApplied && $isolation->service !== null) {
-                $serviceUpdates = [];
-                $desiredOverallStatus = ServiceOverallStatus::Active;
-                $effectiveOverallStatus = $this->overallStateManager->syncDesiredStatus(
-                    $isolation->service,
-                    $desiredOverallStatus,
-                );
-
-                if ($isolation->service->network_status === ServiceNetworkStatus::Isolated) {
-                    $serviceUpdates['network_status'] = ServiceNetworkStatus::Active->value;
-                }
-
-                if ($isolation->service->overall_status !== $effectiveOverallStatus) {
-                    $serviceUpdates['overall_status'] = $effectiveOverallStatus->value;
-                }
-
-                if ($serviceUpdates !== []) {
-                    $isolation->service->update($serviceUpdates);
-                }
-
-                $this->syncRouterOperationIsolationState($isolation->service, null, false);
-            }
+            // Jangan update service status di sini! Itu dilakukan oleh
+            // ServiceIsolationRouterExecutionService setelah router job berhasil.
 
             DB::afterCommit(fn () => $this->routerJobDispatcher->dispatchRelease($isolation->id));
 

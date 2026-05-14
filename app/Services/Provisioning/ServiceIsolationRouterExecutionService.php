@@ -3,6 +3,8 @@
 namespace App\Services\Provisioning;
 
 use App\Enums\ServiceIsolationStatus;
+use App\Enums\ServiceNetworkStatus;
+use App\Enums\ServiceOverallStatus;
 use App\Enums\ServiceRouterOperationJobStatus;
 use App\Enums\ServiceRouterOperationLogAction;
 use App\Enums\ServiceRouterOperationType;
@@ -85,7 +87,7 @@ class ServiceIsolationRouterExecutionService
                 ),
             };
         } catch (MikrotikApiException $exception) {
-            $isLastAttempt = $operationJob->attempts >= $this->getJobTries($operationJob);
+            $isLastAttempt = $operationJob->attempts >= $this->getJobTries();
 
             if ($isLastAttempt) {
                 $this->markServiceIsolationFailed($operationJob, $exception->getMessage());
@@ -121,6 +123,7 @@ class ServiceIsolationRouterExecutionService
             $this->applyIsolationStateIfNeeded($operationJob);
             $this->syncRouterOperationStatus($operationJob, true);
         } else {
+            $this->applyReleaseStateIfNeeded($operationJob);
             $this->syncRouterOperationStatus($operationJob, false);
         }
 
@@ -153,6 +156,46 @@ class ServiceIsolationRouterExecutionService
         }
     }
 
+    private function applyReleaseStateIfNeeded(ServiceRouterOperationJob $operationJob): void
+    {
+        $serviceIsolation = $operationJob->serviceIsolation?->refresh();
+
+        if ($serviceIsolation === null) {
+            return;
+        }
+
+        // Only update to Released if currently in ReleasePending state
+        if ($serviceIsolation->status !== ServiceIsolationStatus::ReleasePending) {
+            $this->logger()->warning('Release state applied but isolation status was not ReleasePending.', [
+                'operation_job_id' => $operationJob->id,
+                'service_isolation_id' => $serviceIsolation->id,
+                'current_status' => $serviceIsolation->status->value,
+            ]);
+
+            return;
+        }
+
+        // Update isolation status to Released
+        $serviceIsolation->update([
+            'status' => ServiceIsolationStatus::Released->value,
+        ]);
+
+        // Update service status to Active
+        $service = $operationJob->service?->refresh();
+        if ($service !== null) {
+            $service->update([
+                'network_status' => ServiceNetworkStatus::Active->value,
+                'overall_status' => ServiceOverallStatus::Active->value,
+            ]);
+        }
+
+        $this->logger()->info('Service isolation released successfully after router confirmation.', [
+            'operation_job_id' => $operationJob->id,
+            'service_isolation_id' => $serviceIsolation->id,
+            'service_id' => $operationJob->service_id,
+        ]);
+    }
+
     private function syncRouterOperationStatus(ServiceRouterOperationJob $operationJob, bool $addressListFound): void
     {
         $service = $operationJob->service?->refresh();
@@ -166,7 +209,9 @@ class ServiceIsolationRouterExecutionService
                 'service_id' => $service->id,
             ]);
 
-        $operationStatus->fill([
+        $isRelease = $operationJob->operation_type === ServiceRouterOperationType::Release;
+
+        $fillData = [
             'router_id' => $service->router_id,
             'access_mode' => $service->resolvedAccessMode()->value,
             'isolation_target_type' => $service->resolvedIsolationTargetType()->value,
@@ -175,12 +220,26 @@ class ServiceIsolationRouterExecutionService
             'static_mac_address' => $service->static_mac_address,
             'queue_name' => $service->static_queue_name,
             'address_list_name' => $operationJob->address_list_name,
-            'address_list_target' => $addressListFound ? $operationJob->target_address : null,
-            'address_list_found' => $addressListFound,
-            'isolation_detected_via' => $addressListFound ? 'address_list' : null,
             'last_synced_at' => now(),
-            'isolation_verified_at' => $addressListFound ? now() : null,
-        ]);
+        ];
+
+        if ($isRelease) {
+            $fillData['open_isolation_id'] = null;
+            $fillData['isolation_applied'] = false;
+            $fillData['address_list_target'] = null;
+            $fillData['address_list_found'] = false;
+            $fillData['isolation_detected_via'] = null;
+            $fillData['isolation_verified_at'] = null;
+        } else {
+            $fillData['open_isolation_id'] = $operationJob->service_isolation_id;
+            $fillData['isolation_applied'] = $addressListFound;
+            $fillData['address_list_target'] = $addressListFound ? $operationJob->target_address : null;
+            $fillData['address_list_found'] = $addressListFound;
+            $fillData['isolation_detected_via'] = $addressListFound ? 'address_list' : null;
+            $fillData['isolation_verified_at'] = $addressListFound ? now() : null;
+        }
+
+        $operationStatus->fill($fillData);
 
         if (! $operationStatus->exists || $operationStatus->isDirty()) {
             $operationStatus->save();

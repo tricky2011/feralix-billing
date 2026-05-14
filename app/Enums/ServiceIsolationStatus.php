@@ -7,6 +7,7 @@ enum ServiceIsolationStatus: string
     case Pending = 'pending';
     case Applied = 'applied';
     case Released = 'released';
+    case ReleasePending = 'release_pending';
     case Failed = 'failed';
 
     public static function values(): array
@@ -19,6 +20,7 @@ enum ServiceIsolationStatus: string
         return [
             self::Pending->value,
             self::Applied->value,
+            self::ReleasePending->value,
         ];
     }
 }

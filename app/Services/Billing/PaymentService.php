@@ -123,7 +123,7 @@ class PaymentService
                 'payment_method' => $payload['payment_method'],
                 'paid_at' => $payload['paid_at'],
                 'reference_no' => $payload['reference_no'] ?? null,
-                'created_by' => $payload['created_by'] ?? Auth::id(),
+                'created_by' => Auth::id(),
                 'notes' => $payload['notes'] ?? null,
             ]);
 
@@ -165,7 +165,7 @@ class PaymentService
             'payment_method' => $payload['payment_method'] ?? 'manual_adjustment',
             'paid_at' => $payload['paid_at'] ?? now()->toDateTimeString(),
             'reference_no' => $payload['reference_no'] ?? null,
-            'created_by' => $payload['created_by'] ?? Auth::id(),
+            'created_by' => Auth::id(),
             'notes' => $payload['notes'] ?? null,
         ]);
     }

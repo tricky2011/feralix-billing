@@ -27,6 +27,12 @@ class StoreVoucherBatchRequest extends FormRequest
             'username_prefix' => $usernamePrefix !== '' ? $usernamePrefix : null,
             'password_mode' => $this->filled('password_mode') ? strtolower(trim((string) $this->input('password_mode'))) : null,
         ]);
+
+        $this->replace(
+            collect($this->all())
+                ->except(['created_by'])
+                ->toArray()
+        );
     }
 
     public function rules(): array
@@ -35,7 +41,6 @@ class StoreVoucherBatchRequest extends FormRequest
             'reseller_id' => ['required', 'integer', 'exists:resellers,id'],
             'hotspot_profile_id' => ['required', 'integer', 'exists:hotspot_profiles,id'],
             'total_vouchers' => ['required', 'integer', 'min:1', 'max:1000'],
-            'created_by' => ['nullable', 'integer', 'exists:users,id'],
             'username_mode' => ['nullable', Rule::in(['voucher_code', 'prefix_random'])],
             'username_prefix' => ['nullable', 'string', 'max:20', 'regex:/^[A-Z0-9]+$/'],
             'username_length' => ['nullable', 'integer', 'min:6', 'max:30'],

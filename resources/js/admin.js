@@ -2614,7 +2614,10 @@ export function adminPanel({ page }) {
 
                 let message = `Berhasil import ${imported} customer.`;
                 if (skipped > 0) message += ` Skip ${skipped}.`;
-                if (errors.length > 0) message += ` Error: ${errors.length}.`;
+                if (errors.length > 0) {
+                    message += ` Error (${errors.length}):\n` + errors.slice(0, 5).join('\n');
+                    if (errors.length > 5) message += `\n...dan ${errors.length - 5} error lainnya`;
+                }
 
                 if (errors.length > 0) {
                     this.toast('warning', 'Import Selesai (dengan error)', message);

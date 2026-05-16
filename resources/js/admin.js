@@ -2294,7 +2294,6 @@ export function adminPanel({ page }) {
             }
 
             // All other pages use generic config+buildCurrentParams
-            console.log('[loadPage] page:', this.page, 'filters.router_id:', this.filters.router_id);
             const config = this.currentConfig();
 
             if (config.placeholder) {
@@ -2643,8 +2642,6 @@ export function adminPanel({ page }) {
             // Clean up undefined/null values
             if (!params.search) delete params.search;
 
-            console.log('[buildCurrentParams]', config.endpoint, JSON.stringify(params));
-
             if (this.isCashflowPage()) {
                 params.type = this.cashflow.filters.type;
                 params.category_id = this.cashflow.filters.category_id;
@@ -2750,7 +2747,6 @@ export function adminPanel({ page }) {
                 } else {
                     this.filters.router_id = null;
                 }
-                console.log('[loadDashboard] routerSwitcher.active_router_id:', this.routerSwitcher.active_router_id, 'filters.router_id:', this.filters.router_id);
             } catch (error) {
                 this.toast('error', 'Dashboard gagal dimuat', error.message);
             } finally {
@@ -4665,7 +4661,6 @@ function customerEdit() {
         async init() {
             const match = window.location.pathname.match(/\/customers\/(\d+)\/edit/);
             this.customerId = match ? match[1] : null;
-            console.log('customerEdit init, customerId:', this.customerId);
             if (!this.customerId) {
                 this.errorMessage = 'Customer ID tidak valid di URL.';
                 this.loading = false;
@@ -4710,7 +4705,6 @@ function customerEdit() {
                 const res = await api.get(`/api/v1/admin/customers/${this.customerId}`);
                 const c = res.data ?? {};
                 const svc = c.latest_active_service ?? {};
-                console.log('Customer data loaded:', c);
                 this.form = {
                     full_name:              c.full_name ?? '',
                     phone:                  c.phone ?? '',

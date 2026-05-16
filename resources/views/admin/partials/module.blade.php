@@ -761,7 +761,7 @@
                                 class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10"
                             >
                                 <option value="">Pilih VID...</option>
-                                <template x-for="vid in vids" :key="vid.id">
+                                <template x-for="vid in availableVids" :key="vid.id">
                                     <option :value="vid.id" x-text="'VID ' + vid.vid + ' — ' + vid.subnet_cidr + ' [' + vid.status + ']'"></option>
                                 </template>
                             </select>

@@ -18,6 +18,7 @@ class StoreNetworkLocationRequest extends FormRequest
             'code' => $this->filled('code') ? trim((string) $this->input('code')) : null,
             'address' => $this->filled('address') ? trim((string) $this->input('address')) : null,
             'description' => $this->filled('description') ? trim((string) $this->input('description')) : null,
+            'router_id' => $this->filled('router_id') ? (int) $this->input('router_id') : null,
             'status' => $this->filled('status') ? strtolower(trim((string) $this->input('status'))) : null,
         ]);
     }
@@ -31,6 +32,7 @@ class StoreNetworkLocationRequest extends FormRequest
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'description' => ['nullable', 'string'],
+            'router_id' => ['nullable', 'integer', 'exists:routers,id'],
             'status' => ['required', 'in:active,inactive'],
         ];
     }

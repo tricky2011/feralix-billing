@@ -20,6 +20,7 @@ class NetworkLocation extends Model
         'latitude',
         'longitude',
         'description',
+        'router_id',
         'status',
     ];
 

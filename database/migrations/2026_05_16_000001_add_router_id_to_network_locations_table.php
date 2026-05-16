@@ -9,8 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('network_locations', function (Blueprint $table) {
-            $table->foreignId('router_id')->nullable()->after('description')->constrained('routers')->nullOnDelete();
-            $table->index('router_id');
+            $table->foreignId('router_id')->nullable()->after('id')->constrained('routers')->nullOnDelete();
         });
     }
 

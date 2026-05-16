@@ -1125,19 +1125,14 @@ function createMasterLokasiState() {
         editId: null,
         pagination: {},
         filters: { search: '', page: 1, per_page: 15 },
-        form: { name: '', code: '', latitude: '', longitude: '', description: '', is_active: true, router_id: '' },
-
-        init() {
-            const activeRouterId = this.$root?.routerSwitcher?.active_router_id;
-            if (activeRouterId && activeRouterId !== '') this.form.router_id = String(activeRouterId);
-        },
+        form: { router_id: '', name: '', code: '', latitude: '', longitude: '', description: '', is_active: true },
 
         async loadData(routerId = null) {
             this.loading = true;
-            this.items = []; // Clear old items before new fetch
+            this.items = [];
             try {
                 const params = { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page };
-                const rawRouterId = routerId ?? this.$root?.routerSwitcher?.active_router_id ?? null;
+                const rawRouterId = routerId ?? this.routerSwitcher?.active_router_id ?? null;
                 const activeRouterId = rawRouterId && rawRouterId !== '' ? String(rawRouterId) : null;
                 if (activeRouterId) params.router_id = activeRouterId;
                 const res = await api.get('/api/v1/admin/network-locations', { params });
@@ -1149,31 +1144,28 @@ function createMasterLokasiState() {
         async submitForm() {
             this.saving = true;
             try {
-                const payload = { name: this.form.name, code: this.form.code.toUpperCase().replace(/\s/g, ''), description: this.form.description, latitude: this.form.latitude || null, longitude: this.form.longitude || null, status: this.form.is_active ? 'active' : 'inactive', router_id: this.form.router_id || null };
+                const routerId = this.form.router_id ? Number(this.form.router_id) : null;
+                const payload = { router_id: routerId, name: this.form.name, code: this.form.code.toUpperCase().replace(/\s/g, ''), description: this.form.description, latitude: this.form.latitude || null, longitude: this.form.longitude || null, status: this.form.is_active ? 'active' : 'inactive' };
                 if (this.editId) { await api.patch(`/api/v1/admin/network-locations/${this.editId}`, payload); toast('success', 'Berhasil', 'Lokasi diperbarui'); }
                 else { await api.post('/api/v1/admin/network-locations', payload); toast('success', 'Berhasil', 'Lokasi ditambahkan'); }
                 this.cancelEdit();
-                await this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null);
+                await this.loadData(this.routerSwitcher?.active_router_id ?? null);
             } catch (e) { toast('error', 'Gagal', e?.response?.data?.message ?? e.message); } finally { this.saving = false; }
         },
 
-        editItem(item) { this.editId = item.id; this.form = { name: item.location_name ?? item.name ?? '', code: item.location_code ?? item.code ?? '', latitude: item.latitude ?? '', longitude: item.longitude ?? '', description: item.description ?? '', is_active: item.status === 'active', router_id: item.router_id ?? '' }; },
+        editItem(item) { this.editId = item.id; this.form = { router_id: item.router_id ?? '', name: item.location_name ?? item.name ?? '', code: item.location_code ?? item.code ?? '', latitude: item.latitude ?? '', longitude: item.longitude ?? '', description: item.description ?? '', is_active: item.status === 'active' }; },
 
-        async deleteItem(item) { if (!confirm(`Hapus "${item.location_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/network-locations/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); },
+        async deleteItem(item) { if (!confirm(`Hapus "${item.location_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/network-locations/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(this.routerSwitcher?.active_router_id ?? null); },
 
-        cancelEdit() {
-            this.editId = null;
-            const activeRouterId = this.$root?.routerSwitcher?.active_router_id;
-            this.form = { name: '', code: '', latitude: '', longitude: '', description: '', is_active: true, router_id: activeRouterId && activeRouterId !== '' ? String(activeRouterId) : '' };
-        },
+        cancelEdit() { const rid = this.routerSwitcher?.active_router_id ?? ''; this.editId = null; this.form = { router_id: rid, name: '', code: '', latitude: '', longitude: '', description: '', is_active: true }; },
 
         updateMapsLink() { const lat = parseFloat(this.form.latitude), lng = parseFloat(this.form.longitude); this.form.maps_link = (!isNaN(lat) && !isNaN(lng)) ? `https://www.google.com/maps?q=${lat},${lng}` : ''; },
 
-        prevPage() { if (this.pagination.current_page > 1) { this.filters.page = this.pagination.current_page - 1; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); } },
-        nextPage() { if (this.pagination.current_page < this.pagination.last_page) { this.filters.page = this.pagination.current_page + 1; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); } },
-        changePerPage() { this.filters.page = 1; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); },
-        debounceSearch: (() => { let t; return () => { clearTimeout(t); t = setTimeout(() => { this.filters.page = 1; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); }, 300); }; })(),
-        resetFilters() { this.filters = { search: '', page: 1, per_page: this.filters.per_page ?? 15 }; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); },
+        prevPage() { if (this.pagination.current_page > 1) { this.filters.page = this.pagination.current_page - 1; this.loadData(this.routerSwitcher?.active_router_id ?? null); } },
+        nextPage() { if (this.pagination.current_page < this.pagination.last_page) { this.filters.page = this.pagination.current_page + 1; this.loadData(this.routerSwitcher?.active_router_id ?? null); } },
+        changePerPage() { this.filters.page = 1; this.loadData(this.routerSwitcher?.active_router_id ?? null); },
+        debounceSearch: (() => { let t; return () => { clearTimeout(t); t = setTimeout(() => { this.filters.page = 1; this.loadData(this.routerSwitcher?.active_router_id ?? null); }, 300); }; })(),
+        resetFilters() { this.filters = { search: '', page: 1, per_page: this.filters.per_page ?? 15 }; this.loadData(this.routerSwitcher?.active_router_id ?? null); },
     };
 }
 

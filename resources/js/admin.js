@@ -1107,7 +1107,7 @@ function createMasterLokasiState() {
         editId: null,
         pagination: {},
         filters: { search: '', page: 1, per_page: 15 },
-        form: { name: '', code: '', latitude: '', longitude: '', description: '', is_active: true },
+        form: { router_id: '', name: '', code: '', latitude: '', longitude: '', description: '', is_active: true },
 
         async loadData(routerId = null) {
             this.loading = true;
@@ -1126,8 +1126,8 @@ function createMasterLokasiState() {
         async submitForm() {
             this.saving = true;
             try {
-                const activeRouterId = this.routerSwitcher?.active_router_id ?? null;
-                const payload = { router_id: activeRouterId ? Number(activeRouterId) : null, name: this.form.name, code: this.form.code.toUpperCase().replace(/\s/g, ''), description: this.form.description, latitude: this.form.latitude || null, longitude: this.form.longitude || null, status: this.form.is_active ? 'active' : 'inactive' };
+                const routerId = this.form.router_id ? Number(this.form.router_id) : null;
+                const payload = { router_id: routerId, name: this.form.name, code: this.form.code.toUpperCase().replace(/\s/g, ''), description: this.form.description, latitude: this.form.latitude || null, longitude: this.form.longitude || null, status: this.form.is_active ? 'active' : 'inactive' };
                 if (this.editId) { await api.patch(`/api/v1/admin/network-locations/${this.editId}`, payload); toast('success', 'Berhasil', 'Lokasi diperbarui'); }
                 else { await api.post('/api/v1/admin/network-locations', payload); toast('success', 'Berhasil', 'Lokasi ditambahkan'); }
                 this.cancelEdit();
@@ -1135,11 +1135,11 @@ function createMasterLokasiState() {
             } catch (e) { toast('error', 'Gagal', e?.response?.data?.message ?? e.message); } finally { this.saving = false; }
         },
 
-        editItem(item) { this.editId = item.id; this.form = { name: item.location_name ?? item.name ?? '', code: item.location_code ?? item.code ?? '', latitude: item.latitude ?? '', longitude: item.longitude ?? '', description: item.description ?? '', is_active: item.status === 'active' }; },
+        editItem(item) { this.editId = item.id; this.form = { router_id: item.router_id ?? '', name: item.location_name ?? item.name ?? '', code: item.location_code ?? item.code ?? '', latitude: item.latitude ?? '', longitude: item.longitude ?? '', description: item.description ?? '', is_active: item.status === 'active' }; },
 
         async deleteItem(item) { if (!confirm(`Hapus "${item.location_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/network-locations/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(this.routerSwitcher?.active_router_id ?? null); },
 
-        cancelEdit() { this.editId = null; this.form = { name: '', code: '', latitude: '', longitude: '', description: '', is_active: true }; },
+        cancelEdit() { const rid = this.routerSwitcher?.active_router_id ?? ''; this.editId = null; this.form = { router_id: rid, name: '', code: '', latitude: '', longitude: '', description: '', is_active: true }; },
 
         updateMapsLink() { const lat = parseFloat(this.form.latitude), lng = parseFloat(this.form.longitude); this.form.maps_link = (!isNaN(lat) && !isNaN(lng)) ? `https://www.google.com/maps?q=${lat},${lng}` : ''; },
 

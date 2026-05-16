@@ -17,6 +17,15 @@
                         <input type="text" x-model="masterLokasi.form.code" @input="masterLokasi.form.code = $event.target.value.toUpperCase().replace(/\s/g, '')" maxlength="10" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm uppercase outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" placeholder="KLS01" required>
                         <p class="mt-1 text-xs text-slate-400">Dipakai sebagai komponen PPPoE username. Maks 10 karakter, tanpa spasi.</p>
                     </label>
+                    <label class="block">
+                        <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Router *</span>
+                        <select x-model="masterLokasi.form.router_id" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" required>
+                            <option value="">Pilih Router...</option>
+                            <template x-for="router in references.routers" :key="router.id">
+                                <option :value="router.id" x-text="(router.router_code ?? '') + ' - ' + (router.router_name ?? '')"></option>
+                            </template>
+                        </select>
+                    </label>
                     <div class="grid grid-cols-2 gap-4">
                         <label class="block">
                             <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Latitude</span>
@@ -63,7 +72,7 @@
                         <tr class="border-b border-slate-100 dark:border-white/10">
                             <th class="pb-3 text-left font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Nama</th>
                             <th class="pb-3 text-left font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Kode</th>
-                            <th class="pb-3 text-left font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Deskripsi</th>
+                            <th class="pb-3 text-left font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Router</th>
                             <th class="pb-3 text-left font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Status</th>
                             <th class="pb-3 text-right font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Aksi</th>
                         </tr>
@@ -73,7 +82,14 @@
                             <tr class="border-b border-slate-50 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/[0.02]">
                                 <td class="py-3 font-bold text-slate-900 dark:text-white" x-text="item.location_name ?? item.name ?? '-'"></td>
                                 <td class="py-3 font-mono text-slate-600 dark:text-slate-400" x-text="item.location_code ?? item.code ?? '-'"></td>
-                                <td class="py-3 text-slate-500" x-text="item.description ?? item.notes ?? '-'"></td>
+                                <td class="py-3">
+                                    <template x-if="item.router_id">
+                                        <span class="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-black text-blue-700 dark:bg-blue-500/20 dark:text-blue-300" x-text="references.routers.find(r => r.id == item.router_id)?.router_code ?? item.router_id"></span>
+                                    </template>
+                                    <template x-if="!item.router_id">
+                                        <span class="text-xs text-slate-400">-</span>
+                                    </template>
+                                </td>
                                 <td class="py-3">
                                     <span class="rounded-full px-2.5 py-1 text-xs font-black uppercase" :class="item.status === 'active' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400'" x-text="item.status === 'active' ? 'Aktif' : 'Nonaktif'"></span>
                                 </td>

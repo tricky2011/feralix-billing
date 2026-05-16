@@ -32,7 +32,7 @@ class StoreNetworkLocationRequest extends FormRequest
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'description' => ['nullable', 'string'],
-            'router_id' => ['nullable', 'integer', 'exists:routers,id'],
+            'router_id' => ['required', 'integer', 'exists:routers,id'],
             'status' => ['required', 'in:active,inactive'],
         ];
     }

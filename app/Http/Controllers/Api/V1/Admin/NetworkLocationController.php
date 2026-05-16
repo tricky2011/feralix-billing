@@ -22,6 +22,7 @@ class NetworkLocationController extends Controller
         $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 500));
 
         $locations = NetworkLocation::query()
+            ->with(['router'])
             ->withCount(['olts', 'odcs', 'odps'])
             ->search($filters['search'] ?? null)
             ->when(

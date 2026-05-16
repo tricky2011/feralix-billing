@@ -31,7 +31,7 @@ class UpdateNetworkLocationRequest extends FormRequest
         $networkLocation = $this->route('networkLocation');
 
         return [
-            'router_id' => ['nullable', 'integer', 'exists:routers,id'],
+            'router_id' => ['required', 'integer', 'exists:routers,id'],
             'name' => ['required', 'string', 'max:255'],
             'code' => ['nullable', 'string', 'max:100', Rule::unique('network_locations', 'code')->ignore($networkLocation->id)],
             'address' => ['nullable', 'string'],

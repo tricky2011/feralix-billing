@@ -12,6 +12,7 @@ class NetworkLocationResource extends JsonResource
         return [
             'id' => $this->id,
             'router_id' => $this->router_id,
+            'router_name' => $this->when($this->relationLoaded('router'), fn () => $this->router?->router_name),
             'name' => $this->name,
             'code' => $this->code,
             'address' => $this->address,

@@ -1132,8 +1132,7 @@ function createMasterLokasiState() {
             this.items = [];
             try {
                 const params = { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page };
-                const rawRouterId = routerId ?? this.routerSwitcher?.active_router_id ?? null;
-                const activeRouterId = rawRouterId && rawRouterId !== '' ? String(rawRouterId) : null;
+                const activeRouterId = routerId && routerId !== '' ? String(routerId) : null;
                 if (activeRouterId) params.router_id = activeRouterId;
                 const res = await api.get('/api/v1/admin/network-locations', { params });
                 this.items = res.data ?? [];
@@ -1141,31 +1140,31 @@ function createMasterLokasiState() {
             } finally { this.loading = false; }
         },
 
-        async submitForm() {
+        async submitForm(routerId = null) {
             this.saving = true;
             try {
-                const routerId = this.form.router_id ? Number(this.form.router_id) : null;
-                const payload = { router_id: routerId, name: this.form.name, code: this.form.code.toUpperCase().replace(/\s/g, ''), description: this.form.description, latitude: this.form.latitude || null, longitude: this.form.longitude || null, status: this.form.is_active ? 'active' : 'inactive' };
+                const payload = { router_id: this.form.router_id ? Number(this.form.router_id) : null, name: this.form.name, code: this.form.code.toUpperCase().replace(/\s/g, ''), description: this.form.description, latitude: this.form.latitude || null, longitude: this.form.longitude || null, status: this.form.is_active ? 'active' : 'inactive' };
                 if (this.editId) { await api.patch(`/api/v1/admin/network-locations/${this.editId}`, payload); toast('success', 'Berhasil', 'Lokasi diperbarui'); }
                 else { await api.post('/api/v1/admin/network-locations', payload); toast('success', 'Berhasil', 'Lokasi ditambahkan'); }
                 this.cancelEdit();
-                await this.loadData(this.routerSwitcher?.active_router_id ?? null);
+                await this.loadData(routerId);
             } catch (e) { toast('error', 'Gagal', e?.response?.data?.message ?? e.message); } finally { this.saving = false; }
         },
 
         editItem(item) { this.editId = item.id; this.form = { router_id: item.router_id ?? '', name: item.location_name ?? item.name ?? '', code: item.location_code ?? item.code ?? '', latitude: item.latitude ?? '', longitude: item.longitude ?? '', description: item.description ?? '', is_active: item.status === 'active' }; },
 
-        async deleteItem(item) { if (!confirm(`Hapus "${item.location_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/network-locations/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(this.routerSwitcher?.active_router_id ?? null); },
+        async deleteItem(item, routerId = null) { if (!confirm(`Hapus "${item.location_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/network-locations/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(routerId); },
 
         cancelEdit() { const rid = this.routerSwitcher?.active_router_id ?? ''; this.editId = null; this.form = { router_id: rid, name: '', code: '', latitude: '', longitude: '', description: '', is_active: true }; },
 
         updateMapsLink() { const lat = parseFloat(this.form.latitude), lng = parseFloat(this.form.longitude); this.form.maps_link = (!isNaN(lat) && !isNaN(lng)) ? `https://www.google.com/maps?q=${lat},${lng}` : ''; },
 
-        prevPage() { if (this.pagination.current_page > 1) { this.filters.page = this.pagination.current_page - 1; this.loadData(this.routerSwitcher?.active_router_id ?? null); } },
-        nextPage() { if (this.pagination.current_page < this.pagination.last_page) { this.filters.page = this.pagination.current_page + 1; this.loadData(this.routerSwitcher?.active_router_id ?? null); } },
-        changePerPage() { this.filters.page = 1; this.loadData(this.routerSwitcher?.active_router_id ?? null); },
-        debounceSearch: (() => { let t; return () => { clearTimeout(t); t = setTimeout(() => { this.filters.page = 1; this.loadData(this.routerSwitcher?.active_router_id ?? null); }, 300); }; })(),
-        resetFilters() { this.filters = { search: '', page: 1, per_page: this.filters.per_page ?? 15 }; this.loadData(this.routerSwitcher?.active_router_id ?? null); },
+        _debounceTimer: null,
+        prevPage(routerId = null) { if (this.pagination.current_page > 1) { this.filters.page = this.pagination.current_page - 1; this.loadData(routerId); } },
+        nextPage(routerId = null) { if (this.pagination.current_page < this.pagination.last_page) { this.filters.page = this.pagination.current_page + 1; this.loadData(routerId); } },
+        changePerPage(routerId = null) { this.filters.page = 1; this.loadData(routerId); },
+        debounceSearch(routerId = null) { clearTimeout(this._debounceTimer); this._debounceTimer = setTimeout(() => { this.filters.page = 1; this.loadData(routerId); }, 300); },
+        resetFilters(routerId = null) { this.filters = { search: '', page: 1, per_page: this.filters.per_page ?? 15 }; this.loadData(routerId); },
     };
 }
 
@@ -1174,18 +1173,12 @@ function createMasterOltState() {
         items: [], loading: false, saving: false, editId: null, pagination: {}, filters: { search: '', page: 1, per_page: 15 },
         form: { name: '', code: '', host: '', pon_ports: 4, max_per_pon: 100, description: '', is_active: true, network_location_id: '', router_id: '' },
 
-        init() {
-            const activeRouterId = this.$root?.routerSwitcher?.active_router_id;
-            if (activeRouterId && activeRouterId !== '') this.form.router_id = String(activeRouterId);
-        },
-
         async loadData(routerId = null) {
             this.loading = true;
             this.items = []; // Clear old items before new fetch
             try {
                 const params = { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page };
-                const rawRouterId = routerId ?? this.$root?.routerSwitcher?.active_router_id ?? null;
-                const activeRouterId = rawRouterId && rawRouterId !== '' ? String(rawRouterId) : null;
+                const activeRouterId = routerId && routerId !== '' ? String(routerId) : null;
                 if (activeRouterId) params.router_id = activeRouterId;
                 const res = await api.get('/api/v1/admin/olts', { params });
                 this.items = res.data ?? [];
@@ -1193,20 +1186,20 @@ function createMasterOltState() {
             } finally { this.loading = false; }
         },
 
-        async submitForm() {
+        async submitForm(routerId = null) {
             this.saving = true;
             try {
                 const payload = { name: this.form.name, code: this.form.code.toUpperCase(), host: this.form.host, pon_ports: parseInt(this.form.pon_ports) || 4, max_per_pon: parseInt(this.form.max_per_pon) || 100, description: this.form.description, status: this.form.is_active ? 'active' : 'inactive', location_id: this.form.network_location_id || null, router_id: this.form.router_id || null };
                 if (this.editId) { await api.patch(`/api/v1/admin/olts/${this.editId}`, payload); toast('success', 'Berhasil', 'OLT diperbarui'); }
                 else { await api.post('/api/v1/admin/olts', payload); toast('success', 'Berhasil', 'OLT ditambahkan'); }
                 this.cancelEdit();
-                await this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null);
+                await this.loadData(routerId);
             } catch (e) { toast('error', 'Gagal', e?.response?.data?.message ?? e.message); } finally { this.saving = false; }
         },
 
         editItem(item) { this.editId = item.id; this.form = { name: item.olt_name ?? item.name ?? '', code: item.olt_code ?? item.code ?? '', host: item.mgmt_ip ?? item.host ?? '', pon_ports: item.pon_ports ?? 4, max_per_pon: 100, description: item.description ?? '', is_active: item.status === 'active', network_location_id: item.location_id ?? item.network_location_id ?? '', router_id: item.router_id ?? '' }; },
 
-        async deleteItem(item) { if (!confirm(`Hapus "${item.olt_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/olts/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); },
+        async deleteItem(item, routerId = null) { if (!confirm(`Hapus "${item.olt_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/olts/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(routerId); },
 
         cancelEdit() {
             this.editId = null;
@@ -1214,11 +1207,12 @@ function createMasterOltState() {
             this.form = { name: '', code: '', host: '', pon_ports: 4, max_per_pon: 100, description: '', is_active: true, network_location_id: '', router_id: activeRouterId && activeRouterId !== '' ? String(activeRouterId) : '' };
         },
 
-        prevPage() { if (this.pagination.current_page > 1) { this.filters.page = this.pagination.current_page - 1; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); } },
-        nextPage() { if (this.pagination.current_page < this.pagination.last_page) { this.filters.page = this.pagination.current_page + 1; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); } },
-        changePerPage() { this.filters.page = 1; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); },
-        debounceSearch: (() => { let t; return () => { clearTimeout(t); t = setTimeout(() => { this.filters.page = 1; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); }, 300); }; })(),
-        resetFilters() { this.filters = { search: '', page: 1, per_page: this.filters.per_page ?? 15 }; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); },
+        _debounceTimer: null,
+        prevPage(routerId = null) { if (this.pagination.current_page > 1) { this.filters.page = this.pagination.current_page - 1; this.loadData(routerId); } },
+        nextPage(routerId = null) { if (this.pagination.current_page < this.pagination.last_page) { this.filters.page = this.pagination.current_page + 1; this.loadData(routerId); } },
+        changePerPage(routerId = null) { this.filters.page = 1; this.loadData(routerId); },
+        debounceSearch(routerId = null) { clearTimeout(this._debounceTimer); this._debounceTimer = setTimeout(() => { this.filters.page = 1; this.loadData(routerId); }, 300); },
+        resetFilters(routerId = null) { this.filters = { search: '', page: 1, per_page: this.filters.per_page ?? 15 }; this.loadData(routerId); },
     };
 }
 
@@ -2226,11 +2220,11 @@ export function adminPanel({ page }) {
         },
 
         async submitMasterLokasiForm() {
-            await this.masterLokasi.submitForm();
+            await this.masterLokasi.submitForm(this.routerSwitcher.active_router_id ?? null);
         },
 
         async submitMasterOltForm() {
-            await this.masterOlt.submitForm();
+            await this.masterOlt.submitForm(this.routerSwitcher.active_router_id ?? null);
         },
 
         async loadPage() {

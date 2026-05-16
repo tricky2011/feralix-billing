@@ -64,10 +64,10 @@
             </div>
             <div class="mb-4 flex items-center gap-3">
                 <div class="relative flex-1">
-                    <input type="text" x-model="masterLokasi.filters.search" @input="masterLokasi.debounceSearch()" placeholder="Cari lokasi..." class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 pl-10 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10">
+                    <input type="text" x-model="masterLokasi.filters.search" @input="masterLokasi.debounceSearch(routerSwitcher.active_router_id)" placeholder="Cari lokasi..." class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 pl-10 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10">
                     <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                 </div>
-                <button @click="masterLokasi.resetFilters()" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Reset</button>
+                <button @click="masterLokasi.resetFilters(routerSwitcher.active_router_id)" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Reset</button>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
@@ -100,7 +100,7 @@
                                     <button @click="masterLokasi.editItem(item)" class="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 transition hover:border-blue-200 hover:text-blue-600 dark:border-white/10 dark:text-slate-400" title="Edit">
                                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                     </button>
-                                    <button @click="masterLokasi.deleteItem(item)" class="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 transition hover:border-red-200 hover:text-red-600 dark:border-white/10 dark:text-slate-400" title="Hapus">
+                                    <button @click="masterLokasi.deleteItem(item, routerSwitcher.active_router_id)" class="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 transition hover:border-red-200 hover:text-red-600 dark:border-white/10 dark:text-slate-400" title="Hapus">
                                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                     </button>
                                 </td>
@@ -115,13 +115,13 @@
             <div class="mt-4 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <span class="text-xs text-slate-500">Tampilkan</span>
-                    <select x-model="masterLokasi.filters.per_page" @change="masterLokasi.changePerPage()" class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-white/[0.04]">
+                    <select x-model="masterLokasi.filters.per_page" @change="masterLokasi.changePerPage(routerSwitcher.active_router_id)" class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-white/[0.04]">
                         <option value="20">20</option><option value="50">50</option><option value="100">100</option><option value="500">500</option>
                     </select>
                 </div>
                 <div class="flex items-center gap-1">
-                    <button @click="masterLokasi.prevPage()" :disabled="masterLokasi.pagination.current_page <= 1" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Prev</button>
-                    <button @click="masterLokasi.nextPage()" :disabled="masterLokasi.pagination.current_page >= masterLokasi.pagination.last_page" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Next</button>
+                    <button @click="masterLokasi.prevPage(routerSwitcher.active_router_id)" :disabled="masterLokasi.pagination.current_page <= 1" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Prev</button>
+                    <button @click="masterLokasi.nextPage(routerSwitcher.active_router_id)" :disabled="masterLokasi.pagination.current_page >= masterLokasi.pagination.last_page" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Next</button>
                 </div>
             </div>
         </div>
@@ -134,7 +134,7 @@
             <h2 class="mb-5 text-lg font-black tracking-tight text-slate-950 dark:text-white">
                 <span x-text="masterOlt.editId ? 'Edit OLT' : 'Tambah OLT Baru'"></span>
             </h2>
-            <form @submit.prevent="masterOlt.submitForm()">
+            <form @submit.prevent="submitMasterOltForm()">
                 <div class="space-y-4">
                     <label class="block">
                         <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Nama OLT *</span>
@@ -202,10 +202,10 @@
             </div>
             <div class="mb-4 flex items-center gap-3">
                 <div class="relative flex-1">
-                    <input type="text" x-model="masterOlt.filters.search" @input="masterOlt.debounceSearch()" placeholder="Cari OLT..." class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 pl-10 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10">
+                    <input type="text" x-model="masterOlt.filters.search" @input="masterOlt.debounceSearch(routerSwitcher.active_router_id)" placeholder="Cari OLT..." class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 pl-10 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10">
                     <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                 </div>
-                <button @click="masterOlt.resetFilters()" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Reset</button>
+                <button @click="masterOlt.resetFilters(routerSwitcher.active_router_id)" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Reset</button>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
@@ -237,7 +237,7 @@
                                     <button @click="masterOlt.editItem(item)" class="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 transition hover:border-blue-200 hover:text-blue-600 dark:border-white/10 dark:text-slate-400" title="Edit">
                                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                     </button>
-                                    <button @click="masterOlt.deleteItem(item)" class="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 transition hover:border-red-200 hover:text-red-600 dark:border-white/10 dark:text-slate-400" title="Hapus">
+                                    <button @click="masterOlt.deleteItem(item, routerSwitcher.active_router_id)" class="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 transition hover:border-red-200 hover:text-red-600 dark:border-white/10 dark:text-slate-400" title="Hapus">
                                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                     </button>
                                 </td>
@@ -252,13 +252,13 @@
             <div class="mt-4 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <span class="text-xs text-slate-500">Tampilkan</span>
-                    <select x-model="masterOlt.filters.per_page" @change="masterOlt.changePerPage()" class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-white/[0.04]">
+                    <select x-model="masterOlt.filters.per_page" @change="masterOlt.changePerPage(routerSwitcher.active_router_id)" class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-white/[0.04]">
                         <option value="20">20</option><option value="50">50</option><option value="100">100</option><option value="500">500</option>
                     </select>
                 </div>
                 <div class="flex items-center gap-1">
-                    <button @click="masterOlt.prevPage()" :disabled="masterOlt.pagination.current_page <= 1" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Prev</button>
-                    <button @click="masterOlt.nextPage()" :disabled="masterOlt.pagination.current_page >= masterOlt.pagination.last_page" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Next</button>
+                    <button @click="masterOlt.prevPage(routerSwitcher.active_router_id)" :disabled="masterOlt.pagination.current_page <= 1" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Prev</button>
+                    <button @click="masterOlt.nextPage(routerSwitcher.active_router_id)" :disabled="masterOlt.pagination.current_page >= masterOlt.pagination.last_page" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Next</button>
                 </div>
             </div>
         </div>

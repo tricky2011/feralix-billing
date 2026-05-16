@@ -53,7 +53,7 @@
                         <span x-show="!masterLokasi.saving">Simpan Lokasi</span>
                         <span x-show="masterLokasi.saving">Menyimpan...</span>
                     </button>
-                    <button type="button" x-show="masterLokasi.editId" @click="masterLokasi.cancelEdit()" class="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Batal</button>
+                    <button type="button" x-show="masterLokasi.editId" @click="masterLokasi.cancelEdit(routerSwitcher.active_router_id)" class="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Batal</button>
                 </div>
             </form>
         </div>
@@ -191,7 +191,7 @@
                         <span x-show="!masterOlt.saving">Simpan OLT</span>
                         <span x-show="masterOlt.saving">Menyimpan...</span>
                     </button>
-                    <button type="button" x-show="masterOlt.editId" @click="masterOlt.cancelEdit()" class="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Batal</button>
+                    <button type="button" x-show="masterOlt.editId" @click="masterOlt.cancelEdit(routerSwitcher.active_router_id)" class="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">Batal</button>
                 </div>
             </form>
         </div>

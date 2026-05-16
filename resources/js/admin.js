@@ -1155,7 +1155,7 @@ function createMasterLokasiState() {
 
         async deleteItem(item, routerId = null) { if (!confirm(`Hapus "${item.location_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/network-locations/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(routerId); },
 
-        cancelEdit() { const rid = this.routerSwitcher?.active_router_id ?? ''; this.editId = null; this.form = { router_id: rid, name: '', code: '', latitude: '', longitude: '', description: '', is_active: true }; },
+        cancelEdit(routerId = null) { this.editId = null; const rid = routerId && routerId !== '' ? String(routerId) : ''; this.form = { router_id: rid, name: '', code: '', latitude: '', longitude: '', description: '', is_active: true }; },
 
         updateMapsLink() { const lat = parseFloat(this.form.latitude), lng = parseFloat(this.form.longitude); this.form.maps_link = (!isNaN(lat) && !isNaN(lng)) ? `https://www.google.com/maps?q=${lat},${lng}` : ''; },
 
@@ -1201,10 +1201,10 @@ function createMasterOltState() {
 
         async deleteItem(item, routerId = null) { if (!confirm(`Hapus "${item.olt_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/olts/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(routerId); },
 
-        cancelEdit() {
+        cancelEdit(routerId = null) {
             this.editId = null;
-            const activeRouterId = this.$root?.routerSwitcher?.active_router_id;
-            this.form = { name: '', code: '', host: '', pon_ports: 4, max_per_pon: 100, description: '', is_active: true, network_location_id: '', router_id: activeRouterId && activeRouterId !== '' ? String(activeRouterId) : '' };
+            const rid = routerId && routerId !== '' ? String(routerId) : '';
+            this.form = { name: '', code: '', host: '', pon_ports: 4, max_per_pon: 100, description: '', is_active: true, network_location_id: '', router_id: rid };
         },
 
         _debounceTimer: null,

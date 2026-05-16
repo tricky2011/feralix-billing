@@ -145,12 +145,13 @@ class PppoeImportController extends Controller
             foreach ($request->usernames as $username) {
                 $username = trim($username);
 
-                // Skip if already in DB (check both pppoe_username and monitor_pppoe_username
-                // globally since both columns have unique indexes and are set to same value)
-                $alreadyExists = Service::where(function ($q) use ($username) {
-                    $q->where('pppoe_username', $username)
-                      ->orWhere('monitor_pppoe_username', $username);
-                })->exists();
+                // Skip if already in DB for THIS router (same username allowed on different routers)
+                // Check both pppoe_username and monitor_pppoe_username since both are set to same value during import
+                $alreadyExists = Service::where('router_id', $router->id)
+                    ->where(function ($q) use ($username) {
+                        $q->where('pppoe_username', $username)
+                          ->orWhere('monitor_pppoe_username', $username);
+                    })->exists();
                 if ($alreadyExists) {
                     $skipped++;
                     continue;

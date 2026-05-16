@@ -55,23 +55,25 @@ class PppoeImportController extends Controller
             },
         );
 
-        // Get usernames already in DB (check both pppoe_username and monitor_pppoe_username,
-        // since both columns have unique indexes and are set to the same value during import)
-        $existingPppoe = Service::whereNotNull('pppoe_username')
+        // Get usernames already in DB for THIS router only (same username can exist on different routers)
+        // Check both pppoe_username and monitor_pppoe_username since both are set during import
+        $existingPppoe = Service::where('router_id', $router->id)
+            ->whereNotNull('pppoe_username')
             ->where('pppoe_username', '!=', '')
             ->pluck('pppoe_username')
             ->map(static fn (string $u): string => strtolower(trim($u)))
             ->flip()
             ->all();
 
-        $existingMonitor = Service::whereNotNull('monitor_pppoe_username')
+        $existingMonitor = Service::where('router_id', $router->id)
+            ->whereNotNull('monitor_pppoe_username')
             ->where('monitor_pppoe_username', '!=', '')
             ->pluck('monitor_pppoe_username')
             ->map(static fn (string $u): string => strtolower(trim($u)))
             ->flip()
             ->all();
 
-        // Filter: only candidates not yet imported (into any router)
+        // Filter: only candidates not yet imported for this specific router
         $candidates = array_values(array_filter(
             $secrets,
             static fn (array $s): bool => !isset($existingPppoe[strtolower(trim($s['name'] ?? ''))])
@@ -92,17 +94,15 @@ class PppoeImportController extends Controller
 
         return response()->json([
             'data' => $result,
-            'message' => 'Candidates retrieved successfully.',
+            'message' => $result === []
+                ? 'Tidak ada PPPoE secret baru di router ini.'
+                : 'Candidates retrieved successfully.',
             'total'     => count($result),
             'total_all' => count($secrets),
             'router'    => [
                 'id'   => $router->id,
                 'name' => $router->router_name ?? $router->name,
                 'code' => $router->router_code,
-            ],
-            '_debug' => [
-                'existing_pppoe'   => count($existingPppoe),
-                'existing_monitor' => count($existingMonitor),
             ],
         ]);
     }

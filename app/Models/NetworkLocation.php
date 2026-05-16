@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class NetworkLocation extends Model
@@ -14,6 +15,7 @@ class NetworkLocation extends Model
     use HasFactory;
 
     protected $fillable = [
+        'router_id',
         'name',
         'code',
         'address',
@@ -29,6 +31,11 @@ class NetworkLocation extends Model
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
         ];
+    }
+
+    public function router(): BelongsTo
+    {
+        return $this->belongsTo(Router::class);
     }
 
     public function olts(): HasMany

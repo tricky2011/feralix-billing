@@ -25,6 +25,7 @@ class StoreNetworkLocationRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'router_id' => ['nullable', 'integer', 'exists:routers,id'],
             'name' => ['required', 'string', 'max:255'],
             'code' => ['nullable', 'string', 'max:100', 'unique:network_locations,code'],
             'address' => ['nullable', 'string'],

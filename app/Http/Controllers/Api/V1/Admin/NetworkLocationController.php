@@ -30,10 +30,7 @@ class NetworkLocationController extends Controller
             )
             ->when(
                 $filters['router_id'] ?? null,
-                fn ($query, $routerId) => $query->whereHas(
-                    'olts',
-                    fn ($oltQuery) => $oltQuery->where('router_id', (int) $routerId)
-                )
+                fn ($query, $routerId) => $query->where('router_id', (int) $routerId)
             )
             ->orderBy('name');
 

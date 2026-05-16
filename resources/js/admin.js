@@ -2869,6 +2869,16 @@ export function adminPanel({ page }) {
                 this.acsConfig.router_id = routerIdStr;
             }
 
+            // Master Lokasi form
+            if (routerId) {
+                this.masterLokasi.form.router_id = routerIdStr ?? '';
+            }
+
+            // Master OLT form
+            if (routerId) {
+                this.masterOlt.form.router_id = routerIdStr ?? '';
+            }
+
             // Reset pagination for all modules
             this.filters.page = 1;
             this.pagination = {};

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class NetworkLocation extends Model
@@ -45,6 +46,11 @@ class NetworkLocation extends Model
     public function odps(): HasMany
     {
         return $this->hasMany(Odp::class, 'location_id');
+    }
+
+    public function router(): BelongsTo
+    {
+        return $this->belongsTo(Router::class);
     }
 
     public function scopeSearch(Builder $query, ?string $search): Builder

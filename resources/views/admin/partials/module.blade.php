@@ -35,6 +35,9 @@
                         <input type="checkbox" x-model="masterLokasi.form.is_active" class="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
                         <span class="text-sm font-bold text-slate-700 dark:text-slate-300">Aktif</span>
                     </label>
+                    <div x-show="masterLokasi.form.router_id" class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-xs font-bold text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300">
+                        Lokasi ini akan disimpan ke router aktif saat ini.
+                    </div>
                 </div>
                 <div class="mt-6 flex items-center gap-3">
                     <button type="submit" :disabled="masterLokasi.saving" class="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 disabled:cursor-not-allowed disabled:opacity-50">
@@ -130,7 +133,7 @@
                         <span class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Lokasi *</span>
                         <select x-model="masterOlt.form.network_location_id" class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-100 dark:focus:ring-blue-500/10" required>
                             <option value="">Pilih Lokasi...</option>
-                            <template x-for="loc in references.network_locations" :key="loc.id">
+                            <template x-for="loc in references.network_locations.filter(l => !masterOlt.form.router_id || !l.router_id || String(l.router_id) === String(masterOlt.form.router_id))" :key="loc.id">
                                 <option :value="loc.id" x-text="(loc.code ?? '') + ' - ' + (loc.name ?? '')"></option>
                             </template>
                         </select>

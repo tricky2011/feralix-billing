@@ -8,6 +8,7 @@ use App\Models\Service;
 use App\Services\Access\RoleRouterScopeService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class MonthlyInvoiceGenerationService
@@ -43,57 +44,60 @@ class MonthlyInvoiceGenerationService
         $services = $this->billableServicesQuery($period, $payload)->get();
 
         foreach ($services as $service) {
-            $archivedInvoiceExists = Invoice::query()
-                ->withTrashed()
-                ->where('service_id', $service->id)
-                ->where('billing_period', $period->format('Y-m'))
-                ->exists();
+            DB::transaction(function () use ($service, $period, $invoiceDate, $globalDueDate, $globalDueInDays, $payload, &$generated, &$skipped, &$skippedNoPrice) {
+                $archivedInvoiceExists = Invoice::query()
+                    ->withTrashed()
+                    ->where('service_id', $service->id)
+                    ->where('billing_period', $period->format('Y-m'))
+                    ->lockForUpdate()
+                    ->exists();
 
-            if ($archivedInvoiceExists) {
-                $skipped[] = [
+                if ($archivedInvoiceExists) {
+                    $skipped[] = [
+                        'service_id' => $service->id,
+                        'service_code' => $service->service_code,
+                        'reason' => 'Invoice for this billing period already exists or has been archived.',
+                    ];
+
+                    return;
+                }
+
+                $price = $this->resolveMonthlyPrice($service);
+
+                if ($price === null) {
+                    $skippedNoPrice[] = [
+                        'service_id' => $service->id,
+                        'service_code' => $service->service_code,
+                        'customer_name' => $service->customer?->full_name ?? 'Unknown',
+                        'reason' => 'No monthly price configured for this service.',
+                    ];
+
+                    Log::warning('Skipping invoice generation: no price configured', [
+                        'service_id' => $service->id,
+                        'service_code' => $service->service_code,
+                        'customer_name' => $service->customer?->full_name ?? 'Unknown',
+                        'billing_period' => $period->format('Y-m'),
+                    ]);
+
+                    return;
+                }
+
+                $invoice = $this->manualInvoiceService->create([
+                    'customer_id' => $service->customer_id,
                     'service_id' => $service->id,
-                    'service_code' => $service->service_code,
-                    'reason' => 'Invoice for this billing period already exists or has been archived.',
-                ];
-
-                continue;
-            }
-
-            $price = $this->resolveMonthlyPrice($service);
-
-            if ($price === null) {
-                $skippedNoPrice[] = [
-                    'service_id' => $service->id,
-                    'service_code' => $service->service_code,
-                    'customer_name' => $service->customer?->full_name ?? 'Unknown',
-                    'reason' => 'No monthly price configured for this service.',
-                ];
-
-                Log::warning('Skipping invoice generation: no price configured', [
-                    'service_id' => $service->id,
-                    'service_code' => $service->service_code,
-                    'customer_name' => $service->customer?->full_name ?? 'Unknown',
                     'billing_period' => $period->format('Y-m'),
+                    'invoice_date' => $invoiceDate->toDateString(),
+                    'due_date' => $this->resolveDueDate($service, $period, $invoiceDate, $globalDueDate, $globalDueInDays)->toDateString(),
+                    'subtotal' => $price,
+                    'penalty_amount' => $payload['penalty_amount'] ?? 0,
+                    'issue_now' => true,
                 ]);
 
-                continue;
-            }
-
-            $invoice = $this->manualInvoiceService->create([
-                'customer_id' => $service->customer_id,
-                'service_id' => $service->id,
-                'billing_period' => $period->format('Y-m'),
-                'invoice_date' => $invoiceDate->toDateString(),
-                'due_date' => $this->resolveDueDate($service, $period, $invoiceDate, $globalDueDate, $globalDueInDays)->toDateString(),
-                'subtotal' => $price,
-                'penalty_amount' => $payload['penalty_amount'] ?? 0,
-                'issue_now' => true,
-            ]);
-
-            $generated[] = Invoice::query()
-                ->with(self::RELATIONS)
-                ->withSum('payments', 'amount_paid')
-                ->findOrFail($invoice->id);
+                $generated[] = Invoice::query()
+                    ->with(self::RELATIONS)
+                    ->withSum('payments', 'amount_paid')
+                    ->findOrFail($invoice->id);
+            });
         }
 
         return [

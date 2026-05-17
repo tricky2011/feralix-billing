@@ -1157,7 +1157,7 @@ function createMasterLokasiState() {
                 else { await api.post('/api/v1/admin/network-locations', payload); toast('success', 'Berhasil', 'Lokasi ditambahkan'); }
                 this.cancelEdit();
                 await this.loadData(routerId);
-            } catch (e) { toast('error', 'Gagal', e?.response?.data?.message ?? e.message); } finally { this.saving = false; }
+            } catch (e) { toast('error', 'Gagal', e.message); } finally { this.saving = false; }
         },
 
         editItem(item) { this.editId = item.id; this.form = { router_id: item.router_id ?? '', name: item.location_name ?? item.name ?? '', code: item.location_code ?? item.code ?? '', latitude: item.latitude ?? '', longitude: item.longitude ?? '', description: item.description ?? '', is_active: item.status === 'active' }; },
@@ -1203,7 +1203,7 @@ function createMasterOltState() {
                 else { await api.post('/api/v1/admin/olts', payload); toast('success', 'Berhasil', 'OLT ditambahkan'); }
                 this.cancelEdit();
                 await this.loadData(routerId);
-            } catch (e) { toast('error', 'Gagal', e?.response?.data?.message ?? e.message); } finally { this.saving = false; }
+            } catch (e) { toast('error', 'Gagal', e.message); } finally { this.saving = false; }
         },
 
         editItem(item) { this.editId = item.id; this.form = { name: item.olt_name ?? item.name ?? '', code: item.olt_code ?? item.code ?? '', host: item.mgmt_ip ?? item.host ?? '', pon_ports: item.pon_ports ?? 4, max_per_pon: 100, description: item.description ?? '', is_active: item.status === 'active', network_location_id: item.location_id ?? item.network_location_id ?? '', router_id: item.router_id ?? '' }; },
@@ -2055,7 +2055,7 @@ export function adminPanel({ page }) {
                 this.toast('success', 'Sync berhasil', 'Data IP Pool diperbarui dari Mikrotik');
             } catch (e) {
                 console.error('Failed to sync IP pools', e);
-                this.toast('error', 'Sync gagal', e?.response?.data?.message ?? e.message);
+                this.toast('error', 'Sync gagal', e.message);
             } finally {
                 this.ipPools.loading = false;
             }
@@ -2111,7 +2111,7 @@ export function adminPanel({ page }) {
                 this.toast('success', 'Tersimpan', this.ipPools.selectedPools.length + ' pool berhasil disimpan');
             } catch (e) {
                 console.error('Failed to save pool selection', e);
-                this.toast('error', 'Gagal', e?.response?.data?.message ?? e.message);
+                this.toast('error', 'Gagal', e.message);
             }
         },
 
@@ -2631,7 +2631,7 @@ export function adminPanel({ page }) {
                     router_id: routerId,
                 });
 
-                const { imported = 0, skipped = 0, errors = [] } = response;
+                const { imported = 0, skipped = 0, errors = [] } = response.data;
 
                 let message = `Berhasil import ${imported} customer.`;
                 if (skipped > 0) message += ` Skip ${skipped}.`;
@@ -3222,7 +3222,7 @@ export function adminPanel({ page }) {
                 toast('success', 'ROS Version Detected', `${row.name ?? row.router_name}: ROS v${res.data?.ros_version ?? '?'}`);
                 await this.loadPage();
             } catch (e) {
-                toast('error', 'Gagal', e?.response?.data?.message ?? e.message);
+                toast('error', 'Gagal', e.message);
             }
         },
 
@@ -3530,7 +3530,12 @@ export function adminPanel({ page }) {
                 fields: [
                     { name: 'invoice_id', label: 'Invoice ID', type: 'number' },
                     { name: 'amount_paid', label: 'Nominal dibayar', type: 'number' },
-                    { name: 'payment_method', label: 'Metode pembayaran' },
+                    { name: 'payment_method', label: 'Metode pembayaran', type: 'select', options: [
+                        { value: 'cash', label: 'Cash / Tunai' },
+                        { value: 'transfer', label: 'Transfer Bank' },
+                        { value: 'qris', label: 'QRIS' },
+                        { value: 'other', label: 'Lainnya' },
+                    ] },
                     { name: 'paid_at', label: 'Tanggal bayar', type: 'datetime-local' },
                     { name: 'reference_no', label: 'Referensi' },
                     { name: 'notes', label: 'Catatan', type: 'textarea' },
@@ -4538,9 +4543,9 @@ export function adminPanel({ page }) {
                 this.toast('success', 'Berhasil', 'Customer berhasil diprovinsi.');
                 window.location.href = '/admin/customers';
             } catch (e) {
-                const message = e?.response?.data?.message ?? e?.message ?? 'Terjadi kesalahan';
-                if (e?.response?.data?.errors) {
-                    this.provisioning.errors = e.response.data.errors;
+                const message = e.message ?? 'Terjadi kesalahan';
+                if (e.errors && Object.keys(e.errors).length > 0) {
+                    this.provisioning.errors = e.errors;
                 }
                 this.toast('error', 'Gagal', message);
             } finally {
@@ -4582,7 +4587,7 @@ export function adminPanel({ page }) {
                 toast('success', 'Berhasil', `Pelanggan ${nama} berhasil di-terminate`);
                 await this.loadPage();
             } catch (e) {
-                toast('error', 'Gagal', e?.response?.data?.message ?? e.message);
+                toast('error', 'Gagal', e.message);
             }
         },
 

@@ -66,24 +66,24 @@ Route::prefix('v1/admin')
         });
 
         Route::middleware(['panel.role:superadmin,admin', 'router.scope.bindings'])->group(function (): void {
-            Route::patch('users/{user}/disable', [UserController::class, 'disable'])->middleware('role:superadmin,admin');
-            Route::patch('users/{user}/enable', [UserController::class, 'enable'])->middleware('role:superadmin,admin');
-            Route::patch('users/{user}/reset-password', [UserController::class, 'resetPassword'])->middleware('role:superadmin,admin');
-            Route::apiResource('users', UserController::class)->middleware('role:superadmin,admin');
+            Route::patch('users/{user}/disable', [UserController::class, 'disable'])->middleware('panel.role:superadmin,admin');
+            Route::patch('users/{user}/enable', [UserController::class, 'enable'])->middleware('panel.role:superadmin,admin');
+            Route::patch('users/{user}/reset-password', [UserController::class, 'resetPassword'])->middleware('panel.role:superadmin,admin');
+            Route::apiResource('users', UserController::class)->middleware('panel.role:superadmin,admin');
             Route::apiResource('activity-logs', ActivityLogController::class)
                 ->only(['index', 'show'])
-                ->middleware('role:superadmin,admin');
-            Route::post('telegram-bots/{telegramBot}/test', [TelegramBotController::class, 'test'])->middleware('role:superadmin,admin');
+                ->middleware('panel.role:superadmin,admin');
+            Route::post('telegram-bots/{telegramBot}/test', [TelegramBotController::class, 'test'])->middleware('panel.role:superadmin,admin');
             Route::apiResource('telegram-bots', TelegramBotController::class)
                 ->parameters(['telegram-bots' => 'telegramBot'])
-                ->middleware('role:superadmin,admin');
-            Route::post('telegram-groups/{telegramGroup}/test', [TelegramGroupController::class, 'test'])->middleware('role:superadmin,admin');
+                ->middleware('panel.role:superadmin,admin');
+            Route::post('telegram-groups/{telegramGroup}/test', [TelegramGroupController::class, 'test'])->middleware('panel.role:superadmin,admin');
             Route::apiResource('telegram-groups', TelegramGroupController::class)
                 ->parameters(['telegram-groups' => 'telegramGroup'])
-                ->middleware('role:superadmin,admin');
-            Route::get('database-settings', [DatabaseSettingController::class, 'show'])->middleware('role:superadmin,admin');
-            Route::patch('database-settings', [DatabaseSettingController::class, 'update'])->middleware('role:superadmin,admin');
-            Route::post('database-settings/test', [DatabaseSettingController::class, 'test'])->middleware('role:superadmin,admin');
+                ->middleware('panel.role:superadmin,admin');
+            Route::get('database-settings', [DatabaseSettingController::class, 'show'])->middleware('panel.role:superadmin,admin');
+            Route::patch('database-settings', [DatabaseSettingController::class, 'update'])->middleware('panel.role:superadmin,admin');
+            Route::post('database-settings/test', [DatabaseSettingController::class, 'test'])->middleware('panel.role:superadmin,admin');
 
             Route::get('customer-references', [CustomerReferenceController::class, 'index']);
             Route::post('customers/onboard', [CustomerController::class, 'onboard']);
@@ -108,43 +108,43 @@ Route::prefix('v1/admin')
                 ->only(['index', 'show']);
             Route::post('hotspot-vouchers/{hotspotVoucher}/activate', [HotspotVoucherController::class, 'activate']);
             Route::post('hotspot-vouchers/{hotspotVoucher}/deactivate', [HotspotVoucherController::class, 'deactivate']);
-            Route::post('routers/{router}/test-connection', [RouterController::class, 'testConnection'])->middleware('role:superadmin,admin');
-            Route::post('routers/{router}/test-acs', [RouterController::class, 'testAcs'])->middleware('role:superadmin,admin');
-            Route::post('routers/{router}/sync-ont', [RouterController::class, 'syncOnt'])->middleware('role:superadmin,admin');
-            Route::post('routers/{router}/detect-version', [RouterController::class, 'detectVersion'])->middleware('role:superadmin,admin');
+            Route::post('routers/{router}/test-connection', [RouterController::class, 'testConnection'])->middleware('panel.role:superadmin,admin');
+            Route::post('routers/{router}/test-acs', [RouterController::class, 'testAcs'])->middleware('panel.role:superadmin,admin');
+            Route::post('routers/{router}/sync-ont', [RouterController::class, 'syncOnt'])->middleware('panel.role:superadmin,admin');
+            Route::post('routers/{router}/detect-version', [RouterController::class, 'detectVersion'])->middleware('panel.role:superadmin,admin');
             Route::post('router-sync/pppoe', [RouterSyncController::class, 'syncPppoe'])
-                ->middleware(['role:superadmin,admin', 'throttle:router-sync']);
+                ->middleware(['panel.role:superadmin,admin', 'throttle:router-sync']);
             Route::post('router-sync/static', [RouterSyncController::class, 'syncStatic'])
-                ->middleware(['role:superadmin,admin', 'throttle:router-sync']);
+                ->middleware(['panel.role:superadmin,admin', 'throttle:router-sync']);
             Route::post('router-sync/address-list', [RouterSyncController::class, 'syncAddressList'])
-                ->middleware(['role:superadmin,admin', 'throttle:router-sync']);
+                ->middleware(['panel.role:superadmin,admin', 'throttle:router-sync']);
             Route::post('router-sync/all', [RouterSyncController::class, 'syncAll'])
-                ->middleware(['role:superadmin,admin', 'throttle:destructive']);
+                ->middleware(['panel.role:superadmin,admin', 'throttle:destructive']);
             Route::get('mikrotik/pppoe-servers', [MikrotikInfoController::class, 'pppoeServers']);
-            Route::get('pppoe-import/candidates', [PppoeImportController::class, 'candidates'])->middleware('role:superadmin,admin');
-            Route::post('pppoe-import/import', [PppoeImportController::class, 'import'])->middleware('role:superadmin,admin');
+            Route::get('pppoe-import/candidates', [PppoeImportController::class, 'candidates'])->middleware('panel.role:superadmin,admin');
+            Route::post('pppoe-import/import', [PppoeImportController::class, 'import'])->middleware('panel.role:superadmin,admin');
 
             // Hotspot cross-router management
-            Route::post('hotspot-router/activate', [HotspotRouterController::class, 'activate'])->middleware('role:superadmin,admin');
-            Route::post('hotspot-router/activate-all', [HotspotRouterController::class, 'activateAll'])->middleware('role:superadmin,admin');
-            Route::delete('hotspot-router/deactivate', [HotspotRouterController::class, 'deactivate'])->middleware('role:superadmin,admin');
-            Route::delete('hotspot-router/deactivate-all', [HotspotRouterController::class, 'deactivateAll'])->middleware('role:superadmin,admin');
-            Route::post('hotspot-router/sync-radius', [HotspotRouterController::class, 'syncRadius'])->middleware('role:superadmin,admin');
-            Route::get('hotspot-router/services/{hotspotVoucher}', [HotspotRouterController::class, 'getVoucherServices'])->middleware('role:superadmin,admin');
-            Route::get('hotspot-router/routers/{router}/services', [HotspotRouterController::class, 'getRouterServices'])->middleware('role:superadmin,admin');
+            Route::post('hotspot-router/activate', [HotspotRouterController::class, 'activate'])->middleware('panel.role:superadmin,admin');
+            Route::post('hotspot-router/activate-all', [HotspotRouterController::class, 'activateAll'])->middleware('panel.role:superadmin,admin');
+            Route::delete('hotspot-router/deactivate', [HotspotRouterController::class, 'deactivate'])->middleware('panel.role:superadmin,admin');
+            Route::delete('hotspot-router/deactivate-all', [HotspotRouterController::class, 'deactivateAll'])->middleware('panel.role:superadmin,admin');
+            Route::post('hotspot-router/sync-radius', [HotspotRouterController::class, 'syncRadius'])->middleware('panel.role:superadmin,admin');
+            Route::get('hotspot-router/services/{hotspotVoucher}', [HotspotRouterController::class, 'getVoucherServices'])->middleware('panel.role:superadmin,admin');
+            Route::get('hotspot-router/routers/{router}/services', [HotspotRouterController::class, 'getRouterServices'])->middleware('panel.role:superadmin,admin');
 
-            Route::apiResource('routers', RouterController::class)->middleware('role:superadmin,admin');
+            Route::apiResource('routers', RouterController::class)->middleware('panel.role:superadmin,admin');
             Route::get('routers/{router}/stats', [RouterStatsController::class, 'show']);
             Route::apiResource('router-scopes', RouterScopeController::class);
             Route::apiResource('network-locations', NetworkLocationController::class)
                 ->parameters(['network-locations' => 'networkLocation'])
-                ->middleware('role:superadmin,admin');
-            Route::apiResource('olts', OltController::class)->middleware('role:superadmin,admin');
-            Route::get('olts/{olt}/pon-status', [OltController::class, 'ponStatus'])->middleware('role:superadmin,admin');
-            Route::apiResource('olts.pon-ports', PonPortController::class)->shallow()->middleware('role:superadmin,admin');
-            Route::apiResource('odcs', OdcController::class)->middleware('role:superadmin,admin');
-            Route::apiResource('odps', OdpController::class)->middleware('role:superadmin,admin');
-            Route::get('fiber-map', [FiberMapController::class, 'index'])->middleware('role:superadmin,admin');
+                ->middleware('panel.role:superadmin,admin');
+            Route::apiResource('olts', OltController::class)->middleware('panel.role:superadmin,admin');
+            Route::get('olts/{olt}/pon-status', [OltController::class, 'ponStatus'])->middleware('panel.role:superadmin,admin');
+            Route::apiResource('olts.pon-ports', PonPortController::class)->shallow()->middleware('panel.role:superadmin,admin');
+            Route::apiResource('odcs', OdcController::class)->middleware('panel.role:superadmin,admin');
+            Route::apiResource('odps', OdpController::class)->middleware('panel.role:superadmin,admin');
+            Route::get('fiber-map', [FiberMapController::class, 'index'])->middleware('panel.role:superadmin,admin');
             Route::get('onts/online', [OntController::class, 'online']);
             Route::get('onts/offline', [OntController::class, 'offline']);
             Route::apiResource('onts', OntController::class);
@@ -187,8 +187,8 @@ Route::prefix('v1/admin')
             Route::get('invoices/{invoice}/pdf', [InvoiceController::class, 'downloadPdf']);
             Route::apiResource('invoices', InvoiceController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
             Route::apiResource('payments', PaymentController::class)->only(['index', 'store', 'show']);
-            Route::get('cashflows/summary', [CashflowController::class, 'summary'])->middleware('role:superadmin,admin');
-            Route::apiResource('cashflows', CashflowController::class)->middleware('role:superadmin,admin');
+            Route::get('cashflows/summary', [CashflowController::class, 'summary'])->middleware('panel.role:superadmin,admin');
+            Route::apiResource('cashflows', CashflowController::class)->middleware('panel.role:superadmin,admin');
         });
     });
 

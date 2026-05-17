@@ -9,6 +9,7 @@ use App\Services\Access\RoleRouterScopeService;
 use App\Services\Provisioning\ServiceIsolationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -92,12 +93,28 @@ class InvoiceAutoSuspendService
                         continue;
                     }
 
-                    $hasOpenIsolation = ServiceIsolation::query()
-                        ->where('service_id', $invoice->service_id)
-                        ->open()
-                        ->exists();
+                    $alreadySkipped = false;
 
-                    if ($hasOpenIsolation) {
+                    DB::transaction(function () use ($invoice, &$alreadySkipped) {
+                        $hasOpenIsolation = ServiceIsolation::query()
+                            ->where('service_id', $invoice->service_id)
+                            ->open()
+                            ->lockForUpdate()
+                            ->exists();
+
+                        if ($hasOpenIsolation) {
+                            $alreadySkipped = true;
+
+                            return;
+                        }
+
+                        // Lock acquired — no other process can create an isolation for this service.
+                        // Release lock by ending transaction; createIsolationRecord runs outside to avoid
+                        // holding the lock during external router calls.
+                        throw new \RuntimeException('ACQUIRED_LOCK');
+                    });
+
+                    if ($alreadySkipped) {
                         $summary['skipped_existing_open_isolation']++;
 
                         continue;
@@ -119,6 +136,12 @@ class InvoiceAutoSuspendService
                         ]);
 
                         $summary['created_isolations']++;
+                    } catch (RuntimeException $e) {
+                        if ($e->getMessage() === 'ACQUIRED_LOCK') {
+                            $summary['skipped_existing_open_isolation']++;
+                        } else {
+                            throw $e;
+                        }
                     } catch (ValidationException) {
                         $summary['skipped_existing_open_isolation']++;
                     } catch (Throwable $throwable) {

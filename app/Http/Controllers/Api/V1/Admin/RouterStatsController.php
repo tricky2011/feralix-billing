@@ -25,6 +25,7 @@ class RouterStatsController extends Controller
             'success' => $result['success'],
             'message' => $result['message'],
             'data' => $result['data'],
+            'meta' => $result['meta'] ?? (object) [],
         ]);
     }
 }

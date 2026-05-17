@@ -144,8 +144,8 @@ class HotspotRouterController extends Controller
     {
         $services = $this->centralizedService->getServicesForVoucher($hotspotVoucher);
 
-        return $this->successResponse('Voucher services retrieved successfully.', [
-            'data' => $services->map(fn ($s) => [
+        return $this->successResponse('Voucher services retrieved.', [
+            'services' => $services->map(fn ($s) => [
                 'id' => $s->id,
                 'router_id' => $s->router_id,
                 'router_name' => $s->router?->router_name,
@@ -173,8 +173,8 @@ class HotspotRouterController extends Controller
     {
         $services = $this->centralizedService->getActiveServicesForRouter($router);
 
-        return $this->successResponse('Router services retrieved successfully.', [
-            'data' => $services->map(fn ($s) => [
+        return $this->successResponse('Router services retrieved.', [
+            'services' => $services->map(fn ($s) => [
                 'id' => $s->id,
                 'voucher_id' => $s->hotspot_voucher_id,
                 'username' => $s->hotspot_username,

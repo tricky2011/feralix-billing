@@ -187,8 +187,8 @@ class RouterController extends Controller
                 'ros_version' => $version,
             ]);
         } catch (\Throwable $e) {
-            return $this->successResponse('Failed to detect version.', [
-                'router_id' => $router->id,
+            return $this->successResponse('Failed to detect version: ' . $e->getMessage(), [
+                'router_id'   => $router->id,
                 'ros_version' => null,
             ]);
         }

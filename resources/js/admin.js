@@ -4548,25 +4548,6 @@ export function adminPanel({ page }) {
             }
         },
 
-        // ==================== MASTER LOKASI ====================
-        async loadMasterLokasiData() {
-            this.loading = true;
-            try {
-                const params = {
-                    search: this.filters.search || undefined,
-                    page: this.filters.page,
-                    per_page: this.filters.per_page,
-                };
-                const response = await api.get('/api/v1/admin/locations', { params });
-                this.items = response.data ?? [];
-                this.pagination = response.meta ?? {};
-            } catch (error) {
-                this.toast('error', 'Gagal', 'Tidak dapat memuat data lokasi');
-            } finally {
-                this.loading = false;
-            }
-        },
-
         formatCoordinates(lat, lng) {
             if (!lat && !lng) return '-';
             return `${lat ?? '-'}, ${lng ?? '-'}`;

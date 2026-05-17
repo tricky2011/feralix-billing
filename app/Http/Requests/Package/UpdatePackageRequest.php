@@ -28,7 +28,7 @@ class UpdatePackageRequest extends FormRequest
 
         return [
             'package_name' => ['required', 'string', 'max:150', Rule::unique('packages', 'package_name')->ignore($package->id)],
-            'monthly_price' => ['required', 'numeric', 'min:0'],
+            'monthly_price' => ['required', 'numeric', 'min:1'],
             'ip_pool_count' => ['nullable', 'integer', 'min:1', 'max:255'],
             'rate_limit_mbps' => ['nullable', 'integer', 'min:1', 'max:10000'],
             'description' => ['nullable', 'string'],

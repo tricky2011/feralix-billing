@@ -30,7 +30,7 @@ export function loginPage() {
                 api.setToken(payload.access_token);
 
                 window.location.assign(payload.user?.role === 'technician'
-                    ? '/admin/dashboard'
+                    ? '/admin/technician-dashboard'
                     : '/admin/dashboard');
             } catch (error) {
                 this.message = error.message || 'Login gagal.';

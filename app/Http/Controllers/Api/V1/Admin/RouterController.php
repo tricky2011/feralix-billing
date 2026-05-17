@@ -99,8 +99,6 @@ class RouterController extends Controller
 
     public function destroy(Request $request, Router $router): JsonResponse
     {
-        $request->validate([]);
-
         $routerName = $router->name ?? $router->router_name ?? ('#'.$router->id);
         $routerHost = $router->host ?? $router->mgmt_ip ?? '-';
 
@@ -119,8 +117,6 @@ class RouterController extends Controller
 
     public function testConnection(Request $request, Router $router): JsonResponse
     {
-        $request->validate([]);
-
         $result = $this->routerService->testConnection($router);
 
         $this->activityLogger->record(
@@ -141,8 +137,6 @@ class RouterController extends Controller
 
     public function testAcs(Request $request, Router $router): JsonResponse
     {
-        $request->validate([]);
-
         $result = $this->routerService->testAcs($router);
 
         $this->activityLogger->record(
@@ -163,8 +157,6 @@ class RouterController extends Controller
 
     public function syncOnt(Request $request, Router $router): JsonResponse
     {
-        $request->validate([]);
-
         $result = $this->routerService->syncOntPlaceholder($router);
 
         $this->activityLogger->record(
@@ -180,8 +172,6 @@ class RouterController extends Controller
 
     public function detectVersion(Request $request, Router $router): JsonResponse
     {
-        $request->validate([]);
-
         $detector = app(\App\Services\Mikrotik\RouterOsVersionDetector::class);
         $factory  = app(\App\Contracts\Mikrotik\MikrotikApiClientFactory::class);
 
@@ -197,13 +187,10 @@ class RouterController extends Controller
                 'ros_version' => $version,
             ]);
         } catch (\Throwable $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to detect version.',
-                'data' => null,
-                'meta' => (object) [],
-                'error' => $e->getMessage(),
-            ], 422);
+            return $this->successResponse('Failed to detect version: ' . $e->getMessage(), [
+                'router_id'   => $router->id,
+                'ros_version' => null,
+            ]);
         }
     }
 

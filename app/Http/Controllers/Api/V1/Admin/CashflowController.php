@@ -12,6 +12,7 @@ use App\Models\Cashflow;
 use App\Services\Audit\ActivityLogger;
 use App\Services\Finance\CashflowService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class CashflowController extends Controller
 {
@@ -79,17 +80,17 @@ class CashflowController extends Controller
         return $this->successResponse('Cashflow updated successfully.', new CashflowResource($cashflow));
     }
 
-    public function destroy(Cashflow $cashflow): JsonResponse
+    public function destroy(Request $request, Cashflow $cashflow): JsonResponse
     {
         $cashflowId = $cashflow->id;
         $this->cashflowService->deleteManual($cashflow);
 
         $this->activityLogger->record(
-            request()->user(),
+            $request->user(),
             'cashflow.deleted',
             'cashflow',
             sprintf('Deleted manual cashflow #%d.', $cashflowId),
-            request(),
+            $request,
         );
 
         return $this->successResponse('Cashflow deleted successfully.');

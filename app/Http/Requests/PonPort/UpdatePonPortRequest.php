@@ -2,16 +2,10 @@
 
 namespace App\Http\Requests\PonPort;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AdminPanelRequest;
 
-class UpdatePonPortRequest extends FormRequest
-{
-    public function authorize(): bool
-    {
-        return true;
-    }
-
-    public function rules(): array
+class UpdatePonPortRequest extends AdminPanelRequest
+{ array
     {
         return [
             'name' => ['nullable', 'string', 'max:50'],

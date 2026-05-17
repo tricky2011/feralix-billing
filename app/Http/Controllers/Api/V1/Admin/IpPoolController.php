@@ -151,7 +151,6 @@ class IpPoolController extends Controller
 
     public function summary(FetchIpPoolRequest $request, Router $router): JsonResponse
     {
-        $request->validate([]);
         $validated = $request->validated();
 
         $summary = $this->ipPoolService->getPoolStatusSummary($router);
@@ -226,7 +225,6 @@ class IpPoolController extends Controller
 
     public function vidsWithAvailability(FetchIpPoolRequest $request, Router $router): JsonResponse
     {
-        $request->validate([]);
         $validated = $request->validated();
 
         $minFreeIps = max(1, (int) ($validated['min_free_ips'] ?? 1));

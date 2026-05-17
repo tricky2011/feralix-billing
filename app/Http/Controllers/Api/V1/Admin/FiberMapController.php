@@ -21,8 +21,6 @@ class FiberMapController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $request->validate([]);
-
         $this->activityLogger->record(
             $request->user(),
             'fiber_map.viewed',

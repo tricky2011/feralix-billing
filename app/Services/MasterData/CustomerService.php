@@ -99,6 +99,21 @@ class CustomerService
     {
         $customer->update($this->customerPayload($payload));
 
+        // Update active service if service-related fields are present
+        $serviceFields = ['vid_id', 'router_id', 'access_mode', 'pppoe_username', 'pppoe_password', 'static_ip_address', 'package_id'];
+        $hasServiceUpdate = collect($serviceFields)->filter(fn ($key) => array_key_exists($key, $payload) && $payload[$key] !== null && $payload[$key] !== '')->isNotEmpty();
+
+        if ($hasServiceUpdate) {
+            $service = $customer->services()->latest()->first();
+            if ($service) {
+                $servicePayload = Arr::only($payload, $serviceFields);
+                $servicePayload = array_filter($servicePayload, fn ($v) => $v !== null && $v !== '');
+                if ($servicePayload !== []) {
+                    $service->update($servicePayload);
+                }
+            }
+        }
+
         return $this->loadCustomer($customer, true);
     }
 
@@ -180,6 +195,8 @@ class CustomerService
             'customer_code',
             'full_name',
             'phone',
+            'contact',
+            'email',
             'address',
             'preferred_olt_id',
             'assigned_technician_id',
@@ -187,11 +204,13 @@ class CustomerService
             'longitude',
             'customer_type',
             'status',
+            'install_date',
             'ip_count',
             'monthly_price',
             'billing_day',
             'pppoe_username',
             'pppoe_password',
+            'notes',
         ]);
 
         // location_id dari form adalah network_location_id (bukan legacy locations table)

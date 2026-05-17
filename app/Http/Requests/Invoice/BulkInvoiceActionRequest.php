@@ -18,6 +18,12 @@ class BulkInvoiceActionRequest extends AdminPanelRequest
             'message' => $this->filled('message') ? trim((string) $this->input('message')) : null,
             'notes' => $this->filled('notes') ? trim((string) $this->input('notes')) : null,
         ]);
+
+        $this->replace(
+            collect($this->all())
+                ->except(['created_by'])
+                ->toArray()
+        );
     }
 
     public function rules(): array
@@ -29,7 +35,6 @@ class BulkInvoiceActionRequest extends AdminPanelRequest
             'payment_method' => ['nullable', 'string', 'max:50'],
             'paid_at' => ['nullable', 'date'],
             'reference_no' => ['nullable', 'string', 'max:100'],
-            'created_by' => ['nullable', 'integer', 'exists:users,id'],
             'notes' => ['nullable', 'string'],
             'force' => ['nullable', 'boolean'],
             'reference_date' => ['nullable', 'date'],

@@ -10,7 +10,6 @@ use App\Http\Resources\OntResource;
 use App\Models\Ont;
 use App\Services\Access\RoleRouterScopeService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class OntController extends Controller
 {
@@ -94,14 +93,9 @@ class OntController extends Controller
         return $this->successResponse('ONT deleted successfully.');
     }
 
-    public function online(Request $request): JsonResponse
+    public function online(IndexOntRequest $request): JsonResponse
     {
-        $filters = $request->validate([
-            'search' => 'nullable|string|max:100',
-            'olt_id' => 'nullable|integer|exists:olts,id',
-            'router_id' => 'nullable|integer|exists:routers,id',
-            'per_page' => 'nullable|integer|min:1|max:100',
-        ]);
+        $filters = $request->validated();
 
         $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 100));
         $threshold = now()->subMinutes(10);
@@ -134,14 +128,9 @@ class OntController extends Controller
         );
     }
 
-    public function offline(Request $request): JsonResponse
+    public function offline(IndexOntRequest $request): JsonResponse
     {
-        $filters = $request->validate([
-            'search' => 'nullable|string|max:100',
-            'olt_id' => 'nullable|integer|exists:olts,id',
-            'router_id' => 'nullable|integer|exists:routers,id',
-            'per_page' => 'nullable|integer|min:1|max:100',
-        ]);
+        $filters = $request->validated();
 
         $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 100));
         $threshold = now()->subMinutes(10);

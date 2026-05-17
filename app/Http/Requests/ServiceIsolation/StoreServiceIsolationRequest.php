@@ -28,6 +28,12 @@ class StoreServiceIsolationRequest extends FormRequest
             'redirect_url' => $this->filled('redirect_url') ? trim((string) $this->input('redirect_url')) : null,
             'notes' => $this->filled('notes') ? trim((string) $this->input('notes')) : null,
         ]);
+
+        $this->replace(
+            collect($this->all())
+                ->except(['created_by'])
+                ->toArray()
+        );
     }
 
     public function rules(): array
@@ -43,7 +49,6 @@ class StoreServiceIsolationRequest extends FormRequest
             'target_identifier' => ['nullable', 'string', 'max:100'],
             'target_payload' => ['nullable', 'array'],
             'redirect_url' => ['nullable', 'url', 'max:255'],
-            'created_by' => ['nullable', 'integer', 'exists:users,id'],
             'notes' => ['nullable', 'string'],
         ];
     }

@@ -6,6 +6,7 @@ use App\Models\NetworkLocation;
 use App\Models\Odc;
 use App\Models\Odp;
 use App\Models\Olt;
+use App\Models\Router;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -319,6 +320,38 @@ class NetworkModulePhaseHTest extends TestCase
             ->assertForbidden()
             ->assertJsonPath('success', false)
             ->assertJsonStructure(['success', 'message', 'errors', 'meta']);
+    }
+
+    public function test_olt_code_unique_per_router_not_globally(): void
+    {
+        $location = NetworkLocation::query()->create(['name' => 'Site X', 'code' => 'SITE-X', 'status' => 'active']);
+
+        $routerA = Router::query()->create([
+            'router_code' => 'RTR-A', 'router_name' => 'Router A', 'router_role' => 'bng',
+            'mgmt_ip' => '10.0.0.1', 'api_port' => 8728, 'api_username' => 'admin', 'api_password' => 'secret', 'is_active' => true,
+        ]);
+        $routerB = Router::query()->create([
+            'router_code' => 'RTR-B', 'router_name' => 'Router B', 'router_role' => 'bng',
+            'mgmt_ip' => '10.0.0.2', 'api_port' => 8728, 'api_username' => 'admin', 'api_password' => 'secret', 'is_active' => true,
+        ]);
+
+        // Create OLT001 on Router A — harus berhasil
+        $this->postJson('/api/v1/admin/olts', [
+            'name' => 'OLT Router A', 'code' => 'OLT001',
+            'location_id' => $location->id, 'router_id' => $routerA->id, 'status' => 'active',
+        ])->assertCreated()->assertJsonPath('success', true);
+
+        // Create OLT001 pada Router yang SAMA — harus gagal (duplicate)
+        $this->postJson('/api/v1/admin/olts', [
+            'name' => 'OLT Router A Dup', 'code' => 'OLT001',
+            'location_id' => $location->id, 'router_id' => $routerA->id, 'status' => 'active',
+        ])->assertStatus(422)->assertJsonValidationErrors(['code']);
+
+        // Create OLT001 pada Router BERBEDA (Router B) — harus berhasil
+        $this->postJson('/api/v1/admin/olts', [
+            'name' => 'OLT Router B', 'code' => 'OLT001',
+            'location_id' => $location->id, 'router_id' => $routerB->id, 'status' => 'active',
+        ])->assertCreated()->assertJsonPath('success', true);
     }
 
     public function test_network_module_endpoints_keep_standard_success_envelope(): void

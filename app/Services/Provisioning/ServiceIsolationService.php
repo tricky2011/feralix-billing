@@ -69,7 +69,7 @@ class ServiceIsolationService
                     ? $payload['redirect_url']
                     : $this->defaultRedirectUrl(),
                 'status' => ServiceIsolationStatus::Pending->value,
-                'created_by' => $payload['created_by'] ?? Auth::id(),
+                'created_by' => Auth::id(),
                 'notes' => $payload['notes'] ?? null,
             ]);
 
@@ -126,6 +126,86 @@ class ServiceIsolationService
         });
     }
 
+    public function markFailed(ServiceIsolation $serviceIsolation, string $reason, array $payload = []): ServiceIsolation
+    {
+        return DB::transaction(function () use ($serviceIsolation, $reason, $payload): ServiceIsolation {
+            $isolation = ServiceIsolation::query()
+                ->with('service')
+                ->lockForUpdate()
+                ->findOrFail($serviceIsolation->id);
+
+            if ($isolation->status === ServiceIsolationStatus::Failed) {
+                return $isolation;
+            }
+
+            if ($isolation->status === ServiceIsolationStatus::Released) {
+                return $isolation;
+            }
+
+            $failureNotes = sprintf(
+                '[FAILED] %s | Reason: %s',
+                now()->format('Y-m-d H:i:s'),
+                $reason,
+            );
+
+            $isolation->update([
+                'status' => ServiceIsolationStatus::Failed->value,
+                'notes' => $this->appendNotes($isolation->notes, $failureNotes),
+            ]);
+
+            if ($isolation->service !== null) {
+                $this->syncRouterOperationIsolationState($isolation->service, $isolation, false);
+            }
+
+            return $this->loadIsolation($isolation);
+        });
+    }
+
+    public function markReleaseFailed(ServiceIsolation $serviceIsolation, string $reason, array $payload = []): ServiceIsolation
+    {
+        return DB::transaction(function () use ($serviceIsolation, $reason, $payload): ServiceIsolation {
+            $isolation = ServiceIsolation::query()
+                ->with('service')
+                ->lockForUpdate()
+                ->findOrFail($serviceIsolation->id);
+
+            if ($isolation->status === ServiceIsolationStatus::Failed) {
+                return $isolation;
+            }
+
+            $failureNotes = sprintf(
+                '[RELEASE_FAILED] %s | Reason: %s',
+                now()->format('Y-m-d H:i:s'),
+                $reason,
+            );
+
+            if ($isolation->status === ServiceIsolationStatus::ReleasePending) {
+                $isolation->update([
+                    'status' => ServiceIsolationStatus::Applied->value,
+                    'released_at' => null,
+                    'notes' => $this->appendNotes($isolation->notes, $failureNotes),
+                ]);
+            } elseif ($isolation->status === ServiceIsolationStatus::Released) {
+                $isolation->update([
+                    'status' => ServiceIsolationStatus::Applied->value,
+                    'released_at' => null,
+                    'notes' => $this->appendNotes($isolation->notes, $failureNotes),
+                ]);
+            } else {
+                $isolation->update([
+                    'status' => ServiceIsolationStatus::Failed->value,
+                    'notes' => $this->appendNotes($isolation->notes, $failureNotes),
+                ]);
+            }
+
+            if ($isolation->service !== null) {
+                $this->syncRouterOperationIsolationState($isolation->service, $isolation, true);
+            }
+
+            return $this->loadIsolation($isolation);
+        });
+    }
+
     public function releaseIsolation(ServiceIsolation $serviceIsolation, array $payload = []): ServiceIsolation
     {
         return DB::transaction(function () use ($serviceIsolation, $payload): ServiceIsolation {
@@ -142,34 +222,16 @@ class ServiceIsolationService
 
             $wasApplied = $isolation->status === ServiceIsolationStatus::Applied;
 
+            // Status tidak langsung diubah ke Released di sini.
+            // Ubah ke ReleasePending, router job akan mengupdate ke Released SETELAH sukses.
             $isolation->update([
-                'status' => ServiceIsolationStatus::Released->value,
+                'status' => ServiceIsolationStatus::ReleasePending->value,
                 'released_at' => $payload['released_at'] ?? now(),
                 'notes' => $this->appendNotes($isolation->notes, $payload['notes'] ?? null),
             ]);
 
-            if ($wasApplied && $isolation->service !== null) {
-                $serviceUpdates = [];
-                $desiredOverallStatus = ServiceOverallStatus::Active;
-                $effectiveOverallStatus = $this->overallStateManager->syncDesiredStatus(
-                    $isolation->service,
-                    $desiredOverallStatus,
-                );
-
-                if ($isolation->service->network_status === ServiceNetworkStatus::Isolated) {
-                    $serviceUpdates['network_status'] = ServiceNetworkStatus::Active->value;
-                }
-
-                if ($isolation->service->overall_status !== $effectiveOverallStatus) {
-                    $serviceUpdates['overall_status'] = $effectiveOverallStatus->value;
-                }
-
-                if ($serviceUpdates !== []) {
-                    $isolation->service->update($serviceUpdates);
-                }
-
-                $this->syncRouterOperationIsolationState($isolation->service, null, false);
-            }
+            // Jangan update service status di sini! Itu dilakukan oleh
+            // ServiceIsolationRouterExecutionService setelah router job berhasil.
 
             DB::afterCommit(fn () => $this->routerJobDispatcher->dispatchRelease($isolation->id));
 

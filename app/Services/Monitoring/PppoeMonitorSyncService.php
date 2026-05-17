@@ -156,6 +156,14 @@ class PppoeMonitorSyncService
             }
 
             $session = $sessionsByUsername[$username] ?? null;
+
+            // Fallback: if no exact username match, try to match by extracting the last
+            // number sequence from pppoe_username. This handles the case where MikroTik
+            // uses a different prefix than the billing DB (e.g., DB has "OLTK3-ModeM-V2001"
+            // but MikroTik returns "ModeM-V2001" — both have last number 2001).
+            if ($session === null && $service->monitor_pppoe_username === null) {
+                $session = $this->findSessionByNumberSuffix($sessionsByUsername, $service->pppoe_username);
+            }
             $nextStatus = $session === null
                 ? MonitorPppoeStatus::Offline
                 : MonitorPppoeStatus::Online;
@@ -269,5 +277,50 @@ class PppoeMonitorSyncService
         return $value !== ''
             ? $value
             : null;
+    }
+
+    /**
+     * Find a MikroTik PPP active session by matching the last number sequence
+     * extracted from the DB username. This handles prefix differences between
+     * the billing DB and MikroTik (e.g., "OLTK3-ModeM-V2001" matches "ModeM-V2001"
+     * when both share the same last number "2001").
+     *
+     * @param  array<string, array<string, string>>  $sessionsByUsername
+     */
+    private function findSessionByNumberSuffix(array $sessionsByUsername, ?string $dbUsername): ?array
+    {
+        if ($dbUsername === null) {
+            return null;
+        }
+
+        $dbStripped = preg_replace('/[^a-z0-9]/', '', strtolower(trim($dbUsername)));
+        preg_match_all('/\d+/', $dbStripped, $dbNums);
+        $dbNums = $dbNums[0] ?? [];
+
+        if ($dbNums === []) {
+            return null;
+        }
+
+        $dbLastNum = end($dbNums);
+        $dbLastNumLen = strlen($dbLastNum);
+
+        foreach ($sessionsByUsername as $sessionUsername => $session) {
+            $sessionStripped = preg_replace('/[^a-z0-9]/', '', $sessionUsername);
+            preg_match_all('/\d+/', $sessionStripped, $sessionNums);
+            $sessionNums = $sessionNums[0] ?? [];
+
+            if ($sessionNums === []) {
+                continue;
+            }
+
+            $sessionLastNum = end($sessionNums);
+            $sessionLastNumLen = strlen($sessionLastNum);
+
+            if ($dbLastNum === $sessionLastNum && $dbLastNumLen === $sessionLastNumLen) {
+                return $session;
+            }
+        }
+
+        return null;
     }
 }

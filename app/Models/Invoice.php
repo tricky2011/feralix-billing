@@ -136,14 +136,21 @@ class Invoice extends Model
     {
         $amount = $this->payments_sum_amount_paid ?? $this->payments()->sum('amount_paid');
 
-        return number_format((float) $amount, 2, '.', '');
+        return number_format(round((float) $amount, 2), 2, '.', '');
     }
 
     public function remainingAmount(): string
     {
-        $remaining = max(0, (float) $this->total_amount - (float) $this->amountPaid());
+        $totalAmount = number_format(round((float) $this->total_amount, 2), 2, '.', '');
+        $paidAmount = $this->amountPaid();
 
-        return number_format($remaining, 2, '.', '');
+        $remaining = bcsub($totalAmount, $paidAmount, 2);
+        // Ensure non-negative using bcmath
+        if (bccomp($remaining, '0', 2) < 0) {
+            $remaining = '0.00';
+        }
+
+        return $remaining;
     }
 
     public function isOverdue(): bool

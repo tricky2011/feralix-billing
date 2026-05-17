@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\HotspotLoginController;
 use App\Http\Controllers\IsolirPageController;
 use Illuminate\Support\Facades\Route;
 
@@ -9,6 +10,8 @@ Route::get('/', function () {
 
 Route::view('/login', 'auth.login')->name('admin.login');
 
+Route::get('/hotspot', HotspotLoginController::class)->name('hotspot.login');
+
 Route::get('/isolir', IsolirPageController::class)->name('isolir');
 
 Route::redirect('/admin', '/admin/dashboard')->name('admin.home');
@@ -16,6 +19,10 @@ Route::redirect('/admin', '/admin/dashboard')->name('admin.home');
 Route::get('/admin/customers/create', function () {
     return view('admin.index', ['page' => 'customers-create']);
 })->name('admin.customers.create');
+
+Route::get('/admin/customers/{id}/edit', function (string $id) {
+    return view('admin.index', ['page' => 'customers-edit', 'editCustomerId' => $id]);
+})->name('admin.customers.edit');
 
 Route::get('/admin/master-lokasi', function () {
     return view('admin.index', ['page' => 'master-lokasi']);
@@ -29,8 +36,6 @@ Route::get('/admin/{page}', function (string $page) {
     abort_unless(in_array($page, [
         'dashboard',
         'customers',
-        'services',
-        'services',
         'services',
         'billing',
         'isolations',

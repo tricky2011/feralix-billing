@@ -88,7 +88,7 @@ export const api = {
             }
         }
 
-        if (!response.ok || envelope.success === false) {
+        if (!response.ok) {
             throw new ApiError(
                 envelope.message || 'Request gagal.',
                 response.status,

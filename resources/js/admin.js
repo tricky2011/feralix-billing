@@ -4,7 +4,7 @@ import { tokenStore } from './services/token';
 const statusGroups = {
     green: ['active', 'paid', 'completed', 'resolved', 'closed', 'applied', 'online', 'assigned'],
     red: ['suspend', 'suspended', 'isolir', 'isolated', 'overdue', 'failed', 'canceled', 'terminated', 'expired', 'down', 'inactive'],
-    yellow: ['pending', 'issued', 'unpaid', 'partially_paid', 'provisioning', 'open', 'in_progress', 'reserved', 'unknown'],
+    yellow: ['pending', 'issued', 'unpaid', 'partially_paid', 'provisioning', 'open', 'in_progress', 'reserved', 'unknown', 'generated'],
 };
 
 const select = (values) => values.map((value) => ({ value, label: human(value) }));
@@ -695,9 +695,12 @@ const hotspotTabs = {
         endpoint: '/api/v1/admin/voucher-batches',
         columns: [
             { key: 'batch_code', label: 'Batch' },
-            { key: 'reseller.full_name', label: 'Reseller' },
             { key: 'hotspot_profile.profile_name', label: 'Profile' },
-            { key: 'total_vouchers', label: 'Qty' },
+            { key: 'reseller.full_name', label: 'Reseller' },
+            { key: 'total_vouchers', label: 'Total' },
+            { key: 'generated_count', label: 'Generated', type: 'status' },
+            { key: 'active_count', label: 'Aktif', type: 'status' },
+            { key: 'expired_count', label: 'Expired', type: 'status' },
             { key: 'total_cost', label: 'Cost', type: 'money' },
         ],
         fields: [
@@ -715,14 +718,29 @@ const hotspotTabs = {
     },
     vouchers: {
         label: 'Vouchers',
+        title: 'Hotspot Vouchers',
+        section: 'Hotspot',
+        description: 'Daftar voucher hotspot. Aktifkan voucher agar dapat digunakan login di semua router via FreeRADIUS.',
         endpoint: '/api/v1/admin/hotspot-vouchers',
         columns: [
+            { key: 'voucher_code', label: 'Kode Voucher' },
             { key: 'username', label: 'Username' },
-            { key: 'password_masked', label: 'Password' },
-            { key: 'reseller.full_name', label: 'Reseller' },
             { key: 'hotspot_profile.profile_name', label: 'Profile' },
-            { key: 'locked_mac', label: 'MAC' },
+            { key: 'first_login_at', label: 'Login Pertama', type: 'datetime' },
+            { key: 'expires_at', label: 'Kadaluarsa', type: 'datetime' },
+            { key: 'bytes_used', label: 'Data Terpakai', type: 'bytes' },
+            { key: 'locked_mac', label: 'MAC Terkunci' },
             { key: 'status', label: 'Status', type: 'status' },
+        ],
+        filters: [
+            { name: 'search', label: 'Cari', type: 'text', placeholder: 'Username, kode voucher...' },
+            { name: 'status', label: 'Status', type: 'select', options: [
+                { value: '', label: 'Semua status' },
+                { value: 'generated', label: 'Generated' },
+                { value: 'active', label: 'Active' },
+                { value: 'expired', label: 'Expired' },
+            ]},
+            { name: 'hotspot_profile_id', label: 'Profile', type: 'select', optionsRef: 'hotspot_profiles' },
         ],
         noCreate: true,
         noEdit: true,
@@ -845,6 +863,15 @@ const placeholderPages = {
             'Endpoint status backup/retention.',
             'Audit setting maintenance yang boleh diubah via UI.',
         ],
+    },
+    'ip-pools': {
+        title: 'IP Pools',
+        section: 'Network',
+        description: 'Manajemen IP Pool dari router Mikrotik.',
+        endpoint: '/api/v1/admin/ip-pools',
+        noCreate: true,
+        noEdit: true,
+        noDelete: true,
     },
 };
 
@@ -1107,46 +1134,46 @@ function createMasterLokasiState() {
         editId: null,
         pagination: {},
         filters: { search: '', page: 1, per_page: 15 },
-        form: { name: '', code: '', latitude: '', longitude: '', description: '', is_active: true },
+        form: { router_id: '', name: '', code: '', latitude: '', longitude: '', description: '', is_active: true },
 
         async loadData(routerId = null) {
             this.loading = true;
-            this.items = []; // Clear old items before new fetch
+            this.items = [];
             try {
                 const params = { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page };
-                const rawRouterId = routerId ?? this.$root?.routerSwitcher?.active_router_id ?? null;
-                const activeRouterId = rawRouterId && rawRouterId !== '' ? String(rawRouterId) : null;
+                const activeRouterId = routerId && routerId !== '' ? String(routerId) : null;
                 if (activeRouterId) params.router_id = activeRouterId;
-                const res = await api.get('/api/v1/admin/network-locations', { params });
+                const res = await api.get('/api/v1/admin/network-locations', params);
                 this.items = res.data ?? [];
                 this.pagination = res.meta?.pagination ?? {};
             } finally { this.loading = false; }
         },
 
-        async submitForm() {
+        async submitForm(routerId = null) {
             this.saving = true;
             try {
-                const payload = { name: this.form.name, code: this.form.code.toUpperCase().replace(/\s/g, ''), description: this.form.description, latitude: this.form.latitude || null, longitude: this.form.longitude || null, status: this.form.is_active ? 'active' : 'inactive' };
+                const payload = { router_id: this.form.router_id ? Number(this.form.router_id) : null, name: this.form.name, code: this.form.code.toUpperCase().replace(/\s/g, ''), description: this.form.description, latitude: this.form.latitude || null, longitude: this.form.longitude || null, status: this.form.is_active ? 'active' : 'inactive' };
                 if (this.editId) { await api.patch(`/api/v1/admin/network-locations/${this.editId}`, payload); toast('success', 'Berhasil', 'Lokasi diperbarui'); }
                 else { await api.post('/api/v1/admin/network-locations', payload); toast('success', 'Berhasil', 'Lokasi ditambahkan'); }
                 this.cancelEdit();
-                await this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null);
-            } catch (e) { toast('error', 'Gagal', e?.response?.data?.message ?? e.message); } finally { this.saving = false; }
+                await this.loadData(routerId);
+            } catch (e) { toast('error', 'Gagal', e.message); } finally { this.saving = false; }
         },
 
-        editItem(item) { this.editId = item.id; this.form = { name: item.location_name ?? item.name ?? '', code: item.location_code ?? item.code ?? '', latitude: item.latitude ?? '', longitude: item.longitude ?? '', description: item.description ?? '', is_active: item.status === 'active' }; },
+        editItem(item) { this.editId = item.id; this.form = { router_id: item.router_id ?? '', name: item.location_name ?? item.name ?? '', code: item.location_code ?? item.code ?? '', latitude: item.latitude ?? '', longitude: item.longitude ?? '', description: item.description ?? '', is_active: item.status === 'active' }; },
 
-        async deleteItem(item) { if (!confirm(`Hapus "${item.location_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/network-locations/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); },
+        async deleteItem(item, routerId = null) { if (!confirm(`Hapus "${item.location_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/network-locations/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(routerId); },
 
-        cancelEdit() { this.editId = null; this.form = { name: '', code: '', latitude: '', longitude: '', description: '', is_active: true }; },
+        cancelEdit(routerId = null) { this.editId = null; const rid = routerId && routerId !== '' ? String(routerId) : ''; this.form = { router_id: rid, name: '', code: '', latitude: '', longitude: '', description: '', is_active: true }; },
 
         updateMapsLink() { const lat = parseFloat(this.form.latitude), lng = parseFloat(this.form.longitude); this.form.maps_link = (!isNaN(lat) && !isNaN(lng)) ? `https://www.google.com/maps?q=${lat},${lng}` : ''; },
 
-        prevPage() { if (this.pagination.current_page > 1) { this.filters.page = this.pagination.current_page - 1; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); } },
-        nextPage() { if (this.pagination.current_page < this.pagination.last_page) { this.filters.page = this.pagination.current_page + 1; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); } },
-        changePerPage() { this.filters.page = 1; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); },
-        debounceSearch: (() => { let t; return () => { clearTimeout(t); t = setTimeout(() => { this.filters.page = 1; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); }, 300); }; })(),
-        resetFilters() { this.filters = { search: '', page: 1, per_page: this.filters.per_page ?? 15 }; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); },
+        _debounceTimer: null,
+        prevPage(routerId = null) { if (this.pagination.current_page > 1) { this.filters.page = this.pagination.current_page - 1; this.loadData(routerId); } },
+        nextPage(routerId = null) { if (this.pagination.current_page < this.pagination.last_page) { this.filters.page = this.pagination.current_page + 1; this.loadData(routerId); } },
+        changePerPage(routerId = null) { this.filters.page = 1; this.loadData(routerId); },
+        debounceSearch(routerId = null) { clearTimeout(this._debounceTimer); this._debounceTimer = setTimeout(() => { this.filters.page = 1; this.loadData(routerId); }, 300); },
+        resetFilters(routerId = null) { this.filters = { search: '', page: 1, per_page: this.filters.per_page ?? 15 }; this.loadData(routerId); },
     };
 }
 
@@ -1160,37 +1187,48 @@ function createMasterOltState() {
             this.items = []; // Clear old items before new fetch
             try {
                 const params = { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page };
-                const rawRouterId = routerId ?? this.$root?.routerSwitcher?.active_router_id ?? null;
-                const activeRouterId = rawRouterId && rawRouterId !== '' ? String(rawRouterId) : null;
+                const activeRouterId = routerId && routerId !== '' ? String(routerId) : null;
                 if (activeRouterId) params.router_id = activeRouterId;
-                const res = await api.get('/api/v1/admin/olts', { params });
+                const res = await api.get('/api/v1/admin/olts', params);
                 this.items = res.data ?? [];
                 this.pagination = res.meta?.pagination ?? {};
             } finally { this.loading = false; }
         },
 
-        async submitForm() {
+        async submitForm(routerId = null) {
             this.saving = true;
             try {
                 const payload = { name: this.form.name, code: this.form.code.toUpperCase(), host: this.form.host, pon_ports: parseInt(this.form.pon_ports) || 4, max_per_pon: parseInt(this.form.max_per_pon) || 100, description: this.form.description, status: this.form.is_active ? 'active' : 'inactive', location_id: this.form.network_location_id || null, router_id: this.form.router_id || null };
                 if (this.editId) { await api.patch(`/api/v1/admin/olts/${this.editId}`, payload); toast('success', 'Berhasil', 'OLT diperbarui'); }
                 else { await api.post('/api/v1/admin/olts', payload); toast('success', 'Berhasil', 'OLT ditambahkan'); }
                 this.cancelEdit();
-                await this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null);
-            } catch (e) { toast('error', 'Gagal', e?.response?.data?.message ?? e.message); } finally { this.saving = false; }
+                await this.loadData(routerId);
+            } catch (e) { toast('error', 'Gagal', e.message); } finally { this.saving = false; }
         },
 
         editItem(item) { this.editId = item.id; this.form = { name: item.olt_name ?? item.name ?? '', code: item.olt_code ?? item.code ?? '', host: item.mgmt_ip ?? item.host ?? '', pon_ports: item.pon_ports ?? 4, max_per_pon: 100, description: item.description ?? '', is_active: item.status === 'active', network_location_id: item.location_id ?? item.network_location_id ?? '', router_id: item.router_id ?? '' }; },
 
-        async deleteItem(item) { if (!confirm(`Hapus "${item.olt_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/olts/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); },
+        async deleteItem(item, routerId = null) { if (!confirm(`Hapus "${item.olt_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/olts/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(routerId); },
 
-        cancelEdit() { this.editId = null; this.form = { name: '', code: '', host: '', pon_ports: 4, max_per_pon: 100, description: '', is_active: true, network_location_id: '', router_id: '' }; },
+        openPonModal(item) {
+            const name = item.olt_name ?? item.name ?? 'OLT';
+            const ponCount = item.pon_ports ?? '-';
+            const maxPer = item.max_per_pon ?? '-';
+            alert(`Detail PON — ${name}\nJumlah PON Port: ${ponCount}\nMaks per PON: ${maxPer}`);
+        },
 
-        prevPage() { if (this.pagination.current_page > 1) { this.filters.page = this.pagination.current_page - 1; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); } },
-        nextPage() { if (this.pagination.current_page < this.pagination.last_page) { this.filters.page = this.pagination.current_page + 1; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); } },
-        changePerPage() { this.filters.page = 1; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); },
-        debounceSearch: (() => { let t; return () => { clearTimeout(t); t = setTimeout(() => { this.filters.page = 1; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); }, 300); }; })(),
-        resetFilters() { this.filters = { search: '', page: 1, per_page: this.filters.per_page ?? 15 }; this.loadData(this.$root?.routerSwitcher?.active_router_id ?? null); },
+        cancelEdit(routerId = null) {
+            this.editId = null;
+            const rid = routerId && routerId !== '' ? String(routerId) : '';
+            this.form = { name: '', code: '', host: '', pon_ports: 4, max_per_pon: 100, description: '', is_active: true, network_location_id: '', router_id: rid };
+        },
+
+        _debounceTimer: null,
+        prevPage(routerId = null) { if (this.pagination.current_page > 1) { this.filters.page = this.pagination.current_page - 1; this.loadData(routerId); } },
+        nextPage(routerId = null) { if (this.pagination.current_page < this.pagination.last_page) { this.filters.page = this.pagination.current_page + 1; this.loadData(routerId); } },
+        changePerPage(routerId = null) { this.filters.page = 1; this.loadData(routerId); },
+        debounceSearch(routerId = null) { clearTimeout(this._debounceTimer); this._debounceTimer = setTimeout(() => { this.filters.page = 1; this.loadData(routerId); }, 300); },
+        resetFilters(routerId = null) { this.filters = { search: '', page: 1, per_page: this.filters.per_page ?? 15 }; this.loadData(routerId); },
     };
 }
 
@@ -1299,6 +1337,7 @@ export function adminPanel({ page }) {
         },
         loading: false,
         saving: false,
+        selected: [],
         toasts: [],
         modal: {
             open: false,
@@ -1317,6 +1356,7 @@ export function adminPanel({ page }) {
         },
         confirm: { open: false, title: '', message: '', action: null },
         detail: { open: false, title: '', row: null, status: '', reply: '' },
+        voucherDetail: { open: false, loading: false, voucher: null },
         acsConfig: {
             router_id: '',
             router_name: '',
@@ -2015,7 +2055,7 @@ export function adminPanel({ page }) {
                 this.toast('success', 'Sync berhasil', 'Data IP Pool diperbarui dari Mikrotik');
             } catch (e) {
                 console.error('Failed to sync IP pools', e);
-                this.toast('error', 'Sync gagal', e?.response?.data?.message ?? e.message);
+                this.toast('error', 'Sync gagal', e.message);
             } finally {
                 this.ipPools.loading = false;
             }
@@ -2071,7 +2111,7 @@ export function adminPanel({ page }) {
                 this.toast('success', 'Tersimpan', this.ipPools.selectedPools.length + ' pool berhasil disimpan');
             } catch (e) {
                 console.error('Failed to save pool selection', e);
-                this.toast('error', 'Gagal', e?.response?.data?.message ?? e.message);
+                this.toast('error', 'Gagal', e.message);
             }
         },
 
@@ -2197,11 +2237,11 @@ export function adminPanel({ page }) {
         },
 
         async submitMasterLokasiForm() {
-            await this.masterLokasi.submitForm();
+            await this.masterLokasi.submitForm(this.routerSwitcher.active_router_id ?? null);
         },
 
         async submitMasterOltForm() {
-            await this.masterOlt.submitForm();
+            await this.masterOlt.submitForm(this.routerSwitcher.active_router_id ?? null);
         },
 
         async loadPage() {
@@ -2275,7 +2315,6 @@ export function adminPanel({ page }) {
             }
 
             // All other pages use generic config+buildCurrentParams
-            console.log('[loadPage] page:', this.page, 'filters.router_id:', this.filters.router_id);
             const config = this.currentConfig();
 
             if (config.placeholder) {
@@ -2592,11 +2631,14 @@ export function adminPanel({ page }) {
                     router_id: routerId,
                 });
 
-                const { imported = 0, skipped = 0, errors = [] } = response;
+                const { imported = 0, skipped = 0, errors = [] } = response.data;
 
                 let message = `Berhasil import ${imported} customer.`;
                 if (skipped > 0) message += ` Skip ${skipped}.`;
-                if (errors.length > 0) message += ` Error: ${errors.length}.`;
+                if (errors.length > 0) {
+                    message += ` Error (${errors.length}):\n` + errors.slice(0, 5).join('\n');
+                    if (errors.length > 5) message += `\n...dan ${errors.length - 5} error lainnya`;
+                }
 
                 if (errors.length > 0) {
                     this.toast('warning', 'Import Selesai (dengan error)', message);
@@ -2623,8 +2665,6 @@ export function adminPanel({ page }) {
 
             // Clean up undefined/null values
             if (!params.search) delete params.search;
-
-            console.log('[buildCurrentParams]', config.endpoint, JSON.stringify(params));
 
             if (this.isCashflowPage()) {
                 params.type = this.cashflow.filters.type;
@@ -2731,7 +2771,6 @@ export function adminPanel({ page }) {
                 } else {
                     this.filters.router_id = null;
                 }
-                console.log('[loadDashboard] routerSwitcher.active_router_id:', this.routerSwitcher.active_router_id, 'filters.router_id:', this.filters.router_id);
             } catch (error) {
                 this.toast('error', 'Dashboard gagal dimuat', error.message);
             } finally {
@@ -2833,6 +2872,16 @@ export function adminPanel({ page }) {
                 this.acsConfig.router_id = routerIdStr;
             }
 
+            // Master Lokasi form
+            if (routerId) {
+                this.masterLokasi.form.router_id = routerIdStr ?? '';
+            }
+
+            // Master OLT form
+            if (routerId) {
+                this.masterOlt.form.router_id = routerIdStr ?? '';
+            }
+
             // Reset pagination for all modules
             this.filters.page = 1;
             this.pagination = {};
@@ -2851,13 +2900,11 @@ export function adminPanel({ page }) {
 
             const form = this.defaultsFor(config.fields);
 
-            // Auto-generate PPPoE password with today's date
             if (form.pppoe_password !== undefined) {
-                const now = new Date();
-                const dd = String(now.getDate()).padStart(2, '0');
-                const mm = String(now.getMonth() + 1).padStart(2, '0');
-                const yyyy = now.getFullYear();
-                form.pppoe_password = `${dd}${mm}${yyyy}`;
+                const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$';
+                form.pppoe_password = Array.from({ length: 12 }, () =>
+                    chars[Math.floor(Math.random() * chars.length)]
+                ).join('');
             }
 
             this.modal = {
@@ -2888,6 +2935,11 @@ export function adminPanel({ page }) {
             const config = this.currentConfig();
             const tabs = config.modalTabs ?? [];
 
+            // settings-database uses singleton endpoint without ID
+            const endpoint = this.page === 'settings-database'
+                ? config.endpoint
+                : `${config.endpoint}/${row.id}`;
+
             this.modal = {
                 open: true,
                 mode: 'edit',
@@ -2896,7 +2948,7 @@ export function adminPanel({ page }) {
                 form: this.formFromRow(config.fields, row),
                 errors: {},
                 message: '',
-                endpoint: `${config.endpoint}/${row.id}`,
+                endpoint,
                 method: 'PATCH',
                 tabs,
                 activeTab: tabs[0]?.key ?? '',
@@ -3063,6 +3115,7 @@ export function adminPanel({ page }) {
             }
 
             if (this.page === 'billing') {
+                const paid = row.payment_status === 'paid';
                 return [
                     { key: 'download-pdf', label: 'PDF', class: 'bg-blue-50 text-blue-700', href: `/api/v1/admin/invoices/${row.id}/pdf`, target: '_blank' },
                     ...(!paid ? [{ key: 'pay-invoice', label: 'Bayar', class: 'bg-emerald-50 text-emerald-800', handler: () => this.openPayment(row) }] : []),
@@ -3085,8 +3138,20 @@ export function adminPanel({ page }) {
                 return [{ key: 'complete-wo', label: 'Done', class: 'bg-emerald-50 text-emerald-800', handler: () => this.completeWorkOrder(row) }];
             }
 
-            if (this.page === 'hotspot' && this.activeTab === 'vouchers' && row.status === 'generated') {
-                return [{ key: 'activate-voucher', label: 'Activate', class: 'bg-amber-50 text-amber-800', handler: () => this.openVoucherActivation(row) }];
+            if (this.page === 'hotspot' && this.activeTab === 'vouchers') {
+                const actions = [];
+                actions.push({ key: 'detail-voucher', label: 'Detail', class: 'bg-slate-100 text-slate-700', handler: () => this.openVoucherDetail(row) });
+                if (row.status === 'generated') {
+                    actions.push({ key: 'activate-voucher', label: 'Aktifkan', class: 'bg-amber-50 text-amber-800', handler: () => this.activateVoucher(row) });
+                }
+                if (row.status === 'active') {
+                    actions.push({ key: 'deactivate-voucher', label: 'Nonaktifkan', class: 'bg-red-50 text-red-700', handler: () => this.deactivateVoucher(row) });
+                }
+                return actions;
+            }
+
+            if (this.page === 'hotspot' && this.activeTab === 'batches') {
+                return [{ key: 'view-vouchers', label: 'Lihat Voucher', class: 'bg-sky-50 text-sky-700', handler: () => this.viewBatchVouchers(row) }];
             }
 
             if (this.page === 'user-management') {
@@ -3157,7 +3222,7 @@ export function adminPanel({ page }) {
                 toast('success', 'ROS Version Detected', `${row.name ?? row.router_name}: ROS v${res.data?.ros_version ?? '?'}`);
                 await this.loadPage();
             } catch (e) {
-                toast('error', 'Gagal', e?.response?.data?.message ?? e.message);
+                toast('error', 'Gagal', e.message);
             }
         },
 
@@ -3465,7 +3530,12 @@ export function adminPanel({ page }) {
                 fields: [
                     { name: 'invoice_id', label: 'Invoice ID', type: 'number' },
                     { name: 'amount_paid', label: 'Nominal dibayar', type: 'number' },
-                    { name: 'payment_method', label: 'Metode pembayaran' },
+                    { name: 'payment_method', label: 'Metode pembayaran', type: 'select', options: [
+                        { value: 'cash', label: 'Cash / Tunai' },
+                        { value: 'transfer', label: 'Transfer Bank' },
+                        { value: 'qris', label: 'QRIS' },
+                        { value: 'other', label: 'Lainnya' },
+                    ] },
                     { name: 'paid_at', label: 'Tanggal bayar', type: 'datetime-local' },
                     { name: 'reference_no', label: 'Referensi' },
                     { name: 'notes', label: 'Catatan', type: 'textarea' },
@@ -3505,21 +3575,45 @@ export function adminPanel({ page }) {
             });
         },
 
-        openVoucherActivation(row) {
-            this.modal = {
-                open: true,
-                mode: 'activate-voucher',
-                title: `Aktivasi voucher ${row.username}`,
-                fields: [
-                    { name: 'mac_address', label: 'MAC address', placeholder: 'AA:BB:CC:DD:EE:FF' },
-                    { name: 'login_at', label: 'Login at', type: 'datetime-local' },
-                ],
-                form: { mac_address: '', login_at: this.localDateTime() },
-                errors: {},
-                message: '',
-                endpoint: `/api/v1/admin/hotspot-vouchers/${row.id}/activate`,
-                method: 'POST',
-            };
+        async activateVoucher(row) {
+            if (!confirm(`Aktifkan voucher "${row.username}"?\n\nVoucher akan diprovisi ke FreeRADIUS dan dapat digunakan login di semua router.`)) return;
+            try {
+                await api.post(`/api/v1/admin/hotspot-vouchers/${row.id}/activate`, {});
+                this.toast('success', 'Voucher diaktifkan', `${row.username} berhasil diprovisi ke FreeRADIUS.`);
+                await this.loadPage();
+            } catch (error) {
+                this.toast('error', 'Gagal mengaktifkan voucher', error.message);
+            }
+        },
+
+        async deactivateVoucher(row) {
+            if (!confirm(`Nonaktifkan voucher "${row.username}"?\n\nVoucher akan dihapus dari FreeRADIUS dan tidak dapat digunakan untuk login.`)) return;
+            try {
+                await api.post(`/api/v1/admin/hotspot-vouchers/${row.id}/deactivate`, {});
+                this.toast('success', 'Voucher dinonaktifkan', `${row.username} dihapus dari FreeRADIUS.`);
+                await this.loadPage();
+            } catch (error) {
+                this.toast('error', 'Gagal menonaktifkan voucher', error.message);
+            }
+        },
+
+        async openVoucherDetail(row) {
+            this.voucherDetail = { open: true, loading: true, voucher: null };
+            try {
+                const res = await api.get(`/api/v1/admin/hotspot-vouchers/${row.id}`);
+                this.voucherDetail.voucher = res.data ?? res;
+            } catch (e) {
+                this.toast('error', 'Gagal memuat detail voucher', e.message);
+                this.voucherDetail.open = false;
+            } finally {
+                this.voucherDetail.loading = false;
+            }
+        },
+
+        viewBatchVouchers(row) {
+            this.activeTab = 'vouchers';
+            this.filters = { ...this.filters, batch_id: row.id };
+            this.loadPage();
         },
 
         openUserPasswordReset(row) {
@@ -3680,7 +3774,7 @@ export function adminPanel({ page }) {
             if (ref === 'olts') return `${row.code ?? row.olt_code ?? row.id} - ${row.name ?? row.olt_name ?? '-'}`;
             if (ref === 'onts') return `${row.ont_sn} - ${row.ont_name ?? row.status ?? ''}`;
             if (ref === 'packages') return `${row.package_name} - ${this.money(row.monthly_price)}`;
-            if (ref === 'locations') return `${row.location_code ?? row.id} - ${row.location_name}`;
+            if (ref === 'locations') return `${row.code ?? row.id} - ${row.name ?? '-'}`;
             if (ref === 'network_locations') return `${row.code ?? row.id} - ${row.name ?? '-'}`;
             if (ref === 'network_odcs') return `${row.code ?? row.id} - ${row.name ?? '-'}`;
             if (ref === 'technicians') return `${row.technician_code ?? row.id} - ${row.full_name}`;
@@ -3786,6 +3880,7 @@ export function adminPanel({ page }) {
                 if (Number.isNaN(parsed.getTime())) return String(value);
                 return parsed.toLocaleString('id-ID');
             }
+            if (column.type === 'bytes') return this.formatBytes(value);
             if (typeof value === 'boolean') {
                 if (['has_api_password', 'has_acs_password'].includes(column.key)) {
                     return value ? 'Password tersimpan' : 'Password belum ada';
@@ -4185,6 +4280,22 @@ export function adminPanel({ page }) {
             }).format(Number(value ?? 0));
         },
 
+        formatBytes(bytes, limitBytes = null) {
+            const fmt = (b) => {
+                if (b === null || b === undefined || b === '') return '-';
+                const n = Number(b);
+                if (isNaN(n)) return '-';
+                if (n === 0) return '0 B';
+                const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+                const i = Math.floor(Math.log(n) / Math.log(1024));
+                return (n / Math.pow(1024, i)).toFixed(1).replace(/\.0$/, '') + ' ' + units[i];
+            };
+            if (limitBytes !== null && limitBytes !== undefined && Number(limitBytes) > 0) {
+                return `${fmt(bytes)} / ${fmt(limitBytes)}`;
+            }
+            return fmt(bytes);
+        },
+
         localDateTime() {
             return new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
         },
@@ -4432,9 +4543,9 @@ export function adminPanel({ page }) {
                 this.toast('success', 'Berhasil', 'Customer berhasil diprovinsi.');
                 window.location.href = '/admin/customers';
             } catch (e) {
-                const message = e?.response?.data?.message ?? e?.message ?? 'Terjadi kesalahan';
-                if (e?.response?.data?.errors) {
-                    this.provisioning.errors = e.response.data.errors;
+                const message = e.message ?? 'Terjadi kesalahan';
+                if (e.errors && Object.keys(e.errors).length > 0) {
+                    this.provisioning.errors = e.errors;
                 }
                 this.toast('error', 'Gagal', message);
             } finally {
@@ -4442,33 +4553,9 @@ export function adminPanel({ page }) {
             }
         },
 
-        // ==================== MASTER LOKASI ====================
-        async loadMasterLokasiData() {
-            this.loading = true;
-            try {
-                const params = {
-                    search: this.filters.search || undefined,
-                    page: this.filters.page,
-                    per_page: this.filters.per_page,
-                };
-                const response = await api.get('/api/v1/admin/locations', { params });
-                this.items = response.data ?? [];
-                this.pagination = response.meta ?? {};
-            } catch (error) {
-                this.toast('error', 'Gagal', 'Tidak dapat memuat data lokasi');
-            } finally {
-                this.loading = false;
-            }
-        },
-
         formatCoordinates(lat, lng) {
             if (!lat && !lng) return '-';
             return `${lat ?? '-'}, ${lng ?? '-'}`;
-        },
-
-        cancelEdit() {
-            this.editId = null;
-            this.form = this.getDefaultForm();
         },
 
         async bulkAction(action) {
@@ -4478,10 +4565,10 @@ export function adminPanel({ page }) {
 
             try {
                 if (action === 'delete') {
-                    await Promise.all(this.selected.map(id => api.delete(`/api/v1/admin/${this.currentConfig().endpoint}/${id}`)));
+                    await Promise.all(this.selected.map(id => api.delete(`${this.currentConfig().endpoint}/${id}`)));
                 } else {
                     const status = action === 'activate' ? 'active' : 'inactive';
-                    await Promise.all(this.selected.map(id => api.patch(`/api/v1/admin/${this.currentConfig().endpoint}/${id}`, { status })));
+                    await Promise.all(this.selected.map(id => api.patch(`${this.currentConfig().endpoint}/${id}`, { status })));
                 }
                 this.toast('success', 'Berhasil', `Action ${action} berhasil`);
                 this.selected = [];
@@ -4500,7 +4587,7 @@ export function adminPanel({ page }) {
                 toast('success', 'Berhasil', `Pelanggan ${nama} berhasil di-terminate`);
                 await this.loadPage();
             } catch (e) {
-                toast('error', 'Gagal', e?.response?.data?.message ?? e.message);
+                toast('error', 'Gagal', e.message);
             }
         },
 
@@ -4569,4 +4656,149 @@ export function adminPanel({ page }) {
         },
     };
 }
+
+function customerEdit() {
+    return {
+        customerId: null,
+        loading: true,
+        saving: false,
+        loadingVids: false,
+        form: {
+            full_name: '', phone: '', email: '', address: '',
+            location_id: '', preferred_olt_id: '', olt_id: '',
+            assigned_technician_id: '',
+            access_mode: 'pppoe', package_id: '', router_id: '',
+            pppoe_username: '', pppoe_password: '', static_ip_address: '',
+            vid_id: '', latitude: '', longitude: '', maps_link: '', status: 'active',
+        },
+        errors: {},
+        errorMessage: '',
+        successMessage: '',
+        availableVids: [],
+        refs: { locations: [], olts: [], technicians: [], routers: [], packages: [] },
+
+        async init() {
+            const match = window.location.pathname.match(/\/customers\/(\d+)\/edit/);
+            this.customerId = match ? match[1] : null;
+            if (!this.customerId) {
+                this.errorMessage = 'Customer ID tidak valid di URL.';
+                this.loading = false;
+                return;
+            }
+            await Promise.all([this.loadRefs(), this.loadCustomer()]);
+            this.loading = false;
+            if (this.form.router_id) await this.loadVids();
+        },
+
+        filteredOlts() {
+            if (!this.form.location_id) return this.refs.olts;
+            const locId = String(this.form.location_id);
+            return this.refs.olts.filter((olt) => {
+                const oltLoc = String(olt.location_id ?? olt.network_location_id ?? '');
+                return oltLoc === locId;
+            });
+        },
+
+        async loadRefs() {
+            try {
+                const [locs, olts, techs, routers, pkgs] = await Promise.all([
+                    api.get('/api/v1/admin/locations', { per_page: 100 }),
+                    api.get('/api/v1/admin/olts', { per_page: 100 }),
+                    api.get('/api/v1/admin/technicians', { per_page: 100 }),
+                    api.get('/api/v1/admin/routers', { per_page: 50 }),
+                    api.get('/api/v1/admin/packages', { per_page: 100 }),
+                ]);
+                this.refs.locations   = locs.data?.data   ?? locs.data   ?? [];
+                this.refs.olts        = olts.data?.data   ?? olts.data   ?? [];
+                this.refs.technicians = techs.data?.data  ?? techs.data  ?? [];
+                this.refs.routers     = routers.data?.data ?? routers.data ?? [];
+                this.refs.packages    = pkgs.data?.data   ?? pkgs.data   ?? [];
+            } catch (e) {
+                console.error('loadRefs error:', e);
+                this.errorMessage = 'Gagal memuat referensi: ' + (e?.message ?? '');
+            }
+        },
+
+        async loadCustomer() {
+            try {
+                const res = await api.get(`/api/v1/admin/customers/${this.customerId}`);
+                const c = res.data ?? {};
+                const svc = c.latest_active_service ?? {};
+                this.form = {
+                    full_name:              c.full_name ?? '',
+                    phone:                  c.phone ?? '',
+                    email:                  c.email ?? '',
+                    address:                c.address ?? '',
+                    location_id:            c.network_location_id ?? c.location_id ?? '',
+                    preferred_olt_id:       c.preferred_olt_id ?? '',
+                    olt_id:                 c.preferred_olt_id ?? '',
+                    assigned_technician_id: c.assigned_technician_id ?? '',
+                    access_mode:            svc.access_mode ?? 'pppoe',
+                    package_id:             svc.package_id ?? '',
+                    router_id:              svc.router_id ?? '',
+                    pppoe_username:         svc.pppoe_username ?? c.pppoe_username ?? '',
+                    pppoe_password:         svc.pppoe_password ?? c.pppoe_password ?? '',
+                    static_ip_address:      svc.static_ip_address ?? '',
+                    vid_id:                 svc.vid_id ?? '',
+                    latitude:               c.latitude ?? '',
+                    longitude:              c.longitude ?? '',
+                    maps_link:              (c.latitude && c.longitude) ? `https://maps.google.com/?q=${c.latitude},${c.longitude}` : '',
+                    status:                 svc.network_status ?? c.status ?? 'active',
+                };
+            } catch (e) {
+                console.error('loadCustomer error:', e);
+                this.errorMessage = `Gagal memuat customer ID ${this.customerId}: ${e?.message ?? 'Tidak ditemukan'}`;
+            }
+        },
+
+        async onRouterChange() {
+            this.form.vid_id = '';
+            this.availableVids = [];
+            if (this.form.router_id) await this.loadVids();
+        },
+
+        async loadVids() {
+            this.loadingVids = true;
+            try {
+                const res = await api.get('/api/v1/admin/vids', {
+                    router_id: this.form.router_id,
+                    per_page: 100,
+                });
+                this.availableVids = res.data?.data ?? res.data ?? [];
+            } catch (e) {
+                console.error('loadVids error:', e);
+            } finally {
+                this.loadingVids = false;
+            }
+        },
+
+        updateMapsLink() {
+            if (this.form.latitude && this.form.longitude) {
+                this.form.maps_link = `https://maps.google.com/?q=${this.form.latitude},${this.form.longitude}`;
+            }
+        },
+
+        async submitEdit() {
+            this.saving = true;
+            this.errors = {};
+            this.errorMessage = '';
+            this.successMessage = '';
+            try {
+                const payload = { ...this.form };
+                if (payload.olt_id && !payload.preferred_olt_id) {
+                    payload.preferred_olt_id = payload.olt_id;
+                }
+                await api.patch(`/api/v1/admin/customers/${this.customerId}`, payload);
+                this.successMessage = 'Data pelanggan berhasil diperbarui.';
+                setTimeout(() => { window.location.href = '/admin/customers'; }, 1500);
+            } catch (e) {
+                this.errors = e?.errors ?? {};
+                this.errorMessage = e?.message ?? 'Gagal menyimpan data.';
+            } finally {
+                this.saving = false;
+            }
+        },
+    };
+}
+window.customerEdit = customerEdit;
 

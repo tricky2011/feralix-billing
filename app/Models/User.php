@@ -73,13 +73,6 @@ class User extends Authenticatable
 
     public function accessibleRouters(): BelongsToMany
     {
-        return $this->belongsToMany(Router::class, 'user_router_assignments')
-            ->withTimestamps()
-            ->orderBy('router_name');
-    }
-
-    public function routers(): BelongsToMany
-    {
         return $this->belongsToMany(Router::class, 'user_router')
             ->withTimestamps()
             ->orderBy('router_name');

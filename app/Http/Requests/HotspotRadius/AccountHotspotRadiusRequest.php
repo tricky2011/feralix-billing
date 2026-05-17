@@ -13,7 +13,7 @@ class AccountHotspotRadiusRequest extends FormRequest
         $configuredSecret = trim((string) config('hotspot.radius.internal_secret', ''));
 
         if ($configuredSecret === '') {
-            return app()->environment(['local', 'testing']);
+            return false;
         }
 
         return hash_equals($configuredSecret, (string) $this->header('X-Hotspot-Internal-Secret'));

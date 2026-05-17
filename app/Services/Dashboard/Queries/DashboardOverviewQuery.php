@@ -29,6 +29,7 @@ class DashboardOverviewQuery extends AbstractDashboardQuery
         $installationSummary = $this->installationSummary($scope);
         $ticketSummary = $this->ticketSummary($scope);
         $pppSummary = $this->pppSummary($scope);
+        $unconfiguredPriceAlert = $this->unconfiguredPriceAlert($scope);
 
         return [
             'kpis' => [
@@ -89,6 +90,7 @@ class DashboardOverviewQuery extends AbstractDashboardQuery
                 'installations' => $installationSummary,
                 'tickets' => $ticketSummary,
                 'ppp' => $pppSummary,
+                'unconfigured_price_alert' => $unconfiguredPriceAlert,
             ],
         ];
     }
@@ -303,6 +305,47 @@ class DashboardOverviewQuery extends AbstractDashboardQuery
             'inactive' => $inactive,
             'active_ratio' => $this->percentage($active, $totalMonitored),
             'last_synced_at' => $aggregate->last_synced_at,
+        ];
+    }
+
+    private function unconfiguredPriceAlert(DashboardScope $scope): array
+    {
+        $billableStatuses = $this->quoteSqlList([
+            ServiceOverallStatus::Active->value,
+            ServiceOverallStatus::Down->value,
+            ServiceOverallStatus::Suspended->value,
+            ServiceOverallStatus::Isolated->value,
+        ]);
+
+        $query = Service::query()
+            ->selectRaw('COUNT(*) as count')
+            ->whereRaw("overall_status IN ({$billableStatuses})")
+            ->where(function ($q): void {
+                $q->where(function ($innerQ): void {
+                    $innerQ->whereNull('monthly_price')
+                        ->orWhere('monthly_price', '<=', 0);
+                })
+                ->where(function ($innerQ): void {
+                    $innerQ->whereNull('package_id')
+                        ->orWhereDoesntHave('package', function ($pq): void {
+                            $pq->where(function ($subQ): void {
+                                $subQ->whereNotNull('monthly_price')
+                                    ->where('monthly_price', '>', 0);
+                            });
+                        });
+                });
+            });
+
+        $this->applyRouterScope($query, $scope, 'router_id');
+
+        $count = (int) ($query->count() ?? 0);
+
+        return [
+            'has_issues' => $count > 0,
+            'count' => $count,
+            'message' => $count > 0
+                ? "{$count} service(s) aktif tidak memiliki harga monthly."
+                : null,
         ];
     }
 }

@@ -21,6 +21,7 @@ class Cashflow extends Model
         'source',
         'reference_type',
         'reference_id',
+        'reference_label',
         'created_by',
     ];
 
@@ -46,7 +47,32 @@ class Cashflow extends Model
 
     public function reference(): MorphTo
     {
-        return $this->morphTo();
+        return $this->morphTo()->withTrashed();
+    }
+
+    public function referenceLabel(): ?string
+    {
+        if ($this->reference_label !== null) {
+            return $this->reference_label;
+        }
+
+        if ($this->reference !== null) {
+            return match (true) {
+                $this->reference instanceof \App\Models\Payment => sprintf(
+                    'Payment #%d - Invoice %s',
+                    $this->reference->id,
+                    $this->reference->invoice?->invoice_number ?? 'N/A'
+                ),
+                $this->reference instanceof \App\Models\Invoice => sprintf(
+                    'Invoice %s - %s',
+                    $this->reference->invoice_number,
+                    $this->reference->customer?->name ?? 'N/A'
+                ),
+                default => class_basename($this->reference_type) . ' #' . $this->reference_id,
+            };
+        }
+
+        return null;
     }
 
     public function isSystemSource(): bool

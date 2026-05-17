@@ -96,7 +96,6 @@ class InvoiceBulkActionService
             'payment_method' => $payload['payment_method'] ?? null,
             'paid_at' => $payload['paid_at'] ?? null,
             'reference_no' => $payload['reference_no'] ?? null,
-            'created_by' => $payload['created_by'] ?? null,
             'notes' => $payload['notes'] ?? null,
         ]);
 

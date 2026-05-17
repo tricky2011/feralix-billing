@@ -19,6 +19,7 @@ use App\Http\Resources\InvoiceDetailResource;
 use App\Http\Resources\InvoiceResource;
 use App\Http\Resources\PaymentResource;
 use App\Models\Invoice;
+use App\Services\Audit\ActivityLogger;
 use App\Services\Billing\InvoiceAutoSuspendService;
 use App\Services\Billing\InvoiceBulkActionService;
 use App\Services\Billing\InvoiceOverdueService;
@@ -28,11 +29,15 @@ use App\Services\Billing\PaymentService;
 use App\Services\Mikrotik\MikrotikPppoeSecretService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 
 class InvoiceController extends Controller
 {
+    private const FORCE_THRESHOLD = 50;
+
     public function __construct(
         private readonly InvoiceService $invoiceService,
         private readonly InvoiceOverdueService $invoiceOverdueService,
@@ -41,6 +46,7 @@ class InvoiceController extends Controller
         private readonly InvoiceWhatsappService $invoiceWhatsappService,
         private readonly InvoiceAutoSuspendService $invoiceAutoSuspendService,
         private readonly MikrotikPppoeSecretService $pppoeSecretService,
+        private readonly ActivityLogger $activityLogger,
     ) {}
 
     public function index(IndexInvoiceRequest $request)
@@ -218,19 +224,83 @@ class InvoiceController extends Controller
     public function autoSuspend(AutoSuspendInvoiceRequest $request): JsonResponse
     {
         $payload = $request->validated();
+        $dryRun = $request->boolean('dry_run', false);
+
         $filters = array_filter([
             'customer_id' => $payload['customer_id'] ?? null,
             'service_id' => $payload['service_id'] ?? null,
             'router_id' => $payload['router_id'] ?? null,
         ], static fn ($value): bool => $value !== null);
 
+        $referenceDate = isset($payload['reference_date'])
+            ? Carbon::parse($payload['reference_date'])->startOfDay()
+            : null;
+
+        $affectedCount = $this->invoiceAutoSuspendService->countAffected($filters, $referenceDate);
+
+        if ($affectedCount > self::FORCE_THRESHOLD && !$request->boolean('force', false)) {
+            throw ValidationException::withMessages([
+                'force' => [
+                    sprintf(
+                        'This operation will affect %d services (threshold: %d). '
+                        . 'Set force=true to confirm.',
+                        $affectedCount,
+                        self::FORCE_THRESHOLD,
+                    ),
+                ],
+            ]);
+        }
+
         $summary = $this->invoiceAutoSuspendService->trigger(
             filters: $filters,
-            referenceDate: isset($payload['reference_date']) ? Carbon::parse($payload['reference_date'])->startOfDay() : null,
+            referenceDate: $referenceDate,
             chunkSize: (int) ($payload['chunk'] ?? config('automation.billing.service_isolation.chunk', 100)),
+            dryRun: $dryRun,
         );
 
-        return $this->successResponse('Invoice auto suspend trigger processed successfully.', $summary);
+        $action = $dryRun ? 'auto-suspend.dry-run' : 'auto-suspend';
+        $scopeDesc = $this->buildScopeDescription($filters, $payload['confirm_all'] ?? false);
+        $this->activityLogger->record(
+            $request->user(),
+            $action,
+            'invoice-management',
+            sprintf(
+                'Invoice auto-suspend triggered. %s. Affected: %d, Isolations created: %d, Dry run: %s.',
+                $scopeDesc,
+                $affectedCount,
+                $summary['created_isolations'],
+                $dryRun ? 'Yes' : 'No',
+            ),
+            $request,
+        );
+
+        $message = $dryRun
+            ? 'Invoice auto suspend dry-run completed successfully.'
+            : 'Invoice auto suspend trigger processed successfully.';
+
+        return $this->successResponse($message, array_merge($summary, [
+            'affected_invoices' => $affectedCount,
+        ]));
+    }
+
+    private function buildScopeDescription(array $filters, bool $confirmAll): string
+    {
+        if ($confirmAll) {
+            return 'Scope: all overdue invoices (confirm_all=true)';
+        }
+
+        $parts = [];
+        if (isset($filters['customer_id'])) {
+            $parts[] = sprintf('customer_id=%d', $filters['customer_id']);
+        }
+        if (isset($filters['service_id'])) {
+            $parts[] = sprintf('service_id=%d', $filters['service_id']);
+        }
+        if (isset($filters['router_id'])) {
+            $parts[] = sprintf('router_id=%d', $filters['router_id']);
+        }
+
+        return 'Scope: ' . implode(', ', $parts);
     }
 
     private function statusListing(IndexInvoiceRequest $request, string $status, string $message): JsonResponse

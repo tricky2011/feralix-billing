@@ -39,46 +39,41 @@ class PppoeImportController extends Controller
         // Filter: hanya PPPoE secrets yang aktif
         // ROS v6: service='pppoe'
         // ROS v7: service='any' (default) atau 'pppoe'
-        // Exclude: l2tp, pptp, sstp, ovpn, disabled=yes
+        // Accept: pppoe, any, '' (kosong = any di ROS v6/v7)
+        // Reject: l2tp, pptp, sstp, ovpn, disabled=yes
         $secrets = array_filter(
             $secrets,
             static function (array $s): bool {
-                // Skip disabled secrets
                 if (in_array(strtolower($s['disabled'] ?? 'false'), ['true', 'yes', '1'], true)) {
                     return false;
                 }
-
-                $service = strtolower(trim($s['service'] ?? 'any'));
-
-                // Exclude non-PPPoE services
-                if (in_array($service, ['l2tp', 'pptp', 'sstp', 'ovpn'], true)) {
-                    return false;
-                }
-
-                // Accept: pppoe, any, '' (ROS v6 dan v7)
-
-                // Accept: pppoe, any, '' (empty = any)
-                return true;
+                $service = strtolower(trim($s['service'] ?? ''));
+                // Accept: pppoe, any, '' (kosong = any di ROS v6/v7)
+                // Reject hanya non-PPPoE explicit
+                $rejected = ['l2tp', 'pptp', 'sstp', 'ovpn'];
+                return !in_array($service, $rejected, true);
             },
         );
 
-        // Get usernames already in DB (check both pppoe_username and monitor_pppoe_username,
-        // since both columns have unique indexes and are set to the same value during import)
-        $existingPppoe = Service::whereNotNull('pppoe_username')
+        // Get usernames already in DB for THIS router only (same username can exist on different routers)
+        // Check both pppoe_username and monitor_pppoe_username since both are set during import
+        $existingPppoe = Service::where('router_id', $router->id)
+            ->whereNotNull('pppoe_username')
             ->where('pppoe_username', '!=', '')
             ->pluck('pppoe_username')
             ->map(static fn (string $u): string => strtolower(trim($u)))
             ->flip()
             ->all();
 
-        $existingMonitor = Service::whereNotNull('monitor_pppoe_username')
+        $existingMonitor = Service::where('router_id', $router->id)
+            ->whereNotNull('monitor_pppoe_username')
             ->where('monitor_pppoe_username', '!=', '')
             ->pluck('monitor_pppoe_username')
             ->map(static fn (string $u): string => strtolower(trim($u)))
             ->flip()
             ->all();
 
-        // Filter: only candidates not yet imported (into any router)
+        // Filter: only candidates not yet imported for this specific router
         $candidates = array_values(array_filter(
             $secrets,
             static fn (array $s): bool => !isset($existingPppoe[strtolower(trim($s['name'] ?? ''))])
@@ -97,13 +92,16 @@ class PppoeImportController extends Controller
             $candidates,
         );
 
-        return response()->json([
+        $message = $result === []
+            ? 'Tidak ada PPPoE secret baru di router ini.'
+            : 'Candidates retrieved successfully.';
+
+        return $this->successResponse($message, [
             'data' => $result,
-            'message' => 'Candidates retrieved successfully.',
-            'total'     => count($result),
+            'total' => count($result),
             'total_all' => count($secrets),
-            'router'    => [
-                'id'   => $router->id,
+            'router' => [
+                'id' => $router->id,
                 'name' => $router->router_name ?? $router->name,
                 'code' => $router->router_code,
             ],
@@ -112,13 +110,13 @@ class PppoeImportController extends Controller
 
     public function import(Request $request): JsonResponse
     {
-        $request->validate([
-            'usernames' => ['required', 'array', 'min:1', 'max:500'],
+        $validated = $request->validate([
+            'usernames'   => ['required', 'array', 'min:1', 'max:500'],
             'usernames.*' => ['required', 'string', 'max:100'],
+            'router_id'   => ['required', 'integer', 'exists:routers,id'],
         ]);
 
-        $request->validate(['router_id' => 'required|exists:routers,id']);
-        $router = Router::findOrFail((int) $request->router_id);
+        $router = Router::findOrFail($validated['router_id']);
 
         // Re-fetch secrets from Mikrotik for validation
         $client = $this->factory->forRouter($router);
@@ -144,16 +142,17 @@ class PppoeImportController extends Controller
         $skipped = 0;
         $errors = [];
 
-        DB::transaction(function () use ($request, $router, $secretMap, &$imported, &$skipped, &$errors, &$lastNumber, $defaultPackage): void {
-            foreach ($request->usernames as $username) {
+        DB::transaction(function () use ($validated, $router, $secretMap, &$imported, &$skipped, &$errors, &$lastNumber, $defaultPackage): void {
+            foreach ($validated['usernames'] as $username) {
                 $username = trim($username);
 
-                // Skip if already in DB (check both pppoe_username and monitor_pppoe_username
-                // globally since both columns have unique indexes and are set to same value)
-                $alreadyExists = Service::where(function ($q) use ($username) {
-                    $q->where('pppoe_username', $username)
-                      ->orWhere('monitor_pppoe_username', $username);
-                })->exists();
+                // Skip if already in DB for THIS router (same username allowed on different routers)
+                // Check both pppoe_username and monitor_pppoe_username since both are set to same value during import
+                $alreadyExists = Service::where('router_id', $router->id)
+                    ->where(function ($q) use ($username) {
+                        $q->where('pppoe_username', $username)
+                          ->orWhere('monitor_pppoe_username', $username);
+                    })->exists();
                 if ($alreadyExists) {
                     $skipped++;
                     continue;
@@ -225,11 +224,9 @@ class PppoeImportController extends Controller
             }
         });
 
-        return response()->json([
-            'imported' => $imported,
-            'skipped' => $skipped,
-            'errors' => $errors,
-            'message' => "Berhasil import {$imported} customer. Skip {$skipped}. Error: " . count($errors),
-        ]);
+        return $this->successResponse(
+            "Berhasil import {$imported} customer. Skip {$skipped}. Error: " . count($errors),
+            ['imported' => $imported, 'skipped' => $skipped, 'errors' => $errors]
+        );
     }
 }

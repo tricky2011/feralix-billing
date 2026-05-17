@@ -8,6 +8,8 @@ use App\Models\Service;
 use App\Services\Access\RoleRouterScopeService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class MonthlyInvoiceGenerationService
 {
@@ -37,41 +39,65 @@ class MonthlyInvoiceGenerationService
 
         $generated = [];
         $skipped = [];
+        $skippedNoPrice = [];
 
         $services = $this->billableServicesQuery($period, $payload)->get();
 
         foreach ($services as $service) {
-            $archivedInvoiceExists = Invoice::query()
-                ->withTrashed()
-                ->where('service_id', $service->id)
-                ->where('billing_period', $period->format('Y-m'))
-                ->exists();
+            DB::transaction(function () use ($service, $period, $invoiceDate, $globalDueDate, $globalDueInDays, $payload, &$generated, &$skipped, &$skippedNoPrice) {
+                $archivedInvoiceExists = Invoice::query()
+                    ->withTrashed()
+                    ->where('service_id', $service->id)
+                    ->where('billing_period', $period->format('Y-m'))
+                    ->lockForUpdate()
+                    ->exists();
 
-            if ($archivedInvoiceExists) {
-                $skipped[] = [
+                if ($archivedInvoiceExists) {
+                    $skipped[] = [
+                        'service_id' => $service->id,
+                        'service_code' => $service->service_code,
+                        'reason' => 'Invoice for this billing period already exists or has been archived.',
+                    ];
+
+                    return;
+                }
+
+                $price = $this->resolveMonthlyPrice($service);
+
+                if ($price === null) {
+                    $skippedNoPrice[] = [
+                        'service_id' => $service->id,
+                        'service_code' => $service->service_code,
+                        'customer_name' => $service->customer?->full_name ?? 'Unknown',
+                        'reason' => 'No monthly price configured for this service.',
+                    ];
+
+                    Log::warning('Skipping invoice generation: no price configured', [
+                        'service_id' => $service->id,
+                        'service_code' => $service->service_code,
+                        'customer_name' => $service->customer?->full_name ?? 'Unknown',
+                        'billing_period' => $period->format('Y-m'),
+                    ]);
+
+                    return;
+                }
+
+                $invoice = $this->manualInvoiceService->create([
+                    'customer_id' => $service->customer_id,
                     'service_id' => $service->id,
-                    'service_code' => $service->service_code,
-                    'reason' => 'Invoice for this billing period already exists or has been archived.',
-                ];
+                    'billing_period' => $period->format('Y-m'),
+                    'invoice_date' => $invoiceDate->toDateString(),
+                    'due_date' => $this->resolveDueDate($service, $period, $invoiceDate, $globalDueDate, $globalDueInDays)->toDateString(),
+                    'subtotal' => $price,
+                    'penalty_amount' => $payload['penalty_amount'] ?? 0,
+                    'issue_now' => true,
+                ]);
 
-                continue;
-            }
-
-            $invoice = $this->manualInvoiceService->create([
-                'customer_id' => $service->customer_id,
-                'service_id' => $service->id,
-                'billing_period' => $period->format('Y-m'),
-                'invoice_date' => $invoiceDate->toDateString(),
-                'due_date' => $this->resolveDueDate($service, $period, $invoiceDate, $globalDueDate, $globalDueInDays)->toDateString(),
-                'subtotal' => $this->resolveMonthlyPrice($service),
-                'penalty_amount' => $payload['penalty_amount'] ?? 0,
-                'issue_now' => true,
-            ]);
-
-            $generated[] = Invoice::query()
-                ->with(self::RELATIONS)
-                ->withSum('payments', 'amount_paid')
-                ->findOrFail($invoice->id);
+                $generated[] = Invoice::query()
+                    ->with(self::RELATIONS)
+                    ->withSum('payments', 'amount_paid')
+                    ->findOrFail($invoice->id);
+            });
         }
 
         return [
@@ -80,8 +106,10 @@ class MonthlyInvoiceGenerationService
             'due_date' => $invoiceDate->copy()->addDays($globalDueInDays)->toDateString(),
             'generated_count' => count($generated),
             'skipped_count' => count($skipped),
+            'skipped_no_price_count' => count($skippedNoPrice),
             'generated' => $generated,
             'skipped' => $skipped,
+            'skipped_no_price' => $skippedNoPrice,
         ];
     }
 
@@ -90,13 +118,27 @@ class MonthlyInvoiceGenerationService
      */
     public function generateForService(Service $service, string $billingPeriod, string $invoiceDate, string $dueDate): array
     {
+        $price = $this->resolveMonthlyPrice($service);
+
+        if ($price === null) {
+            Log::warning('Skipping invoice generation: no price configured for service', [
+                'service_id' => $service->id,
+                'service_code' => $service->service_code,
+                'customer_id' => $service->customer_id,
+            ]);
+
+            throw new \InvalidArgumentException(
+                "Cannot generate invoice: service {$service->service_code} has no monthly price configured.",
+            );
+        }
+
         $invoice = $this->manualInvoiceService->create([
             'customer_id' => $service->customer_id,
             'service_id' => $service->id,
             'billing_period' => $billingPeriod,
             'invoice_date' => $invoiceDate,
             'due_date' => $dueDate,
-            'subtotal' => $this->resolveMonthlyPrice($service),
+            'subtotal' => $price,
             'penalty_amount' => 0,
             'issue_now' => true,
         ]);
@@ -112,22 +154,29 @@ class MonthlyInvoiceGenerationService
      * Resolve monthly price per service.
      * Prioritas 1: monthly_price langsung di service
      * Prioritas 2: dari package
-     * Fallback: 0.0
+     * Fallback: null (harga tidak dikonfigurasi)
+     * Menggunakan bcmath dan round() untuk konsistensi 2 desimal.
      */
-    private function resolveMonthlyPrice(Service $service): float
+    private function resolveMonthlyPrice(Service $service): ?float
     {
         // Prioritas 1: monthly_price langsung di service
-        if ($service->monthly_price !== null && (float) $service->monthly_price > 0) {
-            return (float) $service->monthly_price;
+        if ($service->monthly_price !== null) {
+            $monthlyPrice = (float) $service->monthly_price;
+            if ($monthlyPrice > 0) {
+                return round($monthlyPrice, 2);
+            }
         }
 
         // Prioritas 2: dari package
         if ($service->package !== null && $service->package->monthly_price !== null) {
-            return (float) $service->package->monthly_price;
+            $packagePrice = (float) $service->package->monthly_price;
+            if ($packagePrice > 0) {
+                return round($packagePrice, 2);
+            }
         }
 
-        // Fallback: 0 (admin harus isi manual)
-        return 0.0;
+        // Fallback: null (harga tidak dikonfigurasi)
+        return null;
     }
 
     /**
@@ -155,7 +204,16 @@ class MonthlyInvoiceGenerationService
             $dayOfMonth = (int) $installDate->format('d');
 
             // Buat due date: bulan invoice + hari dari install_date
-            $dueDate = $invoiceDate->copy()->startOfMonth()->addDays($dayOfMonth - 1);
+            // Clamp ke akhir bulan jika install_date day > daysInMonth bulan tersebut
+            $billingMonth = $invoiceDate->copy()->startOfMonth();
+            $lastDayOfBillingMonth = $billingMonth->copy()->endOfMonth();
+
+            $rawDueDate = $billingMonth->copy()->addDays($dayOfMonth - 1);
+
+            // Clamp ke akhir bulan jika melampaui
+            $dueDate = $rawDueDate->gt($lastDayOfBillingMonth)
+                ? $lastDayOfBillingMonth
+                : $rawDueDate;
 
             // Jika due date sudah lewat invoice_date, tambah 1 bulan
             if ($dueDate->lt($invoiceDate)) {

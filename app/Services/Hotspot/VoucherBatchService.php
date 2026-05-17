@@ -88,7 +88,7 @@ class VoucherBatchService
                 'total_vouchers' => $totalVouchers,
                 'total_cost' => number_format($totalCost, 2, '.', ''),
                 'generated_at' => now(),
-                'created_by' => $payload['created_by'] ?? Auth::id(),
+                'created_by' => Auth::id(),
             ]);
 
             for ($index = 0; $index < $totalVouchers; $index++) {

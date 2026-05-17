@@ -47,6 +47,7 @@ class Service extends Model
         'dhcp_pool_end',
         'ip_pool_count',
         'rate_limit_mbps',
+        'ip_count',
         'access_mode',
         'pppoe_username',
         'pppoe_password',
@@ -63,6 +64,7 @@ class Service extends Model
         'activation_date',
         'notes',
         'monthly_price',
+        'billing_day',
     ];
 
     protected function casts(): array
@@ -85,6 +87,8 @@ class Service extends Model
             'overall_status' => ServiceOverallStatus::class,
             'activation_date' => 'date',
             'monthly_price' => 'decimal:2',
+            'ip_count' => 'integer',
+            'billing_day' => 'integer',
             'legacy_secret_migrated_at' => 'datetime',
             'deleted_at' => 'datetime',
         ];
@@ -255,6 +259,11 @@ class Service extends Model
 
     public function resolvedIsolationTargetType(): ServiceIsolationTargetType
     {
+        // VID CustomerInternet always uses Subnet — PPPoE on service is monitoring-only
+        if ($this->vid !== null && $this->vid->isIsolatable()) {
+            return ServiceIsolationTargetType::Subnet;
+        }
+
         if ($this->resolvedAccessMode() === ServiceAccessMode::Pppoe) {
             return ServiceIsolationTargetType::Pppoe;
         }

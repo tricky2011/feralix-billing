@@ -9,6 +9,7 @@ use App\Services\Access\RoleRouterScopeService;
 use App\Services\Provisioning\ServiceIsolationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -30,7 +31,7 @@ class InvoiceAutoSuspendService
      *     failed:int
      * }
      */
-    public function trigger(array $filters = [], ?Carbon $referenceDate = null, int $chunkSize = 100): array
+    public function trigger(array $filters = [], ?Carbon $referenceDate = null, int $chunkSize = 100, bool $dryRun = false): array
     {
         $referenceDate ??= now()->startOfDay();
         $notes = trim((string) config('automation.billing.service_isolation.notes'));
@@ -42,6 +43,7 @@ class InvoiceAutoSuspendService
             'skipped_missing_router' => 0,
             'skipped_missing_target_subnet' => 0,
             'failed' => 0,
+            'dry_run' => $dryRun,
         ];
 
         if (($filters['router_id'] ?? null) !== null) {
@@ -65,7 +67,7 @@ class InvoiceAutoSuspendService
         $this->roleRouterScopeService->applyServiceRouterScope($query, 'service', 'router_id');
 
         $query
-            ->chunkById($chunkSize, function ($invoiceReferences) use (&$summary, $notes): void {
+            ->chunkById($chunkSize, function ($invoiceReferences) use (&$summary, $notes, $dryRun): void {
                 foreach ($invoiceReferences as $invoiceReference) {
                     $summary['checked_invoices']++;
 
@@ -91,13 +93,35 @@ class InvoiceAutoSuspendService
                         continue;
                     }
 
-                    $hasOpenIsolation = ServiceIsolation::query()
-                        ->where('service_id', $invoice->service_id)
-                        ->open()
-                        ->exists();
+                    $alreadySkipped = false;
 
-                    if ($hasOpenIsolation) {
+                    DB::transaction(function () use ($invoice, &$alreadySkipped) {
+                        $hasOpenIsolation = ServiceIsolation::query()
+                            ->where('service_id', $invoice->service_id)
+                            ->open()
+                            ->lockForUpdate()
+                            ->exists();
+
+                        if ($hasOpenIsolation) {
+                            $alreadySkipped = true;
+
+                            return;
+                        }
+
+                        // Lock acquired — no other process can create an isolation for this service.
+                        // Release lock by ending transaction; createIsolationRecord runs outside to avoid
+                        // holding the lock during external router calls.
+                        throw new \RuntimeException('ACQUIRED_LOCK');
+                    });
+
+                    if ($alreadySkipped) {
                         $summary['skipped_existing_open_isolation']++;
+
+                        continue;
+                    }
+
+                    if ($dryRun) {
+                        $summary['created_isolations']++;
 
                         continue;
                     }
@@ -112,6 +136,12 @@ class InvoiceAutoSuspendService
                         ]);
 
                         $summary['created_isolations']++;
+                    } catch (RuntimeException $e) {
+                        if ($e->getMessage() === 'ACQUIRED_LOCK') {
+                            $summary['skipped_existing_open_isolation']++;
+                        } else {
+                            throw $e;
+                        }
                     } catch (ValidationException) {
                         $summary['skipped_existing_open_isolation']++;
                     } catch (Throwable $throwable) {
@@ -122,5 +152,26 @@ class InvoiceAutoSuspendService
             });
 
         return $summary;
+    }
+
+    public function countAffected(array $filters = [], ?Carbon $referenceDate = null): int
+    {
+        $referenceDate ??= now()->startOfDay();
+
+        $query = Invoice::query()
+            ->overdue($referenceDate)
+            ->when(
+                $filters['customer_id'] ?? null,
+                fn (Builder $builder, $customerId) => $builder->where('customer_id', $customerId),
+            )
+            ->when(
+                $filters['service_id'] ?? null,
+                fn (Builder $builder, $serviceId) => $builder->where('service_id', $serviceId),
+            )
+            ->router(isset($filters['router_id']) ? (int) $filters['router_id'] : null);
+
+        $this->roleRouterScopeService->applyServiceRouterScope($query, 'service', 'router_id');
+
+        return $query->count();
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Olt;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreOltRequest extends FormRequest
 {
@@ -46,7 +47,7 @@ class StoreOltRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'code' => ['nullable', 'string', 'max:100', 'unique:olts,code'],
+            'code' => ['nullable', 'string', 'max:100', Rule::unique('olts', 'code')->where('router_id', $this->input('router_id'))],
             'host' => ['nullable', 'string', 'max:255'],
             'brand' => ['nullable', 'string', 'max:255'],
             'model' => ['nullable', 'string', 'max:255'],

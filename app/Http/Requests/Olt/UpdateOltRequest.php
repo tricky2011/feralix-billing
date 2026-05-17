@@ -51,7 +51,7 @@ class UpdateOltRequest extends FormRequest
 
         return [
             'name' => ['required', 'string', 'max:255'],
-            'code' => ['nullable', 'string', 'max:100', Rule::unique('olts', 'code')->ignore($olt->id)],
+            'code' => ['nullable', 'string', 'max:100', Rule::unique('olts', 'code')->where('router_id', $this->input('router_id'))->ignore($olt->id)],
             'host' => ['nullable', 'string', 'max:255'],
             'brand' => ['nullable', 'string', 'max:255'],
             'model' => ['nullable', 'string', 'max:255'],

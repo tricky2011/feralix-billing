@@ -15,8 +15,16 @@ class HotspotVoucher extends Model
     /** @use HasFactory<Factory> */
     use HasFactory;
 
+    /**
+     * Fields hidden from JSON serialization / API responses.
+     *
+     * NOTE: 'password_plain' MUST remain in this array at all times.
+     * It is stored in the database for FreeRADIUS sync purposes, but must NEVER
+     * be exposed via API. Use getRawOriginal('password_plain') internally if needed.
+     */
     protected $hidden = [
         'password',
+        'password_plain',
     ];
 
     protected $fillable = [

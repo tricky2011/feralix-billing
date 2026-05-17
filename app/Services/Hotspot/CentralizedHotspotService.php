@@ -53,9 +53,10 @@ class CentralizedHotspotService
         $voucher->loadMissing(['hotspotProfile']);
 
         return DB::transaction(function () use ($voucher, $router) {
-            // Check if already provisioned on this router
+            // Check if already provisioned on this router (with lock to prevent race condition)
             $existing = HotspotService::where('hotspot_voucher_id', $voucher->id)
                 ->where('router_id', $router->id)
+                ->lockForUpdate()
                 ->first();
 
             if ($existing !== null) {
@@ -72,12 +73,51 @@ class CentralizedHotspotService
             }
 
             // Create HotspotService record first (provisioning state)
-            $hotspotService = HotspotService::create([
-                'hotspot_voucher_id' => $voucher->id,
-                'router_id' => $router->id,
-                'hotspot_username' => $voucher->username,
-                'status' => 'provisioning',
-            ]);
+            // Use firstOrCreate pattern wrapped in try-catch as safety net for race conditions
+            try {
+                $hotspotService = HotspotService::create([
+                    'hotspot_voucher_id' => $voucher->id,
+                    'router_id' => $router->id,
+                    'hotspot_username' => $voucher->username,
+                    'status' => 'provisioning',
+                ]);
+            } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+                // Race condition: another request created the record concurrently
+                // Fetch the existing record and return success (idempotent behavior)
+                $hotspotService = HotspotService::where('hotspot_voucher_id', $voucher->id)
+                    ->where('router_id', $router->id)
+                    ->firstOrFail();
+
+                if ($hotspotService->status === 'active') {
+                    return [
+                        'success' => true,
+                        'mikrotik_id' => $hotspotService->mikrotik_user_id,
+                        'message' => 'Already active on this router.',
+                    ];
+                }
+
+                // If not active, re-query and continue (record will be handled in next iteration)
+                $hotspotService = $hotspotService->fresh();
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Handle SQLSTATE[23000] integrity constraint violations
+                if (str_contains($e->getMessage(), 'SQLSTATE[23000]')) {
+                    $hotspotService = HotspotService::where('hotspot_voucher_id', $voucher->id)
+                        ->where('router_id', $router->id)
+                        ->firstOrFail();
+
+                    if ($hotspotService->status === 'active') {
+                        return [
+                            'success' => true,
+                            'mikrotik_id' => $hotspotService->mikrotik_user_id,
+                            'message' => 'Already active on this router.',
+                        ];
+                    }
+
+                    $hotspotService = $hotspotService->fresh();
+                } else {
+                    throw $e;
+                }
+            }
 
             // Create user on MikroTik
             $profile = $voucher->hotspotProfile;

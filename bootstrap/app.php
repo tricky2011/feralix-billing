@@ -13,8 +13,10 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Routing\Middleware\ThrottleRequestsException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -81,6 +83,36 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return ApiResponse::error('Resource not found.', status: 404);
+        });
+
+        $exceptions->render(function (ThrottleRequestsException $exception, Request $request) {
+            if (! ($request->expectsJson() || $request->is('api/*'))) {
+                return null;
+            }
+
+            return ApiResponse::error(
+                'Too many requests. Please slow down.',
+                meta: [
+                    'code' => 'rate_limit_exceeded',
+                    'retry_after' => $exception->getHeaders()['Retry-After'] ?? null,
+                ],
+                status: 429,
+            );
+        });
+
+        $exceptions->render(function (TooManyRequestsHttpException $exception, Request $request) {
+            if (! ($request->expectsJson() || $request->is('api/*'))) {
+                return null;
+            }
+
+            return ApiResponse::error(
+                'Too many requests. Please slow down.',
+                meta: [
+                    'code' => 'rate_limit_exceeded',
+                    'retry_after' => $exception->getHeaders()['Retry-After'] ?? null,
+                ],
+                status: 429,
+            );
         });
 
         $exceptions->render(function (Throwable $throwable, Request $request) {

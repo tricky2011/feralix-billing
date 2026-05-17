@@ -56,7 +56,8 @@ class CashflowService
     public function createFromPayment(Payment $payment): Cashflow
     {
         $payment->loadMissing([
-            'invoice:id,invoice_number',
+            'invoice:id,invoice_number,customer_id',
+            'customer:id,name',
         ]);
 
         $cashflow = Cashflow::query()->firstOrNew([
@@ -64,13 +65,19 @@ class CashflowService
             'reference_id' => $payment->id,
         ]);
 
+        $invoice = $payment->invoice;
+        $invoiceNumber = $invoice?->invoice_number ?? 'N/A';
+
         $cashflow->type = 'income';
         $cashflow->amount = $payment->amount_paid;
         $cashflow->category_id = $this->resolveSystemIncomeCategoryId();
-        $cashflow->description = $payment->invoice?->invoice_number
-            ? sprintf('Payment %s', $payment->invoice->invoice_number)
-            : sprintf('Payment #%d', $payment->id);
+        $cashflow->description = sprintf('Payment %s', $invoiceNumber);
         $cashflow->source = 'system';
+        $cashflow->reference_label = sprintf(
+            'Payment #%d - Invoice %s',
+            $payment->id,
+            $invoiceNumber
+        );
         $cashflow->created_by = $payment->created_by;
 
         if ($payment->paid_at !== null) {

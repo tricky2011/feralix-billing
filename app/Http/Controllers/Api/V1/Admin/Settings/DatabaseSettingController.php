@@ -15,9 +15,10 @@ class DatabaseSettingController extends Controller
 
     public function show(): JsonResponse
     {
-        return $this->successResponse('Database settings retrieved successfully.', [
+        return $this->successResponse(
+            'Database settings retrieved successfully.',
             new DatabaseSettingsResource($this->databaseSettingsService->current()),
-        ]);
+        );
     }
 
     public function update(UpdateDatabaseSettingsRequest $request): JsonResponse

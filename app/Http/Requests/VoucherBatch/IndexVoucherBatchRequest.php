@@ -2,16 +2,10 @@
 
 namespace App\Http\Requests\VoucherBatch;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AdminPanelRequest;
 
-class IndexVoucherBatchRequest extends FormRequest
-{
-    public function authorize(): bool
-    {
-        return true;
-    }
-
-    protected function prepareForValidation(): void
+class IndexVoucherBatchRequest extends AdminPanelRequest
+{ void
     {
         $this->merge([
             'search' => $this->filled('search') ? trim((string) $this->input('search')) : null,

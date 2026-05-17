@@ -47,6 +47,7 @@ class Service extends Model
         'dhcp_pool_end',
         'ip_pool_count',
         'rate_limit_mbps',
+        'ip_count',
         'access_mode',
         'pppoe_username',
         'pppoe_password',

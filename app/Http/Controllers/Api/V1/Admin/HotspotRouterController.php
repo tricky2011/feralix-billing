@@ -47,11 +47,10 @@ class HotspotRouterController extends Controller
             routerId: $router->id,
         );
 
-        return response()->json([
-            'message' => "Activation queued for {$voucher->username} on router {$router->name}.",
-            'voucher_id' => $voucher->id,
-            'router_id' => $router->id,
-        ]);
+        return $this->successResponse(
+            "Activation queued for {$voucher->username} on router {$router->name}.",
+            ['voucher_id' => $voucher->id, 'router_id' => $router->id]
+        );
     }
 
     /**
@@ -68,10 +67,10 @@ class HotspotRouterController extends Controller
             action: 'activate_on_all',
         );
 
-        return response()->json([
-            'message' => "Activation on all routers queued for {$voucher->username}.",
-            'voucher_id' => $voucher->id,
-        ]);
+        return $this->successResponse(
+            "Activation on all routers queued for {$voucher->username}.",
+            ['voucher_id' => $voucher->id]
+        );
     }
 
     /**
@@ -90,11 +89,10 @@ class HotspotRouterController extends Controller
             routerId: $router->id,
         );
 
-        return response()->json([
-            'message' => "Deactivation queued for {$voucher->username} from router {$router->name}.",
-            'voucher_id' => $voucher->id,
-            'router_id' => $router->id,
-        ]);
+        return $this->successResponse(
+            "Deactivation queued for {$voucher->username} from router {$router->name}.",
+            ['voucher_id' => $voucher->id, 'router_id' => $router->id]
+        );
     }
 
     /**
@@ -111,10 +109,10 @@ class HotspotRouterController extends Controller
             action: 'deactivate_from_all',
         );
 
-        return response()->json([
-            'message' => "Deactivation from all routers queued for {$voucher->username}.",
-            'voucher_id' => $voucher->id,
-        ]);
+        return $this->successResponse(
+            "Deactivation from all routers queued for {$voucher->username}.",
+            ['voucher_id' => $voucher->id]
+        );
     }
 
     /**
@@ -131,10 +129,10 @@ class HotspotRouterController extends Controller
             action: 'sync_freeradius',
         );
 
-        return response()->json([
-            'message' => "FreeRADIUS sync queued for {$voucher->username}.",
-            'voucher_id' => $voucher->id,
-        ]);
+        return $this->successResponse(
+            "FreeRADIUS sync queued for {$voucher->username}.",
+            ['voucher_id' => $voucher->id]
+        );
     }
 
     /**
@@ -146,7 +144,7 @@ class HotspotRouterController extends Controller
     {
         $services = $this->centralizedService->getServicesForVoucher($hotspotVoucher);
 
-        return response()->json([
+        return $this->successResponse('Voucher services retrieved successfully.', [
             'data' => $services->map(fn ($s) => [
                 'id' => $s->id,
                 'router_id' => $s->router_id,
@@ -175,7 +173,7 @@ class HotspotRouterController extends Controller
     {
         $services = $this->centralizedService->getActiveServicesForRouter($router);
 
-        return response()->json([
+        return $this->successResponse('Router services retrieved successfully.', [
             'data' => $services->map(fn ($s) => [
                 'id' => $s->id,
                 'voucher_id' => $s->hotspot_voucher_id,

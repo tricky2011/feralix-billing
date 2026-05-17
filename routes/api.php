@@ -82,7 +82,7 @@ Route::prefix('v1/admin')
                 ->parameters(['telegram-groups' => 'telegramGroup'])
                 ->middleware('role:superadmin,admin');
             Route::get('database-settings', [DatabaseSettingController::class, 'show'])->middleware('role:superadmin,admin');
-            Route::patch('database-settings/{databaseSetting}', [DatabaseSettingController::class, 'update'])->middleware('role:superadmin,admin');
+            Route::patch('database-settings', [DatabaseSettingController::class, 'update'])->middleware('role:superadmin,admin');
             Route::post('database-settings/test', [DatabaseSettingController::class, 'test'])->middleware('role:superadmin,admin');
 
             Route::get('customer-references', [CustomerReferenceController::class, 'index']);

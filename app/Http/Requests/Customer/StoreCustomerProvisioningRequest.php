@@ -46,7 +46,7 @@ class StoreCustomerProvisioningRequest extends AdminPanelRequest
             'contact' => ['nullable', 'string', 'max:30'],
             'email' => ['nullable', 'email', 'max:100'],
             'address' => ['nullable', 'string'],
-            'location_id' => ['nullable', 'integer', 'exists:network_locations,id'],
+            'location_id' => ['nullable', 'integer', 'exists:locations,id'],
             'preferred_olt_id' => ['nullable', 'integer', 'exists:olts,id'],
             'assigned_technician_id' => ['nullable', 'integer', 'exists:technicians,id'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],

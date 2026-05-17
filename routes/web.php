@@ -37,8 +37,6 @@ Route::get('/admin/{page}', function (string $page) {
         'dashboard',
         'customers',
         'services',
-        'services',
-        'services',
         'billing',
         'isolations',
         'network',

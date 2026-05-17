@@ -2,16 +2,10 @@
 
 namespace App\Http\Requests\PonPort;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AdminPanelRequest;
 
-class StorePonPortRequest extends FormRequest
-{
-    public function authorize(): bool
-    {
-        return true;
-    }
-
-    public function rules(): array
+class StorePonPortRequest extends AdminPanelRequest
+{ array
     {
         return [
             'port_number' => ['required', 'integer', 'min:1', 'max:32'],

@@ -5,17 +5,12 @@ namespace App\Http\Requests\VoucherBatch;
 use App\Enums\ResellerStatus;
 use App\Models\HotspotProfile;
 use App\Models\Reseller;
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AdminPanelRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
-class StoreVoucherBatchRequest extends FormRequest
+class StoreVoucherBatchRequest extends AdminPanelRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     protected function prepareForValidation(): void
     {
         $usernamePrefix = $this->filled('username_prefix')

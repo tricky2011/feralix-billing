@@ -155,7 +155,7 @@ class OltController extends Controller
         $activeCount = $olt->ponPorts()->where('is_active', true)->count();
         $fullPorts = $ports->filter(fn($p) => $p['is_full'])->count();
 
-        return response()->json([
+        return $this->successResponse('PON status retrieved successfully.', [
             'olt' => ['id' => $olt->id, 'name' => $olt->name ?? $olt->olt_name],
             'pon_ports' => $ports,
             'active_ports' => $activeCount,

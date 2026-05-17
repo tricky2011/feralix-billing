@@ -71,7 +71,12 @@ class PonPortController extends Controller
         }
 
         if ($ponPort->current_count > 0) {
-            return $this->errorResponse('Cannot delete PON Port with active customers. Remove customers first.', 422);
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot delete PON Port with active customers. Remove customers first.',
+                'data'    => null,
+                'meta'    => (object) [],
+            ], 422);
         }
 
         $ponPort->delete();

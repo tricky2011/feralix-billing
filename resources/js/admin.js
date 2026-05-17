@@ -864,6 +864,15 @@ const placeholderPages = {
             'Audit setting maintenance yang boleh diubah via UI.',
         ],
     },
+    'ip-pools': {
+        title: 'IP Pools',
+        section: 'Network',
+        description: 'Manajemen IP Pool dari router Mikrotik.',
+        endpoint: '/api/v1/admin/ip-pools',
+        noCreate: true,
+        noEdit: true,
+        noDelete: true,
+    },
 };
 
 Object.values(placeholderPages).forEach((page) => {
@@ -1134,7 +1143,7 @@ function createMasterLokasiState() {
                 const params = { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page };
                 const activeRouterId = routerId && routerId !== '' ? String(routerId) : null;
                 if (activeRouterId) params.router_id = activeRouterId;
-                const res = await api.get('/api/v1/admin/network-locations', { params });
+                const res = await api.get('/api/v1/admin/network-locations', params);
                 this.items = res.data ?? [];
                 this.pagination = res.meta?.pagination ?? {};
             } finally { this.loading = false; }
@@ -1180,7 +1189,7 @@ function createMasterOltState() {
                 const params = { search: this.filters.search || undefined, page: this.filters.page, per_page: this.filters.per_page };
                 const activeRouterId = routerId && routerId !== '' ? String(routerId) : null;
                 if (activeRouterId) params.router_id = activeRouterId;
-                const res = await api.get('/api/v1/admin/olts', { params });
+                const res = await api.get('/api/v1/admin/olts', params);
                 this.items = res.data ?? [];
                 this.pagination = res.meta?.pagination ?? {};
             } finally { this.loading = false; }
@@ -1200,6 +1209,13 @@ function createMasterOltState() {
         editItem(item) { this.editId = item.id; this.form = { name: item.olt_name ?? item.name ?? '', code: item.olt_code ?? item.code ?? '', host: item.mgmt_ip ?? item.host ?? '', pon_ports: item.pon_ports ?? 4, max_per_pon: 100, description: item.description ?? '', is_active: item.status === 'active', network_location_id: item.location_id ?? item.network_location_id ?? '', router_id: item.router_id ?? '' }; },
 
         async deleteItem(item, routerId = null) { if (!confirm(`Hapus "${item.olt_name ?? item.name}"?`)) return; await api.delete(`/api/v1/admin/olts/${item.id}`); toast('success', 'Berhasil', 'Dihapus'); await this.loadData(routerId); },
+
+        openPonModal(item) {
+            const name = item.olt_name ?? item.name ?? 'OLT';
+            const ponCount = item.pon_ports ?? '-';
+            const maxPer = item.max_per_pon ?? '-';
+            alert(`Detail PON — ${name}\nJumlah PON Port: ${ponCount}\nMaks per PON: ${maxPer}`);
+        },
 
         cancelEdit(routerId = null) {
             this.editId = null;
@@ -1321,6 +1337,7 @@ export function adminPanel({ page }) {
         },
         loading: false,
         saving: false,
+        selected: [],
         toasts: [],
         modal: {
             open: false,
@@ -2883,13 +2900,11 @@ export function adminPanel({ page }) {
 
             const form = this.defaultsFor(config.fields);
 
-            // Auto-generate PPPoE password with today's date
             if (form.pppoe_password !== undefined) {
-                const now = new Date();
-                const dd = String(now.getDate()).padStart(2, '0');
-                const mm = String(now.getMonth() + 1).padStart(2, '0');
-                const yyyy = now.getFullYear();
-                form.pppoe_password = `${dd}${mm}${yyyy}`;
+                const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$';
+                form.pppoe_password = Array.from({ length: 12 }, () =>
+                    chars[Math.floor(Math.random() * chars.length)]
+                ).join('');
             }
 
             this.modal = {
@@ -2920,6 +2935,11 @@ export function adminPanel({ page }) {
             const config = this.currentConfig();
             const tabs = config.modalTabs ?? [];
 
+            // settings-database uses singleton endpoint without ID
+            const endpoint = this.page === 'settings-database'
+                ? config.endpoint
+                : `${config.endpoint}/${row.id}`;
+
             this.modal = {
                 open: true,
                 mode: 'edit',
@@ -2928,7 +2948,7 @@ export function adminPanel({ page }) {
                 form: this.formFromRow(config.fields, row),
                 errors: {},
                 message: '',
-                endpoint: `${config.endpoint}/${row.id}`,
+                endpoint,
                 method: 'PATCH',
                 tabs,
                 activeTab: tabs[0]?.key ?? '',
@@ -3095,6 +3115,7 @@ export function adminPanel({ page }) {
             }
 
             if (this.page === 'billing') {
+                const paid = row.payment_status === 'paid';
                 return [
                     { key: 'download-pdf', label: 'PDF', class: 'bg-blue-50 text-blue-700', href: `/api/v1/admin/invoices/${row.id}/pdf`, target: '_blank' },
                     ...(!paid ? [{ key: 'pay-invoice', label: 'Bayar', class: 'bg-emerald-50 text-emerald-800', handler: () => this.openPayment(row) }] : []),
@@ -3748,7 +3769,7 @@ export function adminPanel({ page }) {
             if (ref === 'olts') return `${row.code ?? row.olt_code ?? row.id} - ${row.name ?? row.olt_name ?? '-'}`;
             if (ref === 'onts') return `${row.ont_sn} - ${row.ont_name ?? row.status ?? ''}`;
             if (ref === 'packages') return `${row.package_name} - ${this.money(row.monthly_price)}`;
-            if (ref === 'locations') return `${row.location_code ?? row.id} - ${row.location_name}`;
+            if (ref === 'locations') return `${row.code ?? row.id} - ${row.name ?? '-'}`;
             if (ref === 'network_locations') return `${row.code ?? row.id} - ${row.name ?? '-'}`;
             if (ref === 'network_odcs') return `${row.code ?? row.id} - ${row.name ?? '-'}`;
             if (ref === 'technicians') return `${row.technician_code ?? row.id} - ${row.full_name}`;
@@ -4551,11 +4572,6 @@ export function adminPanel({ page }) {
             return `${lat ?? '-'}, ${lng ?? '-'}`;
         },
 
-        cancelEdit() {
-            this.editId = null;
-            this.form = this.getDefaultForm();
-        },
-
         async bulkAction(action) {
             if (this.selected.length === 0) return;
             const confirmed = confirm(`Yakin ingin ${action} ${this.selected.length} item?`);
@@ -4563,10 +4579,10 @@ export function adminPanel({ page }) {
 
             try {
                 if (action === 'delete') {
-                    await Promise.all(this.selected.map(id => api.delete(`/api/v1/admin/${this.currentConfig().endpoint}/${id}`)));
+                    await Promise.all(this.selected.map(id => api.delete(`${this.currentConfig().endpoint}/${id}`)));
                 } else {
                     const status = action === 'activate' ? 'active' : 'inactive';
-                    await Promise.all(this.selected.map(id => api.patch(`/api/v1/admin/${this.currentConfig().endpoint}/${id}`, { status })));
+                    await Promise.all(this.selected.map(id => api.patch(`${this.currentConfig().endpoint}/${id}`, { status })));
                 }
                 this.toast('success', 'Berhasil', `Action ${action} berhasil`);
                 this.selected = [];

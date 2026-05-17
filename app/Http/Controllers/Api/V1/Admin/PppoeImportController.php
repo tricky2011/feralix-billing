@@ -92,15 +92,16 @@ class PppoeImportController extends Controller
             $candidates,
         );
 
-        return response()->json([
+        $message = $result === []
+            ? 'Tidak ada PPPoE secret baru di router ini.'
+            : 'Candidates retrieved successfully.';
+
+        return $this->successResponse($message, [
             'data' => $result,
-            'message' => $result === []
-                ? 'Tidak ada PPPoE secret baru di router ini.'
-                : 'Candidates retrieved successfully.',
-            'total'     => count($result),
+            'total' => count($result),
             'total_all' => count($secrets),
-            'router'    => [
-                'id'   => $router->id,
+            'router' => [
+                'id' => $router->id,
                 'name' => $router->router_name ?? $router->name,
                 'code' => $router->router_code,
             ],
@@ -109,13 +110,13 @@ class PppoeImportController extends Controller
 
     public function import(Request $request): JsonResponse
     {
-        $request->validate([
-            'usernames' => ['required', 'array', 'min:1', 'max:500'],
+        $validated = $request->validate([
+            'usernames'   => ['required', 'array', 'min:1', 'max:500'],
             'usernames.*' => ['required', 'string', 'max:100'],
+            'router_id'   => ['required', 'integer', 'exists:routers,id'],
         ]);
 
-        $request->validate(['router_id' => 'required|exists:routers,id']);
-        $router = Router::findOrFail((int) $request->router_id);
+        $router = Router::findOrFail($validated['router_id']);
 
         // Re-fetch secrets from Mikrotik for validation
         $client = $this->factory->forRouter($router);
@@ -141,8 +142,8 @@ class PppoeImportController extends Controller
         $skipped = 0;
         $errors = [];
 
-        DB::transaction(function () use ($request, $router, $secretMap, &$imported, &$skipped, &$errors, &$lastNumber, $defaultPackage): void {
-            foreach ($request->usernames as $username) {
+        DB::transaction(function () use ($validated, $router, $secretMap, &$imported, &$skipped, &$errors, &$lastNumber, $defaultPackage): void {
+            foreach ($validated['usernames'] as $username) {
                 $username = trim($username);
 
                 // Skip if already in DB for THIS router (same username allowed on different routers)
@@ -223,11 +224,9 @@ class PppoeImportController extends Controller
             }
         });
 
-        return response()->json([
-            'imported' => $imported,
-            'skipped' => $skipped,
-            'errors' => $errors,
-            'message' => "Berhasil import {$imported} customer. Skip {$skipped}. Error: " . count($errors),
-        ]);
+        return $this->successResponse(
+            "Berhasil import {$imported} customer. Skip {$skipped}. Error: " . count($errors),
+            ['imported' => $imported, 'skipped' => $skipped, 'errors' => $errors]
+        );
     }
 }

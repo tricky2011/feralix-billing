@@ -120,7 +120,12 @@ class CustomerController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            return $this->successResponse('Failed to terminate customer: ' . $e->getMessage(), null, [], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to terminate customer: ' . $e->getMessage(),
+                'data'    => null,
+                'meta'    => (object) [],
+            ], 500);
         }
     }
 
